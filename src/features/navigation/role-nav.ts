@@ -35,6 +35,7 @@ export const adminNav: ShellNavItem[] = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/roles", label: "Roles" },
   { href: "/admin/settings", label: "Settings" },
+  { href: "/admin/packages", label: "Manage Packages" },
   { href: "/admin/audit-logs", label: "Audit Logs" },
   { href: "/admin/workflows", label: "Workflows" },
 ];
