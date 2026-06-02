@@ -1,38 +1,17 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
 import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
 import { LOGISTICS_WORKFLOW_STATES } from "@/constants/workflow-states";
+import { MOCK_LOGISTICS_SHIPMENTS_WORKSPACE } from "@/features/mock/dashboard-data";
 
 export default function LogisticsShipmentsPage() {
   return (
     <div className="space-y-6">
       <PhaseWorkspace
-        phase="Phase 3"
-        title="Shipments"
-        subtitle="Manage shipment lifecycle from warehouse processing to delivery completion."
-        metrics={[
-          { label: "Created", value: "31", hint: "Dispatch queue" },
-          { label: "In Transit", value: "18", hint: "Active movement" },
-          { label: "Delivered", value: "12", hint: "Closed shipments" },
-          { label: "Exceptions", value: "1", hint: "Delayed or failed" },
-        ]}
-        streams={[
-          {
-            title: "Dispatch Stream",
-            items: [
-              "Warehouse routing and wave planning",
-              "Carrier assignment and manifesting",
-              "Shipment status event publication",
-            ],
-          },
-          {
-            title: "Proof Stream",
-            items: [
-              "Delivery confirmation capture",
-              "Proof-of-delivery artifact upload",
-              "Exception route to support desk",
-            ],
-          },
-        ]}
+        phase={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.phase}
+        title={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.title}
+        subtitle={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.subtitle}
+        metrics={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.metrics}
+        streams={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.streams}
       />
       <WorkflowPipeline
         title="Logistics Lifecycle"

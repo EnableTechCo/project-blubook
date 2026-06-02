@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CUSTOMER_SERVICE_BUNDLES } from "@/features/customer/bundles";
@@ -20,10 +21,12 @@ export function CustomerBundleBanner() {
 
   return (
     <section className="surface relative overflow-hidden rounded-2xl">
-      <img
+      <Image
         src={active.image}
         alt={active.title}
-        className="h-64 w-full object-cover md:h-72"
+        fill
+        sizes="(max-width: 768px) 100vw, 1200px"
+        className="object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/20" />
 

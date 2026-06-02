@@ -1,0 +1,38 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and close stale issues/PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: 21
+          days-before-close: 7
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: security,blocked,pinned
+          exempt-pr-labels: security,blocked,pinned
+          stale-issue-message: |
+            This issue has been automatically marked as stale due to inactivity.
+            It will be closed in 7 days if there is no further activity.
+          stale-pr-message: |
+            This pull request has been automatically marked as stale due to inactivity.
+            It will be closed in 7 days if there is no further activity.
+          close-issue-message: |
+            Closing this issue due to prolonged inactivity.
+            Comment if this should be reopened.
+          close-pr-message: |
+            Closing this pull request due to prolonged inactivity.
+            Reopen when work resumes.

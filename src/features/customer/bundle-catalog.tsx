@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   CUSTOMER_SERVICE_BUNDLES,
@@ -43,10 +44,12 @@ export function CustomerBundleCatalog({
   return (
     <section className="space-y-5">
       <div className="surface relative overflow-hidden rounded-2xl p-6 lg:p-8">
-        <img
+        <Image
           src="/images/storefront/hero.svg"
           alt="Marketplace storefront"
-          className="absolute inset-0 h-full w-full object-cover opacity-55"
+          fill
+          sizes="(max-width: 1024px) 100vw, 1200px"
+          className="object-cover opacity-55"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/40 to-black/20" />
         <div className="relative max-w-2xl space-y-3">
@@ -67,11 +70,14 @@ export function CustomerBundleCatalog({
             className="surface flex h-full flex-col overflow-hidden rounded-2xl"
           >
             <div className={`relative border-b ${toneClass[bundle.tone]}`}>
-              <img
+              <Image
                 src={bundle.image}
                 alt={bundle.title}
-                className="h-36 w-full object-cover"
+                fill
+                sizes="(max-width: 768px) 100vw, 25vw"
+                className="object-cover"
               />
+              <div className="h-36 w-full" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
               <div className="absolute left-4 top-4">
                 <span className="rounded-full border border-white/30 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-slate-100">

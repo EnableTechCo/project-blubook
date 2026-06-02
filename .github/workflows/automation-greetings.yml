@@ -1,0 +1,28 @@
+name: Automation - Greetings
+
+on:
+  pull_request_target:
+    types:
+      - opened
+  issues:
+    types:
+      - opened
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greet-first-time-contributors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet first-time contributors
+        uses: actions/first-interaction@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thanks for opening your first issue in this repository.
+            A maintainer will review it shortly.
+          pr-message: |
+            Thanks for your first pull request.
+            Please ensure CI is green and the PR description includes scope and testing notes.

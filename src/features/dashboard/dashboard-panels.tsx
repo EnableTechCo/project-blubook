@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -26,10 +27,12 @@ export function DashboardHero({
 }) {
   return (
     <section className="surface relative overflow-hidden rounded-2xl p-6 lg:p-8">
-      <img
+      <Image
         src={image}
         alt="Dashboard hero"
-        className="absolute inset-0 h-full w-full object-cover opacity-35"
+        fill
+        sizes="(max-width: 1024px) 100vw, 1200px"
+        className="object-cover opacity-35"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/35 to-black/20" />
       <div className="relative flex flex-wrap items-end justify-between gap-4">
@@ -93,7 +96,7 @@ export function DashboardFeed({
   items: Array<{ id: string; label: string; meta: string; status: string }>;
 }) {
   return (
-    <Card title={title} description="Hardcoded operational events">
+    <Card title={title} description="Mock operational events">
       <div className="space-y-2">
         {items.map((item) => (
           <div

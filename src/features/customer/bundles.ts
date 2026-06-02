@@ -14,7 +14,8 @@ export const CUSTOMER_SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "hvac-maintenance",
     category: "Maintenance",
-    image: "/images/storefront/bundle-hvac.svg",
+    image:
+      "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1600&q=80",
     title: "Home Maintenance and HVAC",
     description:
       "Complete preventive upkeep including HVAC optimization and appliance performance checks.",
@@ -26,7 +27,8 @@ export const CUSTOMER_SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "plumbing-repair",
     category: "Essentials",
-    image: "/images/storefront/bundle-plumbing.svg",
+    image:
+      "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1600&q=80",
     title: "Plumbing Maintenance and Repair",
     description:
       "Inspection, leak diagnostics and precision fixture servicing for stable daily operations.",
@@ -38,7 +40,8 @@ export const CUSTOMER_SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "electrical-safety",
     category: "Safety",
-    image: "/images/storefront/bundle-electrical.svg",
+    image:
+      "https://images.unsplash.com/photo-1558442086-8ea19f8f7f91?auto=format&fit=crop&w=1600&q=80",
     title: "Electrical Safety Bundle",
     description:
       "Certified diagnostics, grounding verification and panel reviews for safer installations.",
@@ -50,7 +53,8 @@ export const CUSTOMER_SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "smart-security",
     category: "Security",
-    image: "/images/storefront/bundle-security.svg",
+    image:
+      "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=1600&q=80",
     title: "Smart Security and Monitoring",
     description:
       "Integrated monitoring with encrypted controls, alerts and professional dispatch workflows.",

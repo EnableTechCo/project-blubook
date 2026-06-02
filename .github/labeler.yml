@@ -1,0 +1,70 @@
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/app/**/*.tsx
+          - src/components/**/*.tsx
+          - src/app/**/*.css
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/app/api/**
+          - src/lib/db.ts
+          - src/lib/auth.ts
+          - src/lib/access.ts
+
+auth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/app/api/auth/**
+          - src/app/auth/**
+          - src/contexts/AuthContext.tsx
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - sql/**
+          - src/lib/db-types.ts
+          - src/lib/user-store.ts
+          - src/lib/db.ts
+
+email:
+  - changed-files:
+      - any-glob-to-any-file:
+          - public/email-templates/**
+          - src/lib/email-service.ts
+
+github-integration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/lib/github.ts
+          - src/app/api/github/**
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - README.md
+          - docs/**
+          - src/app/docs/**
+
+ci-cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - Dockerfile
+          - next.config.ts
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.test.ts"
+          - "**/*.test.tsx"
+          - "**/*.spec.ts"
+          - "**/*.spec.tsx"
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - scripts/**
+          - package.json
+          - pnpm-lock.yaml
