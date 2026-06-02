@@ -9,6 +9,12 @@ const PUBLIC_ROUTES = [
   "/reset-password",
   "/invite",
   "/verify-email",
+  "/customer",
+  "/partner",
+  "/staff",
+  "/admin",
+  "/sales",
+  "/logistics",
 ];
 
 function isPublicRoute(pathname: string) {
@@ -22,6 +28,9 @@ export async function updateSession(request: NextRequest) {
   const devAuthBypass =
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== "false";
+  const hasSupabaseEnv =
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   let response = NextResponse.next({ request });
   type CookieToSet = {
     name: string;
@@ -41,6 +50,22 @@ export async function updateSession(request: NextRequest) {
       );
     }
     return response;
+  }
+
+  // Fail safe in production deploys with incomplete env setup: do not crash middleware.
+  if (!hasSupabaseEnv) {
+    console.error(
+      "[auth-middleware] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+
+    if (isPublicRoute(request.nextUrl.pathname)) {
+      return response;
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(url);
   }
 
   const supabase = createServerClient(
