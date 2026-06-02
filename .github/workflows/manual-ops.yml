@@ -11,7 +11,7 @@ on:
         options:
           - build
           - lint
-          - type-check
+          - typecheck
           - test
           - e2e
           - healthcheck
@@ -54,8 +54,8 @@ jobs:
         run: pnpm run lint
 
       - name: Type check
-        if: inputs.action == 'type-check'
-        run: pnpm run type-check
+        if: inputs.action == 'typecheck'
+        run: pnpm run typecheck
 
       - name: Build
         if: inputs.action == 'build'

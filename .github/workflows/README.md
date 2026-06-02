@@ -4,11 +4,11 @@ This repository now includes a complete CI/CD and automation workflow suite.
 
 ## Workflows
 
-- `ci.yml`: Main quality gate (lint, type-check, build, optional tests, optional e2e smoke).
+- `ci.yml`: Main quality gate (lint, typecheck, build, optional tests, optional e2e smoke).
 - `security.yml`: CodeQL + dependency audit + secret scanning.
 - `dependency-review.yml`: Blocks risky dependency changes in pull requests.
 - `deploy-railway.yml`: Deploys to Railway via deploy hook on `main` pushes and manual trigger.
-- `manual-ops.yml`: Run one-off operations from Actions UI (build/lint/type-check/test/e2e/healthcheck).
+- `manual-ops.yml`: Run one-off operations from Actions UI (build/lint/typecheck/test/e2e/healthcheck).
 - `automation-greetings.yml`: Greets first-time issue and PR contributors.
 - `automation-labeler.yml`: Applies PR labels based on changed files.
 - `automation-stale.yml`: Marks inactive issues/PRs as stale and closes them later.
@@ -44,7 +44,7 @@ No additional secrets are required for greetings, labeler, stale, or issue summa
 
 ## Notes
 
-- CI uses placeholder environment values so build/type-check can run even when production secrets are not exposed to pull requests.
+- CI uses placeholder environment values so build/typecheck can run even when production secrets are not exposed to pull requests.
 - If you later add stable Jest/Playwright configs, tests automatically run in CI.
 - If you do not want e2e or manual ops, you can remove those workflow files.
 - Label mappings are configured in `.github/labeler.yml`.
