@@ -20,7 +20,7 @@ export function CustomerBundleBanner() {
   const active = CUSTOMER_SERVICE_BUNDLES[activeIndex];
 
   return (
-    <section className="surface relative overflow-hidden rounded-2xl">
+    <section className="surface relative h-64 overflow-hidden rounded-2xl md:h-72">
       <Image
         src={active.image}
         alt={active.title}
