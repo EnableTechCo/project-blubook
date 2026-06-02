@@ -11,14 +11,38 @@ import {
   type MockMessage,
 } from "@/features/mock/dashboard-data";
 
+type ChatRole = "user" | "assistant";
+
+interface ChatbotMessage {
+  id: string;
+  role: ChatRole;
+  body: string;
+  createdAt: string;
+}
+
+const CHATBOT_SUGGESTIONS = [
+  "Show SLA risks",
+  "Summarize workflow statuses",
+  "Draft update for selected request",
+] as const;
+
 export default function CustomerMessagesPage() {
   const [selectedRequestId, setSelectedRequestId] = useState(
     MOCK_CUSTOMER_REQUESTS[0]?.id ?? "",
   );
   const [messageBody, setMessageBody] = useState("");
+  const [chatbotInput, setChatbotInput] = useState("");
   const [messagesByRequest, setMessagesByRequest] = useState(
     MOCK_REQUEST_MESSAGES,
   );
+  const [chatbotMessages, setChatbotMessages] = useState<ChatbotMessage[]>([
+    {
+      id: "BOT-WELCOME",
+      role: "assistant",
+      body: "Hi, I am BluBook Assistant. Ask for SLA risks, workflow status summaries, or a draft update for the selected request.",
+      createdAt: new Date().toISOString(),
+    },
+  ]);
 
   const requests = MOCK_CUSTOMER_REQUESTS;
 
@@ -58,6 +82,109 @@ export default function CustomerMessagesPage() {
       [selectedRequestId]: [...(current[selectedRequestId] ?? []), newMessage],
     }));
     setMessageBody("");
+  };
+
+  const buildSlaRiskReply = () => {
+    const actionable = requests.filter(
+      (request) =>
+        !["completed", "cancelled", "rejected"].includes(request.status),
+    );
+    const highRisk = actionable.filter(
+      (request) => request.priority === "high" || request.priority === "urgent",
+    );
+
+    if (highRisk.length === 0) {
+      return "No high-risk SLA items right now. All active requests are medium or low priority.";
+    }
+
+    const top = highRisk
+      .slice(0, 3)
+      .map((request) => `${request.id} (${request.priority})`)
+      .join(", ");
+
+    return `Top SLA risks: ${top}. Total high-risk active requests: ${highRisk.length}.`;
+  };
+
+  const buildWorkflowReply = () => {
+    const counts = requests.reduce<Record<string, number>>((acc, request) => {
+      acc[request.status] = (acc[request.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const summary = Object.entries(counts)
+      .map(([status, count]) => `${status.replaceAll("_", " ")}: ${count}`)
+      .join(" | ");
+
+    return `Workflow summary for customer requests: ${summary}.`;
+  };
+
+  const buildDraftReply = () => {
+    const request = requests.find((item) => item.id === selectedRequestId);
+    if (!request) {
+      return "Select a request first, then ask for a draft update.";
+    }
+
+    const status = request.status.replaceAll("_", " ");
+    return `Draft update for ${request.id}: ${request.title} is currently ${status}. Priority is ${request.priority}. Next step is partner confirmation with an ETA update in the thread.`;
+  };
+
+  const buildAssistantReply = (prompt: string) => {
+    const normalized = prompt.toLowerCase();
+
+    if (normalized.includes("sla") || normalized.includes("risk")) {
+      return buildSlaRiskReply();
+    }
+
+    if (
+      normalized.includes("workflow") ||
+      normalized.includes("status") ||
+      normalized.includes("summary")
+    ) {
+      return buildWorkflowReply();
+    }
+
+    if (
+      normalized.includes("draft") ||
+      normalized.includes("reply") ||
+      normalized.includes("update")
+    ) {
+      return buildDraftReply();
+    }
+
+    return "I can help with SLA risks, workflow status summaries, or a draft update for the selected request.";
+  };
+
+  const onChatbotSend = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const prompt = chatbotInput.trim();
+    if (!prompt) {
+      return;
+    }
+
+    const userMessage: ChatbotMessage = {
+      id: `USER-${crypto.randomUUID()}`,
+      role: "user",
+      body: prompt,
+      createdAt: new Date().toISOString(),
+    };
+
+    const assistantMessage: ChatbotMessage = {
+      id: `BOT-${crypto.randomUUID()}`,
+      role: "assistant",
+      body: buildAssistantReply(prompt),
+      createdAt: new Date().toISOString(),
+    };
+
+    setChatbotMessages((current) => [
+      ...current,
+      userMessage,
+      assistantMessage,
+    ]);
+    setChatbotInput("");
+  };
+
+  const applySuggestion = (prompt: string) => {
+    setChatbotInput(prompt);
   };
 
   return (
@@ -144,6 +271,52 @@ export default function CustomerMessagesPage() {
           </form>
         </Card>
       </div>
+
+      <Card
+        title="BluBook Assistant"
+        description="Basic assistant for SLA risk checks, workflow summaries, and update drafting."
+      >
+        <div className="flex flex-wrap gap-2">
+          {CHATBOT_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-slate-100 transition hover:bg-white/10"
+              onClick={() => applySuggestion(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-black/15 p-3">
+          {chatbotMessages.map((item) => (
+            <div
+              key={item.id}
+              className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
+                item.role === "assistant"
+                  ? "bg-teal-500/20 text-teal-100"
+                  : "ml-auto bg-coral/85 text-white"
+              }`}
+            >
+              <p>{item.body}</p>
+              <p className="mt-1 text-[11px] text-slate-100/70">
+                {new Date(item.createdAt).toLocaleTimeString()}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <form className="mt-3 flex gap-2" onSubmit={onChatbotSend}>
+          <input
+            className="h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder:text-slate-300/70 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            placeholder="Ask BluBook Assistant"
+            value={chatbotInput}
+            onChange={(event) => setChatbotInput(event.target.value)}
+          />
+          <Button type="submit">Ask</Button>
+        </form>
+      </Card>
     </div>
   );
 }

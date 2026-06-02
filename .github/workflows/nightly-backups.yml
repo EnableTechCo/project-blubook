@@ -1,0 +1,29 @@
+name: Nightly Backups
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create-backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger backup snapshot
+        env:
+          BACKUP_ENDPOINT_URL: ${{ secrets.BACKUP_ENDPOINT_URL }}
+          BACKUP_SCHEDULE_SECRET: ${{ secrets.BACKUP_SCHEDULE_SECRET }}
+        run: |
+          if [ -z "$BACKUP_ENDPOINT_URL" ] || [ -z "$BACKUP_SCHEDULE_SECRET" ]; then
+            echo "BACKUP_ENDPOINT_URL or BACKUP_SCHEDULE_SECRET is missing."
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            -X POST "$BACKUP_ENDPOINT_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-backup-secret: $BACKUP_SCHEDULE_SECRET"

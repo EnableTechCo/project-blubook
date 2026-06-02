@@ -1,13 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Button } from "@/components/ui/button";
-
-const portals = [
-  { label: "Customer", href: "/customer/dashboard" as Route },
-  { label: "Partner", href: "/partner/dashboard" as Route },
-  { label: "Staff", href: "/staff/dashboard" as Route },
-  { label: "Admin", href: "/admin/dashboard" as Route },
-] as const;
+import { MOCK_PORTAL_LINKS } from "@/features/mock/dashboard-data";
 
 export default function HomePage() {
   return (
@@ -34,10 +28,10 @@ export default function HomePage() {
       </div>
 
       <section className="mt-16 grid gap-3 md:grid-cols-2">
-        {portals.map((portal) => (
+        {MOCK_PORTAL_LINKS.map((portal) => (
           <Link
             key={portal.href}
-            href={portal.href}
+            href={portal.href as Route}
             className="surface rounded-2xl p-5 text-white transition hover:translate-y-[-3px]"
           >
             <p className="text-sm text-slate-200">Enter</p>

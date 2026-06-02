@@ -7,7 +7,7 @@ export default function CustomerDocumentsPage() {
   return (
     <DocumentManager
       title="Customer Documents"
-      description="Extensive hardcoded document library for customer operations demos."
+      description="Extensive mock document library for customer operations demos."
       bucket="customer-documents"
       prefix="customers/cust-001"
       mockDocuments={MOCK_CUSTOMER_DOCUMENTS}

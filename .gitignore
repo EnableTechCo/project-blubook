@@ -27,3 +27,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated planning exports
+phase-tasklist.json
+ai-feature-tasklist.json
+IMPLEMENTATION_PHASES.md
+PHASES.md

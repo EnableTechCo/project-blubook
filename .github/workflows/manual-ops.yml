@@ -1,0 +1,89 @@
+name: Manual Ops
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Operation to run"
+        required: true
+        default: build
+        type: choice
+        options:
+          - build
+          - lint
+          - type-check
+          - test
+          - e2e
+          - healthcheck
+
+permissions:
+  contents: read
+
+jobs:
+  run-operation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci_dummy_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: ci_dummy_service_role_key
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      JWT_SECRET: ci_dummy_jwt_secret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: inputs.action == 'lint'
+        run: pnpm run lint
+
+      - name: Type check
+        if: inputs.action == 'type-check'
+        run: pnpm run type-check
+
+      - name: Build
+        if: inputs.action == 'build'
+        run: pnpm run build
+
+      - name: Unit tests
+        if: inputs.action == 'test'
+        run: pnpm run test:ci
+
+      - name: E2E tests
+        if: inputs.action == 'e2e'
+        shell: bash
+        run: |
+          if [ -f playwright.config.ts ] || [ -f playwright.config.js ] || [ -f playwright.config.mjs ]; then
+            pnpm exec playwright install --with-deps chromium
+            pnpm exec playwright test --project=chromium
+          else
+            echo "No Playwright config found."
+            exit 1
+          fi
+
+      - name: Healthcheck
+        if: inputs.action == 'healthcheck'
+        env:
+          APP_HEALTHCHECK_URL: ${{ secrets.APP_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$APP_HEALTHCHECK_URL" ]; then
+            echo "APP_HEALTHCHECK_URL secret is required for healthcheck."
+            exit 1
+          fi
+          curl --fail --show-error --silent "$APP_HEALTHCHECK_URL"

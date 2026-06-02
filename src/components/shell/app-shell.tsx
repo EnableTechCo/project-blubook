@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, LayoutGrid, Menu, Search } from "lucide-react";
-import { ROLE_HOME } from "@/constants/routes";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listNotifications,
@@ -13,6 +12,8 @@ import {
   markNotificationRead,
   subscribeToNotifications,
 } from "@/services/notifications.service";
+import { DashboardChatbot } from "@/features/ai/dashboard-chatbot";
+import { MOCK_PORTAL_LINKS } from "@/features/mock/dashboard-data";
 import { useNotificationStore } from "@/store/notification-store";
 import { useUiStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -38,12 +39,11 @@ export function AppShell({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
 
-  const platformLinks: Array<{ label: string; href: Route }> = [
-    { label: "Customer", href: ROLE_HOME.customer },
-    { label: "Partner", href: ROLE_HOME.partner },
-    { label: "Staff", href: ROLE_HOME.staff },
-    { label: "Admin", href: ROLE_HOME.admin },
-  ];
+  const platformLinks: Array<{ label: string; href: Route }> =
+    MOCK_PORTAL_LINKS.map((portal) => ({
+      label: portal.label,
+      href: portal.href as Route,
+    }));
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", user?.id],
@@ -269,6 +269,7 @@ export function AppShell({
           </div>
         </header>
         <div className="p-4 lg:p-8">{children}</div>
+        <DashboardChatbot roleLabel={roleLabel} />
       </main>
     </div>
   );

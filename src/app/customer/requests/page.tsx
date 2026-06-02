@@ -11,17 +11,16 @@ import { getBundleById, type ServiceBundle } from "@/features/customer/bundles";
 import {
   MOCK_CUSTOMER_ID,
   MOCK_CUSTOMER_REQUESTS,
+  MOCK_REQUEST_PRIORITIES,
   type MockRequest,
 } from "@/features/mock/dashboard-data";
-
-const priorities = ["low", "medium", "high", "urgent"] as const;
 
 export default function CustomerRequestsPage() {
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] =
-    useState<(typeof priorities)[number]>("medium");
+    useState<(typeof MOCK_REQUEST_PRIORITIES)[number]>("medium");
   const [requests, setRequests] = useState<MockRequest[]>(
     MOCK_CUSTOMER_REQUESTS,
   );
@@ -164,10 +163,13 @@ export default function CustomerRequestsPage() {
               className="h-11 rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
               value={priority}
               onChange={(event) =>
-                setPriority(event.target.value as (typeof priorities)[number])
+                setPriority(
+                  event.target
+                    .value as (typeof MOCK_REQUEST_PRIORITIES)[number],
+                )
               }
             >
-              {priorities.map((item) => (
+              {MOCK_REQUEST_PRIORITIES.map((item) => (
                 <option key={item} value={item}>
                   {item.toUpperCase()}
                 </option>

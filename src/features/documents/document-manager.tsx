@@ -153,7 +153,7 @@ export function DocumentManager({
         title="Documents"
         description={
           useMockData
-            ? "Hardcoded and locally managed documents for UI demos."
+            ? "Mock and locally managed documents for UI demos."
             : "Short-lived signed URLs are generated on demand."
         }
       >

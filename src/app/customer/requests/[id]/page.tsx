@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  buildMockRequestTimeline,
   MOCK_CUSTOMER_ID,
   MOCK_CUSTOMER_REQUESTS,
   MOCK_REQUEST_MESSAGES,
@@ -31,31 +32,7 @@ export default function CustomerRequestDetailPage() {
   );
 
   const timeline = useMemo(() => {
-    const req = request;
-    if (!req) {
-      return [] as Array<{
-        label: string;
-        at: string;
-        tone: "neutral" | "accent";
-      }>;
-    }
-
-    const events = [
-      {
-        label: "Request created",
-        at: req.created_at,
-        tone: "neutral" as const,
-      },
-      {
-        label: `Status updated to ${req.status.replaceAll("_", " ")}`,
-        at: req.updated_at,
-        tone: "accent" as const,
-      },
-    ];
-
-    return events.sort(
-      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
-    );
+    return buildMockRequestTimeline(request);
   }, [request]);
 
   const onSend = async (event: FormEvent<HTMLFormElement>) => {
@@ -99,7 +76,7 @@ export default function CustomerRequestDetailPage() {
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card
           title="Request Overview"
-          description="Hardcoded status, ownership and priority context."
+          description="Mock status, ownership and priority context."
         >
           {request ? (
             <div className="space-y-2 text-sm text-slate-100/90">
