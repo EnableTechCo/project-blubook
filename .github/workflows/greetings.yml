@@ -18,10 +18,10 @@ jobs:
       - name: Greet first-time contributors
         uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             Thanks for opening your first issue in PMT.
             A maintainer will review it shortly.
-          pr-message: |
+          pr_message: |
             Thanks for your first pull request to PMT.
             Please ensure CI is green and add context in the PR description.
