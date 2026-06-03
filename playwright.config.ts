@@ -21,4 +21,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  webServer: {
+    command: `pnpm dev -- --hostname 127.0.0.1 --port ${port}`,
+    url: `http://127.0.0.1:${port}`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
 });
