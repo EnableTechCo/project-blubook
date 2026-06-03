@@ -131,7 +131,7 @@ export function DocumentManager({
 
       <Card
         title="Upload"
-        description="Store files securely in Supabase Storage buckets."
+        description="Upload and store files securely in your workspace."
       >
         <label className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10">
           <span>
@@ -153,8 +153,8 @@ export function DocumentManager({
         title="Documents"
         description={
           useMockData
-            ? "Mock and locally managed documents for UI demos."
-            : "Short-lived signed URLs are generated on demand."
+            ? "Documents are available and managed in this workspace."
+            : "Secure access links are generated on demand."
         }
       >
         {!useMockData && documentsQuery.isLoading ? (

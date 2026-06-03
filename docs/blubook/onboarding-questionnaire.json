@@ -1,0 +1,155 @@
+{
+  "version": "1.0.0",
+  "name": "customer_onboarding_v1",
+  "description": "Question set used to personalize package workflow activation after checkout.",
+  "questions": [
+    {
+      "id": "business_model",
+      "label": "How does your business sell?",
+      "type": "single_select",
+      "required": true,
+      "options": [
+        { "value": "manufacturer", "label": "Manufacturer" },
+        { "value": "reseller", "label": "Reseller" },
+        { "value": "distributor", "label": "Distributor" },
+        { "value": "service_provider", "label": "Service provider" }
+      ],
+      "mapsTo": "business_model"
+    },
+    {
+      "id": "industry",
+      "label": "Which industry best describes you?",
+      "type": "single_select",
+      "required": true,
+      "options": [
+        { "value": "retail", "label": "Retail" },
+        { "value": "beauty", "label": "Beauty" },
+        { "value": "food", "label": "Food and beverage" },
+        { "value": "industrial", "label": "Industrial" },
+        { "value": "saas", "label": "SaaS" },
+        { "value": "other", "label": "Other" }
+      ],
+      "mapsTo": "industry"
+    },
+    {
+      "id": "order_complexity",
+      "label": "How complex is your order flow?",
+      "type": "single_select",
+      "required": true,
+      "options": [
+        { "value": "low", "label": "Low" },
+        { "value": "medium", "label": "Medium" },
+        { "value": "high", "label": "High" }
+      ],
+      "mapsTo": "order_complexity"
+    },
+    {
+      "id": "inventory_handling",
+      "label": "How do you handle inventory?",
+      "type": "single_select",
+      "required": true,
+      "options": [
+        { "value": "in_house", "label": "In-house" },
+        { "value": "third_party", "label": "Third-party warehouse" },
+        { "value": "none", "label": "No inventory" }
+      ],
+      "mapsTo": "inventory_handling"
+    },
+    {
+      "id": "regions_served",
+      "label": "Where do you operate?",
+      "type": "multi_select",
+      "required": true,
+      "options": [
+        { "value": "domestic", "label": "Domestic" },
+        { "value": "cross_border", "label": "Cross-border" }
+      ],
+      "mapsTo": "regions_served"
+    },
+    {
+      "id": "regulated",
+      "label": "Are you in a regulated context?",
+      "type": "single_select",
+      "required": true,
+      "options": [
+        { "value": true, "label": "Yes" },
+        { "value": false, "label": "No" }
+      ],
+      "mapsTo": "regulated"
+    },
+    {
+      "id": "workforce_size",
+      "label": "How many employees do you have?",
+      "type": "number",
+      "required": true,
+      "min": 1,
+      "max": 1000000,
+      "mapsTo": "workforce_size"
+    },
+    {
+      "id": "systems",
+      "label": "Which systems do you already use?",
+      "type": "multi_select",
+      "required": false,
+      "options": [
+        { "value": "erp", "label": "ERP" },
+        { "value": "crm", "label": "CRM" },
+        { "value": "accounting", "label": "Accounting" },
+        { "value": "fulfillment", "label": "Fulfillment" },
+        { "value": "none", "label": "None yet" }
+      ],
+      "mapsTo": "systems"
+    }
+  ],
+  "activationRules": [
+    {
+      "id": "activate_sales_ops_for_complex_orders",
+      "if": [
+        {
+          "field": "order_complexity",
+          "operator": "in",
+          "value": ["medium", "high"]
+        }
+      ],
+      "activatePackages": ["sales_ops_engine"]
+    },
+    {
+      "id": "activate_logistics_for_inventory",
+      "if": [
+        {
+          "field": "inventory_handling",
+          "operator": "in",
+          "value": ["in_house", "third_party"]
+        }
+      ],
+      "activatePackages": ["logistics_control"]
+    },
+    {
+      "id": "activate_legal_for_regulated_or_cross_border",
+      "if": [
+        {
+          "field": "regulated",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "regions_served",
+          "operator": "contains",
+          "value": "cross_border"
+        }
+      ],
+      "activatePackages": ["legal_compliance"]
+    },
+    {
+      "id": "activate_hr_for_larger_teams",
+      "if": [
+        {
+          "field": "workforce_size",
+          "operator": "gte",
+          "value": 20
+        }
+      ],
+      "activatePackages": ["hr_operations"]
+    }
+  ]
+}

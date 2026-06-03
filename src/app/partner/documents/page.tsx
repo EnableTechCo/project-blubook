@@ -7,7 +7,7 @@ export default function PartnerDocumentsPage() {
   return (
     <DocumentManager
       title="Partner Documents"
-      description="Extensive hardcoded partner artifact library for demo workflows."
+      description="Centralized document workspace for partner delivery and reporting."
       bucket="partner-documents"
       prefix="partners/partner-019"
       mockDocuments={MOCK_PARTNER_DOCUMENTS}

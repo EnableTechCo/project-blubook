@@ -1,0 +1,215 @@
+{
+  "version": "1.0.0",
+  "timezone": "UTC",
+  "kpis": [
+    {
+      "id": "first_response_time_hours",
+      "label": "First response time",
+      "aggregation": "avg",
+      "window": "monthly",
+      "groupBy": ["package", "partner", "team"]
+    },
+    {
+      "id": "stage_cycle_time_hours",
+      "label": "Stage cycle time",
+      "aggregation": "p95",
+      "window": "monthly",
+      "groupBy": ["team", "state"]
+    },
+    {
+      "id": "end_to_end_completion_hours",
+      "label": "End to end completion time",
+      "aggregation": "avg",
+      "window": "monthly",
+      "groupBy": ["package", "partner"]
+    },
+    {
+      "id": "sla_attainment_rate",
+      "label": "SLA attainment rate",
+      "aggregation": "ratio",
+      "window": "monthly",
+      "groupBy": ["package", "partner"]
+    },
+    {
+      "id": "rework_rate",
+      "label": "Rework rate",
+      "aggregation": "ratio",
+      "window": "monthly",
+      "groupBy": ["team"]
+    },
+    {
+      "id": "waiting_customer_hours",
+      "label": "Waiting on customer time",
+      "aggregation": "sum",
+      "window": "monthly",
+      "groupBy": ["package", "customer_segment"]
+    },
+    {
+      "id": "waiting_partner_hours",
+      "label": "Waiting on partner time",
+      "aggregation": "sum",
+      "window": "monthly",
+      "groupBy": ["partner", "team"]
+    },
+    {
+      "id": "document_turnaround_hours",
+      "label": "Document turnaround time",
+      "aggregation": "avg",
+      "window": "monthly",
+      "groupBy": ["package", "document_type"]
+    },
+    {
+      "id": "partner_utilization",
+      "label": "Partner utilization",
+      "aggregation": "avg",
+      "window": "daily",
+      "groupBy": ["partner", "team"]
+    }
+  ],
+  "alerts": [
+    {
+      "id": "sla_risk_predictive",
+      "name": "SLA breach risk",
+      "severity": "high",
+      "when": [
+        {
+          "metric": "sla_window_consumed_percent",
+          "operator": "gte",
+          "value": 70
+        },
+        {
+          "metric": "owner_action_count",
+          "operator": "eq",
+          "value": 0
+        }
+      ],
+      "actions": ["notify_owner", "notify_manager"]
+    },
+    {
+      "id": "stuck_workflow",
+      "name": "Stuck workflow",
+      "severity": "high",
+      "whenAny": [
+        {
+          "all": [
+            {
+              "metric": "priority",
+              "operator": "eq",
+              "value": "high"
+            },
+            {
+              "metric": "hours_since_last_transition",
+              "operator": "gte",
+              "value": 24
+            }
+          ]
+        },
+        {
+          "all": [
+            {
+              "metric": "priority",
+              "operator": "in",
+              "value": ["low", "medium"]
+            },
+            {
+              "metric": "hours_since_last_transition",
+              "operator": "gte",
+              "value": 72
+            }
+          ]
+        }
+      ],
+      "actions": ["notify_owner", "flag_dashboard"]
+    },
+    {
+      "id": "missing_document_escalation",
+      "name": "Missing document overdue",
+      "severity": "medium",
+      "when": [
+        {
+          "metric": "doc_reminders_sent",
+          "operator": "gte",
+          "value": 2
+        },
+        {
+          "metric": "doc_overdue_hours",
+          "operator": "gte",
+          "value": 48
+        }
+      ],
+      "actions": ["notify_customer", "notify_owner", "notify_manager"]
+    },
+    {
+      "id": "handoff_risk",
+      "name": "Cross-team handoff risk",
+      "severity": "medium",
+      "when": [
+        {
+          "metric": "dependent_subtask_eta_risk",
+          "operator": "gte",
+          "value": 0.7
+        }
+      ],
+      "actions": ["notify_owner", "suggest_reroute"]
+    },
+    {
+      "id": "capacity_hotspot",
+      "name": "Partner queue saturation",
+      "severity": "high",
+      "when": [
+        {
+          "metric": "queue_utilization_percent",
+          "operator": "gt",
+          "value": 85
+        },
+        {
+          "metric": "consecutive_days",
+          "operator": "gte",
+          "value": 2
+        }
+      ],
+      "actions": ["notify_manager", "suggest_reroute"]
+    },
+    {
+      "id": "revenue_leakage",
+      "name": "Revenue leakage",
+      "severity": "high",
+      "whenAny": [
+        {
+          "all": [
+            {
+              "metric": "delivery_confirmed",
+              "operator": "eq",
+              "value": true
+            },
+            {
+              "metric": "invoice_created",
+              "operator": "eq",
+              "value": false
+            }
+          ]
+        },
+        {
+          "all": [
+            {
+              "metric": "invoice_created",
+              "operator": "eq",
+              "value": true
+            },
+            {
+              "metric": "reconciled",
+              "operator": "eq",
+              "value": false
+            },
+            {
+              "metric": "days_since_invoice",
+              "operator": "gte",
+              "value": 30
+            }
+          ]
+        }
+      ],
+      "actions": ["notify_finance", "notify_manager"]
+    }
+  ]
+}

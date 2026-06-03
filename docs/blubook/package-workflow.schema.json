@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blubook.local/schemas/package-workflow.schema.json",
+  "title": "BluBook Package Workflow Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "packages", "workflowTemplates", "routingRules"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/package" }
+    },
+    "workflowTemplates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/workflowTemplate" }
+    },
+    "routingRules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/routingRule" }
+    }
+  },
+  "$defs": {
+    "team": {
+      "type": "string",
+      "enum": ["finance", "sales_ops", "marketing", "legal", "hr", "logistics"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "urgent"]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "triaged",
+        "assigned",
+        "in_progress",
+        "waiting_for_customer",
+        "review",
+        "completed",
+        "on_hold",
+        "cancelled",
+        "rejected",
+        "sla_breached"
+      ]
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "teams",
+        "billing",
+        "workflowTemplateIds",
+        "requiredDocuments"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "name": { "type": "string", "minLength": 3 },
+        "description": { "type": "string" },
+        "teams": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/team" },
+          "uniqueItems": true
+        },
+        "billing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "currency", "interval"],
+          "properties": {
+            "amount": { "type": "number", "minimum": 0 },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "interval": {
+              "type": "string",
+              "enum": ["monthly", "quarterly", "annual", "one_time"]
+            }
+          }
+        },
+        "workflowTemplateIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_\\-]+$"
+          },
+          "uniqueItems": true
+        },
+        "requiredDocuments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requiredDocument" },
+          "uniqueItems": true
+        },
+        "sla": {
+          "$ref": "#/$defs/slaPolicy"
+        }
+      }
+    },
+    "requiredDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 2
+        },
+        "requiredAtState": {
+          "$ref": "#/$defs/state"
+        },
+        "dueWithinHours": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "workflowTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "ownerTeam", "states", "transitions"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "name": { "type": "string", "minLength": 3 },
+        "ownerTeam": { "$ref": "#/$defs/team" },
+        "states": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/state" },
+          "uniqueItems": true
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transition" }
+        },
+        "sla": { "$ref": "#/$defs/slaPolicy" }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/$defs/state" },
+        "to": { "$ref": "#/$defs/state" },
+        "condition": { "type": "string" },
+        "requiredRoles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["customer", "partner", "admin", "staff"]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "routingRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "when", "routeToTeam"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "description": { "type": "string" },
+        "when": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/predicate" }
+        },
+        "routeToTeam": { "$ref": "#/$defs/team" },
+        "priority": { "$ref": "#/$defs/priority" },
+        "activateTemplateIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_\\-]+$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator", "value"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "enum": [
+            "industry",
+            "business_model",
+            "order_complexity",
+            "inventory_handling",
+            "regions_served",
+            "regulated",
+            "workforce_size",
+            "package_id",
+            "request_type"
+          ]
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "ne", "in", "not_in", "gte", "lte", "contains"]
+        },
+        "value": {}
+      }
+    },
+    "slaPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "firstResponseHours": { "type": "number", "minimum": 0.1 },
+        "completionHours": { "type": "number", "minimum": 0.1 },
+        "warningAtPercent": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 70
+        }
+      }
+    }
+  }
+}

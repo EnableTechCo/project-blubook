@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, LayoutGrid, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +15,7 @@ import {
 } from "@/services/notifications.service";
 import { DashboardChatbot } from "@/features/ai/dashboard-chatbot";
 import { MOCK_PORTAL_LINKS } from "@/features/mock/dashboard-data";
+import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import { useNotificationStore } from "@/store/notification-store";
 import { useUiStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -32,10 +34,21 @@ export function AppShell({
   navItems: ShellNavItem[];
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const { data: user } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems, markRead, markAllRead } = useNotificationStore();
+  const suiteRequests = useCustomerJourneyStore((state) => state.suiteRequests);
+  const viewedSuiteRequestIds = useCustomerJourneyStore(
+    (state) => state.viewedSuiteRequestIds,
+  );
+  const customerAlerts = useCustomerJourneyStore(
+    (state) => state.notifications,
+  );
+  const partnerAlerts = useCustomerJourneyStore(
+    (state) => state.partnerNotifications,
+  );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
 
@@ -112,6 +125,49 @@ export function AppShell({
     [items],
   );
 
+  const customerMessageAlertCount = useMemo(
+    () =>
+      customerAlerts.filter((item) => !item.read && item.source !== "system")
+        .length,
+    [customerAlerts],
+  );
+
+  const customerRequestAlertCount = useMemo(
+    () =>
+      suiteRequests.filter(
+        (request) =>
+          !viewedSuiteRequestIds.includes(request.id) &&
+          !["completed", "rejected"].includes(request.status),
+      ).length,
+    [suiteRequests, viewedSuiteRequestIds],
+  );
+
+  const partnerInboxAlertCount = useMemo(
+    () =>
+      suiteRequests.filter(
+        (request) => request.status === "pending_partner_review",
+      ).length,
+    [suiteRequests],
+  );
+
+  const partnerMessageAlertCount = useMemo(
+    () => partnerAlerts.filter((item) => !item.read).length,
+    [partnerAlerts],
+  );
+
+  const partnerWorkOrderAlertCount = useMemo(
+    () =>
+      suiteRequests.filter(
+        (request) =>
+          request.partnerDecision === "accepted" &&
+          !["completed", "rejected"].includes(request.status),
+      ).length,
+    [suiteRequests],
+  );
+
+  const isNavItemActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside
@@ -143,9 +199,57 @@ export function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              className="block rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10"
+              className={cn(
+                "flex items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10",
+                isNavItemActive(item.href)
+                  ? "bg-cyan-300/15 text-white ring-1 ring-cyan-200/40"
+                  : "",
+              )}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {roleLabel === "Customer" &&
+              item.href === "/customer/requests" &&
+              customerRequestAlertCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                  {customerRequestAlertCount > 99
+                    ? "99+"
+                    : customerRequestAlertCount}
+                </span>
+              ) : null}
+              {roleLabel === "Customer" &&
+              item.href === "/customer/messages" &&
+              customerMessageAlertCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                  {customerMessageAlertCount > 99
+                    ? "99+"
+                    : customerMessageAlertCount}
+                </span>
+              ) : null}
+              {roleLabel === "Partner" &&
+              item.href === "/partner/inbox" &&
+              partnerInboxAlertCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                  {partnerInboxAlertCount > 99 ? "99+" : partnerInboxAlertCount}
+                </span>
+              ) : null}
+              {roleLabel === "Partner" &&
+              item.href === "/partner/messages" &&
+              partnerMessageAlertCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                  {partnerMessageAlertCount > 99
+                    ? "99+"
+                    : partnerMessageAlertCount}
+                </span>
+              ) : null}
+              {roleLabel === "Partner" &&
+              item.href === "/partner/work-orders" &&
+              partnerWorkOrderAlertCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                  {partnerWorkOrderAlertCount > 99
+                    ? "99+"
+                    : partnerWorkOrderAlertCount}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>

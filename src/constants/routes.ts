@@ -8,7 +8,7 @@ export const AUTH_ROUTES = {
 } as const;
 
 export const ROLE_HOME = {
-  customer: "/customer/dashboard",
+  customer: "/customer/requests",
   partner: "/partner/dashboard",
   staff: "/staff/dashboard",
   admin: "/admin/dashboard",

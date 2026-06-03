@@ -21,10 +21,60 @@ export const MOCK_REQUEST_PRIORITIES = [
   "urgent",
 ] as const;
 export const MOCK_PORTAL_LINKS = [
-  { label: "Customer", href: "/customer/dashboard" },
+  { label: "Customer", href: "/customer/requests" },
   { label: "Partner", href: "/partner/dashboard" },
-  { label: "Staff", href: "/staff/dashboard" },
-  { label: "Admin", href: "/admin/dashboard" },
+] as const;
+
+export const MOCK_LOGIN_CREDENTIALS = [
+  {
+    role: "customer" as const,
+    email: "customer.demo@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/customer/requests",
+  },
+  {
+    role: "partner" as const,
+    email: "partner.finance@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/partner/dashboard",
+    suite: "finance",
+  },
+  {
+    role: "partner" as const,
+    email: "partner.sales@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/partner/dashboard",
+    suite: "sales_ops",
+  },
+  {
+    role: "partner" as const,
+    email: "partner.marketing@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/partner/dashboard",
+    suite: "marketing",
+  },
+  {
+    role: "partner" as const,
+    email: "partner.legal@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/partner/dashboard",
+    suite: "legal",
+  },
+  {
+    role: "partner" as const,
+    email: "partner.hr@blubook.co.za",
+    password: "DemoPass123!",
+    home: "/partner/dashboard",
+    suite: "hr",
+  },
+] as const;
+
+export const MOCK_SUITE_OWNERS = [
+  { suite: "finance", owner: "Finance Partner" },
+  { suite: "sales_ops", owner: "Sales Ops Partner" },
+  { suite: "marketing", owner: "Marketing Partner" },
+  { suite: "legal", owner: "Legal Partner" },
+  { suite: "hr", owner: "HR Partner" },
 ] as const;
 
 export const MOCK_CUSTOMER_REQUESTS: MockRequest[] = [

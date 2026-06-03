@@ -33,3 +33,7 @@ phase-tasklist.json
 ai-feature-tasklist.json
 IMPLEMENTATION_PHASES.md
 PHASES.md
+
+# playwright
+/playwright-report
+/test-results
