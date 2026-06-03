@@ -22,7 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm dev -- --hostname 127.0.0.1 --port ${port}`,
+    command: `pnpm exec next dev -H 127.0.0.1 -p ${port}`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
