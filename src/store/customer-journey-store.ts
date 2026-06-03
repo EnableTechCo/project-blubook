@@ -409,65 +409,67 @@ export const useCustomerJourneyStore = create<CustomerJourneyState>(
         const partnerNotifications: JourneyNotification[] = [];
         const customerNotifications: JourneyNotification[] = [];
 
-        const updated = state.suiteRequests.map((request) => {
-          if (request.id !== requestId) {
-            return request;
-          }
+        const updated: SuiteRequest[] = state.suiteRequests.map(
+          (request): SuiteRequest => {
+            if (request.id !== requestId) {
+              return request;
+            }
 
-          const receivedDocs = Array.from(
-            new Set([...request.receivedDocs, docName]),
-          );
-          const completed = request.requiredDocs.every((doc) =>
-            receivedDocs.includes(doc),
-          );
-          const canStartExecution =
-            request.partnerDecision === "accepted" &&
-            completed &&
-            (!request.poRequired || state.poUploaded);
-          const waitingForPo =
-            request.partnerDecision === "accepted" &&
-            completed &&
-            request.poRequired &&
-            !state.poUploaded;
-          const nextStatus = canStartExecution
-            ? "in_progress"
-            : waitingForPo
-              ? "waiting_purchase_order"
-              : request.partnerDecision === "accepted"
-                ? "pending_customer_docs"
-                : request.status;
-          const nextSlaDueAt = canStartExecution
-            ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
-            : request.slaDueAt;
+            const receivedDocs = Array.from(
+              new Set([...request.receivedDocs, docName]),
+            );
+            const completed = request.requiredDocs.every((doc) =>
+              receivedDocs.includes(doc),
+            );
+            const canStartExecution =
+              request.partnerDecision === "accepted" &&
+              completed &&
+              (!request.poRequired || state.poUploaded);
+            const waitingForPo =
+              request.partnerDecision === "accepted" &&
+              completed &&
+              request.poRequired &&
+              !state.poUploaded;
+            const nextStatus = canStartExecution
+              ? "in_progress"
+              : waitingForPo
+                ? "waiting_purchase_order"
+                : request.partnerDecision === "accepted"
+                  ? "pending_customer_docs"
+                  : request.status;
+            const nextSlaDueAt = canStartExecution
+              ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
+              : request.slaDueAt;
 
-          partnerNotifications.push(
-            newNotification(
-              request.suite,
-              `Customer uploaded ${docName} for ${formatSuiteLabel(request.suite)} request ${request.id}.`,
-            ),
-          );
-          customerNotifications.push(
-            newNotification(
-              "system",
-              `Document uploaded (${docName}). ${formatSuiteLabel(request.suite)} provider notified.`,
-            ),
-          );
-          if (canStartExecution && nextSlaDueAt) {
-            customerNotifications.push(
+            partnerNotifications.push(
               newNotification(
                 request.suite,
-                `${formatSuiteLabel(request.suite)} started execution. SLA target due by ${new Date(nextSlaDueAt).toLocaleString()}.`,
+                `Customer uploaded ${docName} for ${formatSuiteLabel(request.suite)} request ${request.id}.`,
               ),
             );
-          }
+            customerNotifications.push(
+              newNotification(
+                "system",
+                `Document uploaded (${docName}). ${formatSuiteLabel(request.suite)} provider notified.`,
+              ),
+            );
+            if (canStartExecution && nextSlaDueAt) {
+              customerNotifications.push(
+                newNotification(
+                  request.suite,
+                  `${formatSuiteLabel(request.suite)} started execution. SLA target due by ${new Date(nextSlaDueAt).toLocaleString()}.`,
+                ),
+              );
+            }
 
-          return {
-            ...request,
-            receivedDocs,
-            status: nextStatus,
-            slaDueAt: nextSlaDueAt,
-          };
-        });
+            return {
+              ...request,
+              receivedDocs,
+              status: nextStatus,
+              slaDueAt: nextSlaDueAt,
+            };
+          },
+        );
 
         return {
           suiteRequests: updated,
@@ -494,34 +496,36 @@ export const useCustomerJourneyStore = create<CustomerJourneyState>(
           ),
         ];
 
-        const suiteRequests = state.suiteRequests.map((request) => {
-          const docsComplete = request.requiredDocs.every((doc) =>
-            request.receivedDocs.includes(doc),
-          );
-          const canStart =
-            request.partnerDecision === "accepted" &&
-            request.poRequired &&
-            docsComplete;
+        const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
+          (request): SuiteRequest => {
+            const docsComplete = request.requiredDocs.every((doc) =>
+              request.receivedDocs.includes(doc),
+            );
+            const canStart =
+              request.partnerDecision === "accepted" &&
+              request.poRequired &&
+              docsComplete;
 
-          if (!canStart) {
-            return request;
-          }
+            if (!canStart) {
+              return request;
+            }
 
-          const slaDueAt =
-            request.slaDueAt ?? addHoursIso(request.slaTargetHours);
-          customerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} execution is active. SLA target due by ${new Date(slaDueAt).toLocaleString()}.`,
-            ),
-          );
+            const slaDueAt =
+              request.slaDueAt ?? addHoursIso(request.slaTargetHours);
+            customerNotifications.push(
+              newNotification(
+                request.suite,
+                `${formatSuiteLabel(request.suite)} execution is active. SLA target due by ${new Date(slaDueAt).toLocaleString()}.`,
+              ),
+            );
 
-          return {
-            ...request,
-            status: "in_progress",
-            slaDueAt,
-          };
-        });
+            return {
+              ...request,
+              status: "in_progress",
+              slaDueAt,
+            };
+          },
+        );
 
         return {
           poUploaded: true,
@@ -542,69 +546,71 @@ export const useCustomerJourneyStore = create<CustomerJourneyState>(
         const customerNotifications: JourneyNotification[] = [];
         const partnerNotifications: JourneyNotification[] = [];
 
-        const suiteRequests = state.suiteRequests.map((request) => {
-          if (request.id !== requestId) {
-            return request;
-          }
+        const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
+          (request): SuiteRequest => {
+            if (request.id !== requestId) {
+              return request;
+            }
 
-          if (decision === "rejected") {
+            if (decision === "rejected") {
+              customerNotifications.push(
+                newNotification(
+                  request.suite,
+                  `${formatSuiteLabel(request.suite)} provider rejected request ${request.id}. Team will follow up with alternatives.`,
+                ),
+              );
+
+              return {
+                ...request,
+                partnerDecision: "rejected",
+                status: "rejected",
+                slaDueAt: null,
+              };
+            }
+
+            const docsComplete = request.requiredDocs.every((doc) =>
+              request.receivedDocs.includes(doc),
+            );
+            const canStart =
+              docsComplete && (!request.poRequired || state.poUploaded);
+            const waitingForPo =
+              docsComplete && request.poRequired && !state.poUploaded;
+            const nextStatus = canStart
+              ? "in_progress"
+              : waitingForPo
+                ? "waiting_purchase_order"
+                : "pending_customer_docs";
+            const slaDueAt = canStart
+              ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
+              : request.slaDueAt;
+
+            partnerNotifications.push(
+              newNotification(
+                request.suite,
+                `${formatSuiteLabel(request.suite)} accepted request ${request.id}. Required docs are already requested from customer.`,
+              ),
+            );
             customerNotifications.push(
               newNotification(
                 request.suite,
-                `${formatSuiteLabel(request.suite)} provider rejected request ${request.id}. Team will follow up with alternatives.`,
+                `${formatSuiteLabel(request.suite)} accepted your request. ${
+                  nextStatus === "waiting_purchase_order"
+                    ? "Upload purchase order to start execution."
+                    : nextStatus === "in_progress"
+                      ? `SLA target due by ${new Date(slaDueAt as string).toLocaleString()}.`
+                      : "Finish required document uploads to start execution."
+                }`,
               ),
             );
 
             return {
               ...request,
-              partnerDecision: "rejected",
-              status: "rejected",
-              slaDueAt: null,
+              partnerDecision: "accepted",
+              status: nextStatus,
+              slaDueAt,
             };
-          }
-
-          const docsComplete = request.requiredDocs.every((doc) =>
-            request.receivedDocs.includes(doc),
-          );
-          const canStart =
-            docsComplete && (!request.poRequired || state.poUploaded);
-          const waitingForPo =
-            docsComplete && request.poRequired && !state.poUploaded;
-          const nextStatus = canStart
-            ? "in_progress"
-            : waitingForPo
-              ? "waiting_purchase_order"
-              : "pending_customer_docs";
-          const slaDueAt = canStart
-            ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
-            : request.slaDueAt;
-
-          partnerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} accepted request ${request.id}. Required docs are already requested from customer.`,
-            ),
-          );
-          customerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} accepted your request. ${
-                nextStatus === "waiting_purchase_order"
-                  ? "Upload purchase order to start execution."
-                  : nextStatus === "in_progress"
-                    ? `SLA target due by ${new Date(slaDueAt as string).toLocaleString()}.`
-                    : "Finish required document uploads to start execution."
-              }`,
-            ),
-          );
-
-          return {
-            ...request,
-            partnerDecision: "accepted",
-            status: nextStatus,
-            slaDueAt,
-          };
-        });
+          },
+        );
 
         return {
           suiteRequests,
