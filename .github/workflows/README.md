@@ -9,7 +9,6 @@ This repository now includes a complete CI/CD and automation workflow suite.
 - `dependency-review.yml`: Blocks risky dependency changes in pull requests.
 - `deploy-railway.yml`: Deploys to Railway via deploy hook on `main` pushes and manual trigger.
 - `manual-ops.yml`: Run one-off operations from Actions UI (build/lint/typecheck/test/e2e/healthcheck).
-- `automation-greetings.yml`: Greets first-time issue and PR contributors.
 - `automation-labeler.yml`: Applies PR labels based on changed files.
 - `automation-stale.yml`: Marks inactive issues/PRs as stale and closes them later.
 - `automation-issue-summary.yml`: Posts/updates a triage summary comment on issue create/edit.
@@ -31,7 +30,6 @@ Protect `main` and require these checks:
 Optional but recommended:
 
 - Automation - Labeler / label
-- Automation - Greetings / greet-first-time-contributors
 
 ## Required secrets
 
@@ -40,7 +38,7 @@ For deploy and health checks:
 - `RAILWAY_DEPLOY_HOOK_URL`
 - `APP_HEALTHCHECK_URL` (optional but recommended)
 
-No additional secrets are required for greetings, labeler, stale, or issue summary workflows.
+No additional secrets are required for labeler, stale, or issue summary workflows.
 
 ## Notes
 
