@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-// UPDATED: Added the LogOut icon from lucide-react
 import { Bell, LayoutGrid, LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -38,7 +37,6 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  // UPDATED: Destructured the fresh signOut utility function from our hook
   const { data: user, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems, markRead, markAllRead } = useNotificationStore();
@@ -191,14 +189,17 @@ export function AppShell({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      {/* UPDATED: Added flex and flex-col classes to handle sticky layout distribution */}
+      {/* UPDATED: Explicitly clamped layout viewport to h-screen and 
+        added a sticky flex-col setup to control content layout distributions cleanly.
+      */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-white/10 bg-ink/95 p-5 transition lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-white/10 bg-ink/95 p-5 transition lg:sticky lg:top-0 lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex-1">
+        {/* Removed px-5 from here to protect original width sizing constraints */}
+        <div className="flex flex-1 flex-col overflow-y-auto no-scrollbar pb-4">
           <div className="mb-8 flex items-end justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">
@@ -217,7 +218,9 @@ export function AppShell({
             </button>
           </div>
 
-          <nav className="space-y-2">
+          {/* UPDATED: Added px-1 here. This gives the active button rings a tiny bit of breathing room 
+              on the sides so they don't look clipped or swallowed by the scrolling edge layout. */}
+          <nav className="space-y-2 px-1">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -284,10 +287,8 @@ export function AppShell({
           </nav>
         </div>
 
-        {/* ========================================================================= */}
-        {/* UPDATED: ADDED VISIBLE SIGN OUT ACTION ELEMENT                           */}
-        {/* ========================================================================= */}
-        <div className="mt-auto border-t border-white/10 pt-4">
+        {/* Restored clean alignment style constraint */}
+        <div className="mt-auto border-t border-white/10 pt-4 bg-ink/95">
           <button
             onClick={() => void signOut()}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral"
