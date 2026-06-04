@@ -32,8 +32,13 @@ next-env.d.ts
 phase-tasklist.json
 ai-feature-tasklist.json
 IMPLEMENTATION_PHASES.md
+BLUBOOK_PRODUCT_SPEC.md
+RULES.md
 PHASES.md
 
-# playwright
+
 /playwright-report
 /test-results
+/supabase/migrations
+/supabase/sql
+/scripts

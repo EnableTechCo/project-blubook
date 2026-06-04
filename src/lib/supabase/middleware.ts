@@ -3,13 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_ROUTES = [
   "/",
+  "/onboarding",
   "/login",
   "/register",
   "/forgot-password",
   "/reset-password",
   "/invite",
   "/verify-email",
-  "/customer",
   "/partner",
   "/staff",
   "/admin",

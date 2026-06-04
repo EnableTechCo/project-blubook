@@ -1,13 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { MOCK_CUSTOMER_REQUESTS } from "@/features/mock/dashboard-data";
+import { useCustomerContext } from "@/hooks/use-customer-context";
+import { listCustomerRequests } from "@/services/requests.service";
 
 export default function CustomerAnalyticsPage() {
+  const customerContext = useCustomerContext();
+  const requestsQuery = useQuery({
+    queryKey: ["customer-requests", customerContext.data?.userId],
+    enabled: Boolean(customerContext.data?.userId),
+    queryFn: () => listCustomerRequests(customerContext.data!.userId),
+  });
+
   const stats = useMemo(() => {
-    const items = MOCK_CUSTOMER_REQUESTS;
+    const items = requestsQuery.data ?? [];
     const total = items.length;
     const completed = items.filter(
       (item) => item.status === "completed",
@@ -33,7 +42,19 @@ export default function CustomerAnalyticsPage() {
     }, {});
 
     return { total, completed, open, completionRate, avgAgeDays, byStatus };
-  }, []);
+  }, [requestsQuery.data]);
+
+  if (customerContext.isLoading || requestsQuery.isLoading) {
+    return <p className="text-sm text-slate-300">Loading analytics...</p>;
+  }
+
+  if (customerContext.isError || requestsQuery.isError) {
+    return (
+      <p className="text-sm text-red-300">
+        Could not load customer analytics right now.
+      </p>
+    );
+  }
 
   const statusRows = Object.entries(stats.byStatus).sort((a, b) => b[1] - a[1]);
 
@@ -70,7 +91,7 @@ export default function CustomerAnalyticsPage() {
 
       <Card
         title="Status Distribution"
-        description="Current request spread by status from hardcoded dataset."
+        description="Current request spread by status from live customer requests."
       >
         <div className="mt-2 space-y-3">
           {statusRows.map(([status, count]) => {

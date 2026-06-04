@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="und" dir="auto" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BluBook Admin Invite</title>
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        table,
+        td {
+            border-collapse: collapse;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+
+        @media only screen and (max-width: 640px) {
+            .container {
+                width: 100% !important;
+            }
+
+            .pad {
+                padding-left: 18px !important;
+                padding-right: 18px !important;
+            }
+        }
+    </style>
+</head>
+
+<body style="background:#090615;word-spacing:normal;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#090615;">
+        <tr>
+            <td align="center" style="padding:24px 10px;">
+                <table role="presentation" width="640" class="container" cellspacing="0" cellpadding="0"
+                    style="width:640px;max-width:640px;border:1px solid #4a3a75;border-radius:18px;overflow:hidden;background:#140f26;">
+                    <tr>
+                        <td class="pad"
+                            style="padding:34px 40px;background:linear-gradient(125deg,#241b3f 0%,#3b2f61 52%,#140f26 100%);border-bottom:1px solid #4b3b77;">
+                            <p
+                                style="font-family:Verdana,Arial,sans-serif;font-size:12px;line-height:1.2;letter-spacing:2px;text-transform:uppercase;color:#d5b4ff;">
+                                BluBook Administration</p>
+                            <p
+                                style="margin-top:14px;font-family:Verdana,Arial,sans-serif;font-size:34px;line-height:1.1;font-weight:700;color:#ffffff;">
+                                Admin Invitation</p>
+                            <p
+                                style="margin-top:12px;font-family:Verdana,Arial,sans-serif;font-size:15px;line-height:1.7;color:#d2c6e8;">
+                                Hello {{invited_name}}, your BluBook admin access is ready for activation.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="pad" style="padding:24px 40px 34px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                                style="border:1px solid #4f407c;border-radius:14px;background:#1d1635;">
+                                <tr>
+                                    <td
+                                        style="padding:16px 16px 12px;font-family:Verdana,Arial,sans-serif;font-size:13px;line-height:1.7;color:#d8cdef;">
+                                        Use the secure activation link below to set your password and finalize admin
+                                        setup.</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:0 16px 18px;">
+                                        <a href="{{invite_link}}"
+                                            style="display:inline-block;padding:12px 22px;background:#d5b4ff;border-radius:10px;color:#1a122f;text-decoration:none;font-family:Verdana,Arial,sans-serif;font-size:14px;font-weight:700;">Activate
+                                            Admin Access</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p
+                                style="margin-top:16px;font-family:Verdana,Arial,sans-serif;font-size:12px;line-height:1.7;color:#b7aacf;">
+                                If the button does not open, paste this link into your browser:</p>
+                            <p
+                                style="margin-top:6px;font-family:Verdana,Arial,sans-serif;font-size:12px;line-height:1.7;color:#f0e7ff;word-break:break-all;">
+                                {{invite_link}}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td
+                            style="padding:16px 22px;border-top:1px solid #4a3a75;background:#110c20;font-family:Verdana,Arial,sans-serif;font-size:12px;line-height:1.6;color:#a495c4;text-align:center;">
+                            BluBook Admin Security Notice</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

@@ -2,33 +2,19 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useCustomerContext } from "@/hooks/use-customer-context";
 import {
-  MOCK_CUSTOMER_ID,
-  MOCK_REQUEST_PRIORITIES,
-  type MockRequest,
-} from "@/features/mock/dashboard-data";
-import { useCustomerJourneyStore } from "@/store/customer-journey-store";
+  createCustomerRequest,
+  listCustomerRequests,
+  type RequestRecord,
+} from "@/services/requests.service";
 
-function formatSuiteLabel(value: string) {
-  if (value === "sales_ops") {
-    return "Sales Ops";
-  }
-
-  if (value === "hr") {
-    return "HR";
-  }
-
-  return value
-    .split("_")
-    .map((part) =>
-      part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
-    )
-    .join(" ");
-}
+const REQUEST_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 function formatStatusLabel(value: string) {
   return value
@@ -40,84 +26,60 @@ function formatStatusLabel(value: string) {
 }
 
 export default function CustomerRequestsPage() {
+  const queryClient = useQueryClient();
+  const customerContext = useCustomerContext();
   const [activeFilter, setActiveFilter] = useState<
     "all" | "open" | "cancelled" | "at_risk"
   >("all");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] =
-    useState<(typeof MOCK_REQUEST_PRIORITIES)[number]>("medium");
-  const [requests, setRequests] = useState<MockRequest[]>([]);
+    useState<(typeof REQUEST_PRIORITIES)[number]>("medium");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const {
-    packageTier,
-    paid,
-    onboardingCompleted,
-    suiteRequests,
-    markSuiteRequestViewed,
-  } = useCustomerJourneyStore();
+  const requestsQuery = useQuery({
+    queryKey: ["customer-requests", customerContext.data?.userId],
+    enabled: Boolean(customerContext.data?.userId),
+    queryFn: () => listCustomerRequests(customerContext.data!.userId),
+  });
+
+  const createRequestMutation = useMutation({
+    mutationFn: createCustomerRequest,
+    onSuccess: async () => {
+      setTitle("");
+      setDescription("");
+      setPriority("medium");
+      setSubmitError(null);
+      await queryClient.invalidateQueries({
+        queryKey: ["customer-requests", customerContext.data?.userId],
+      });
+    },
+    onError: (error) => {
+      setSubmitError(
+        error instanceof Error ? error.message : "Could not create request.",
+      );
+    },
+  });
+
+  const requests = useMemo(
+    () => requestsQuery.data ?? [],
+    [requestsQuery.data],
+  );
 
   const stats = useMemo(() => {
-    const now = Date.now();
-    const riskWindowMs = 24 * 60 * 60 * 1000;
-
-    const openSuiteRequests = suiteRequests.filter(
-      (item) => !["completed", "rejected"].includes(item.status),
-    ).length;
-
-    const suiteAtRisk = suiteRequests.filter((item) => {
-      if (["completed", "rejected"].includes(item.status) || !item.slaDueAt) {
-        return false;
-      }
-
-      const dueTime = new Date(item.slaDueAt).getTime();
-      return Number.isFinite(dueTime) && dueTime - now <= riskWindowMs;
-    }).length;
-
-    const customAtRisk = requests.filter(
-      (item) =>
-        ["urgent", "high"].includes(item.priority) &&
-        !["completed", "cancelled"].includes(item.status),
-    ).length;
-
     return {
-      total: requests.length + suiteRequests.length,
-      open:
-        requests.filter(
-          (item) => !["completed", "cancelled"].includes(item.status),
-        ).length + openSuiteRequests,
+      total: requests.length,
+      open: requests.filter(
+        (item) => !["completed", "cancelled"].includes(item.status),
+      ).length,
       cancelled: requests.filter((item) => item.status === "cancelled").length,
-      atRisk: suiteAtRisk + customAtRisk,
+      atRisk: requests.filter(
+        (item) =>
+          ["urgent", "high"].includes(item.priority) &&
+          !["completed", "cancelled"].includes(item.status),
+      ).length,
     };
-  }, [requests, suiteRequests]);
-
-  const filteredSuiteRequests = useMemo(() => {
-    if (activeFilter === "all") {
-      return suiteRequests;
-    }
-
-    if (activeFilter === "open") {
-      return suiteRequests.filter(
-        (item) => !["completed", "rejected"].includes(item.status),
-      );
-    }
-
-    if (activeFilter === "at_risk") {
-      const now = Date.now();
-      const riskWindowMs = 24 * 60 * 60 * 1000;
-
-      return suiteRequests.filter((item) => {
-        if (["completed", "rejected"].includes(item.status) || !item.slaDueAt) {
-          return false;
-        }
-
-        const dueTime = new Date(item.slaDueAt).getTime();
-        return Number.isFinite(dueTime) && dueTime - now <= riskWindowMs;
-      });
-    }
-
-    return suiteRequests.filter((item) => item.status === "rejected");
-  }, [activeFilter, suiteRequests]);
+  }, [requests]);
 
   const filteredCustomRequests = useMemo(() => {
     if (activeFilter === "all") {
@@ -143,60 +105,27 @@ export default function CustomerRequestsPage() {
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim()) {
+    if (!title.trim() || !customerContext.data?.userId) {
       return;
     }
 
-    const now = new Date().toISOString();
-    const createdRequest: MockRequest = {
-      id: `REQ-${Math.floor(Math.random() * 9000) + 1000}`,
-      customer_id: MOCK_CUSTOMER_ID,
-      partner_id: "partner-sales",
+    createRequestMutation.mutate({
+      customerId: customerContext.data.userId,
       title: title.trim(),
-      description: description.trim() || "No description",
-      status: "submitted",
+      description: description.trim() || undefined,
       priority,
-      created_at: now,
-      updated_at: now,
-    };
-
-    setRequests((current) => [createdRequest, ...current]);
-    setTitle("");
-    setDescription("");
-    setPriority("medium");
+    });
   };
 
-  if (!packageTier || !paid || !onboardingCompleted) {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-3xl font-semibold text-white">Customer Requests</h2>
+  if (customerContext.isLoading) {
+    return <p className="text-sm text-slate-300">Loading requests...</p>;
+  }
 
-        <Card title="Complete Setup First">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-200">
-            <Badge>
-              Package: {packageTier ? packageTier.toUpperCase() : "Missing"}
-            </Badge>
-            <Badge>Payment: {paid ? "Complete" : "Pending"}</Badge>
-            <Badge>
-              Onboarding: {onboardingCompleted ? "Complete" : "Pending"}
-            </Badge>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/customer/requests"
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 px-4 text-sm font-semibold text-white transition hover:bg-white/10"
-            >
-              Stay on requests
-            </Link>
-            <Link
-              href="/customer/onboarding"
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-coral px-4 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              Open onboarding
-            </Link>
-          </div>
-        </Card>
-      </div>
+  if (customerContext.isError || !customerContext.data) {
+    return (
+      <p className="text-sm text-red-300">
+        Could not load your customer request workspace.
+      </p>
     );
   }
 
@@ -289,102 +218,71 @@ export default function CustomerRequestsPage() {
               value={priority}
               onChange={(event) =>
                 setPriority(
-                  event.target
-                    .value as (typeof MOCK_REQUEST_PRIORITIES)[number],
+                  event.target.value as (typeof REQUEST_PRIORITIES)[number],
                 )
               }
             >
-              {MOCK_REQUEST_PRIORITIES.map((item) => (
+              {REQUEST_PRIORITIES.map((item) => (
                 <option key={item} value={item}>
                   {item.toUpperCase()}
                 </option>
               ))}
             </select>
-            <Button type="submit" disabled={!title.trim()}>
-              Create request
+            <Button
+              type="submit"
+              disabled={!title.trim() || createRequestMutation.isPending}
+            >
+              {createRequestMutation.isPending
+                ? "Creating..."
+                : "Create request"}
             </Button>
           </div>
+          {submitError ? (
+            <p className="text-sm text-red-300">{submitError}</p>
+          ) : null}
         </form>
       </Card>
 
       <Card title="Request List">
-        <div className="space-y-3">
-          {filteredSuiteRequests.map((item) => {
-            const pendingDocs = item.requiredDocs.filter(
-              (doc) => !item.receivedDocs.includes(doc),
-            );
-            const requestHref = `/customer/requests/${item.id}`;
+        {requestsQuery.isLoading ? (
+          <p className="text-sm text-slate-300">Loading requests...</p>
+        ) : requestsQuery.isError ? (
+          <p className="text-sm text-red-300">
+            Could not load customer requests right now.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {filteredCustomRequests.map((item) => (
+              <RequestListItem key={item.id} item={item} />
+            ))}
 
-            return (
-              <a
-                key={item.id}
-                href={requestHref}
-                onClick={() => markSuiteRequestViewed(item.id)}
-                className="block rounded-xl border border-cyan-400/25 bg-cyan-500/5 p-4 transition hover:border-cyan-300/45"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold text-white">
-                    {formatSuiteLabel(item.suite)} Suite Request
-                  </h3>
-                  <Badge className="capitalize">
-                    {formatStatusLabel(item.status)}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-slate-200/90">{item.title}</p>
-                <p className="mt-2 text-xs text-slate-300">
-                  Pending docs:{" "}
-                  {pendingDocs.length > 0 ? pendingDocs.join(", ") : "None"}
-                </p>
-              </a>
-            );
-          })}
-
-          {filteredCustomRequests.length > 0 ? (
-            <p className="pt-2 text-xs uppercase tracking-[0.12em] text-slate-300">
-              Custom Requests
-            </p>
-          ) : null}
-
-          {filteredCustomRequests.map((item) => {
-            const requestHref = `/customer/requests/${item.id}?${new URLSearchParams(
-              {
-                kind: "custom",
-                title: item.title,
-                description: item.description,
-                status: item.status,
-                priority: item.priority,
-                createdAt: item.created_at,
-                updatedAt: item.updated_at,
-              },
-            ).toString()}`;
-
-            return (
-              <a
-                key={item.id}
-                href={requestHref}
-                className="block rounded-xl border border-white/15 bg-white/5 p-4 transition hover:border-white/25"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold text-white">
-                    {item.title}
-                  </h3>
-                  <Badge className="capitalize">
-                    {item.status.replaceAll("_", " ")}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-slate-200/85">
-                  {item.description || "No description"}
-                </p>
-              </a>
-            );
-          })}
-
-          {filteredSuiteRequests.length === 0 &&
-          filteredCustomRequests.length === 0 ? (
-            <p className="text-sm text-slate-300">No requests available.</p>
-          ) : null}
-        </div>
+            {filteredCustomRequests.length === 0 ? (
+              <p className="text-sm text-slate-300">No requests available.</p>
+            ) : null}
+          </div>
+        )}
       </Card>
     </div>
+  );
+}
+
+function RequestListItem({ item }: { item: RequestRecord }) {
+  return (
+    <Link
+      href={`/customer/requests/${item.id}`}
+      className="block rounded-xl border border-white/15 bg-white/5 p-4 transition hover:border-white/25"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-semibold text-white">{item.title}</h3>
+        <Badge className="capitalize">{formatStatusLabel(item.status)}</Badge>
+      </div>
+      <p className="mt-1 text-sm text-slate-200/85">
+        {item.description || "No description"}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+        <Badge className="uppercase">{item.priority}</Badge>
+        <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
+      </div>
+    </Link>
   );
 }

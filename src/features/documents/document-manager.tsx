@@ -45,6 +45,7 @@ export function DocumentManager({
   const useMockData = Boolean(mockDocuments?.length);
   const queryClient = useQueryClient();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [localDocs, setLocalDocs] = useState<MockDocument[]>(
     mockDocuments ?? [],
   );
@@ -88,6 +89,7 @@ export function DocumentManager({
     }
 
     setUploadError(null);
+    setUploadSuccess(null);
 
     const cleanedName = file.name.replace(/\s+/g, "-").toLowerCase();
     const path = `${prefix}/${Date.now()}-${cleanedName}`;
@@ -102,14 +104,37 @@ export function DocumentManager({
         },
         ...current,
       ]);
+      setUploadSuccess(`Uploaded ${file.name}`);
+      console.info("[documents] upload success", {
+        mode: "mock",
+        bucket,
+        path,
+        fileName: file.name,
+        sizeBytes: file.size,
+      });
       event.target.value = "";
       return;
     }
 
     try {
       await uploadMutation.mutateAsync({ bucket, path, file });
+      setUploadSuccess(`Uploaded ${file.name}`);
+      console.info("[documents] upload success", {
+        mode: "live",
+        bucket,
+        path,
+        fileName: file.name,
+        sizeBytes: file.size,
+      });
       event.target.value = "";
     } catch (error) {
+      setUploadSuccess(null);
+      console.error("[documents] upload failed", {
+        bucket,
+        path,
+        fileName: file.name,
+        error,
+      });
       setUploadError(error instanceof Error ? error.message : "Upload failed");
     }
   };
@@ -146,6 +171,9 @@ export function DocumentManager({
         </label>
         {uploadError ? (
           <p className="mt-2 text-sm text-red-300">{uploadError}</p>
+        ) : null}
+        {uploadSuccess ? (
+          <p className="mt-2 text-sm text-emerald-300">{uploadSuccess}</p>
         ) : null}
       </Card>
 

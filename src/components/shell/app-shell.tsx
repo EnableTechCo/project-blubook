@@ -13,6 +13,7 @@ import {
   markNotificationRead,
   subscribeToNotifications,
 } from "@/services/notifications.service";
+import { listCustomerRequests } from "@/services/requests.service";
 import { DashboardChatbot } from "@/features/ai/dashboard-chatbot";
 import { MOCK_PORTAL_LINKS } from "@/features/mock/dashboard-data";
 import { useCustomerJourneyStore } from "@/store/customer-journey-store";
@@ -62,6 +63,12 @@ export function AppShell({
     queryKey: ["notifications", user?.id],
     queryFn: () => listNotifications(user!.id),
     enabled: Boolean(user?.id),
+  });
+
+  const customerRequestsQuery = useQuery({
+    queryKey: ["customer-requests", user?.id],
+    queryFn: () => listCustomerRequests(user!.id),
+    enabled: roleLabel === "Customer" && Boolean(user?.id),
   });
 
   useEffect(() => {
@@ -127,20 +134,32 @@ export function AppShell({
 
   const customerMessageAlertCount = useMemo(
     () =>
-      customerAlerts.filter((item) => !item.read && item.source !== "system")
-        .length,
-    [customerAlerts],
+      roleLabel === "Customer"
+        ? (notificationsQuery.data ?? []).filter((item) => !item.read_at).length
+        : customerAlerts.filter(
+            (item) => !item.read && item.source !== "system",
+          ).length,
+    [customerAlerts, notificationsQuery.data, roleLabel],
   );
 
-  const customerRequestAlertCount = useMemo(
-    () =>
-      suiteRequests.filter(
-        (request) =>
-          !viewedSuiteRequestIds.includes(request.id) &&
-          !["completed", "rejected"].includes(request.status),
-      ).length,
-    [suiteRequests, viewedSuiteRequestIds],
-  );
+  const customerRequestAlertCount = useMemo(() => {
+    if (roleLabel === "Customer") {
+      return (customerRequestsQuery.data ?? []).filter(
+        (request) => !["completed", "cancelled"].includes(request.status),
+      ).length;
+    }
+
+    return suiteRequests.filter(
+      (request) =>
+        !viewedSuiteRequestIds.includes(request.id) &&
+        !["completed", "rejected"].includes(request.status),
+    ).length;
+  }, [
+    customerRequestsQuery.data,
+    roleLabel,
+    suiteRequests,
+    viewedSuiteRequestIds,
+  ]);
 
   const partnerInboxAlertCount = useMemo(
     () =>
@@ -217,9 +236,15 @@ export function AppShell({
                 </span>
               ) : null}
               {roleLabel === "Customer" &&
-              item.href === "/customer/messages" &&
-              customerMessageAlertCount > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+              item.href === "/customer/messages" ? (
+                <span
+                  className={cn(
+                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                    customerMessageAlertCount > 0
+                      ? "bg-coral text-white"
+                      : "bg-white/10 text-slate-300",
+                  )}
+                >
                   {customerMessageAlertCount > 99
                     ? "99+"
                     : customerMessageAlertCount}
