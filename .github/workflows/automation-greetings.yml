@@ -19,10 +19,10 @@ jobs:
       - name: Greet first-time contributors
         uses: actions/first-interaction@v2
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             Thanks for opening your first issue in this repository.
             A maintainer will review it shortly.
-          pr-message: |
+          pr_message: |
             Thanks for your first pull request.
             Please ensure CI is green and the PR description includes scope and testing notes.

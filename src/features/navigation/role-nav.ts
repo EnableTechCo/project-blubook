@@ -1,7 +1,7 @@
 import { ShellNavItem } from "@/components/shell/app-shell";
 
 export const customerNav: ShellNavItem[] = [
-  { href: "/customer/onboarding", label: "Onboarding" },
+  { href: "/customer/billing", label: "Billing" },
   { href: "/customer/requests", label: "Requests" },
   { href: "/customer/messages", label: "Messages" },
   { href: "/customer/documents", label: "Documents" },

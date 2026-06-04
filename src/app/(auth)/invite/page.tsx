@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/browser";
@@ -16,12 +15,6 @@ export default function InvitePage() {
 
   const token =
     searchParams.get("token") ?? searchParams.get("inviteToken") ?? "";
-  const type = (searchParams.get("type") ?? "invite") as
-    | "signup"
-    | "invite"
-    | "magiclink"
-    | "recovery"
-    | "email_change";
   const member = parseInviteMember(searchParams.get("member"));
   const email = searchParams.get("email") ?? member.email;
   const name =
@@ -36,24 +29,41 @@ export default function InvitePage() {
 
     setLoading(true);
     setStatus(null);
-    const supabase = createClient();
-    const verify = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type,
+    const activateResponse = await fetch("/api/auth/invitations/accept", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token,
+        email,
+        password,
+        fullName: name || "Invited User",
+      }),
     });
 
-    if (verify.error) {
+    const activateResult = (await activateResponse.json()) as {
+      error?: string;
+    };
+
+    if (!activateResponse.ok) {
       setLoading(false);
-      setStatus(`Invite verification failed: ${verify.error.message}`);
+      setStatus(
+        `Invite verification failed: ${activateResult.error ?? "Could not activate invite."}`,
+      );
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
     setLoading(false);
     setStatus(
       error
-        ? `Could not complete setup: ${error.message}`
+        ? `Account activated, but login failed: ${error.message}`
         : "Invite accepted. You can now continue into the platform.",
     );
   };
@@ -81,15 +91,9 @@ export default function InvitePage() {
       {status ? (
         <p className="mt-4 text-sm text-slate-200/90">{status}</p>
       ) : null}
-
       <div className="mt-4 text-sm text-slate-200/80">
-        Missing invite details? Open the register page with query params:{" "}
-        <Link
-          className="text-cyan-200 underline"
-          href={`/register?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`}
-        >
-          Go to register
-        </Link>
+        Missing invite details? Ask your BluBook administrator to resend the
+        invitation link.
       </div>
     </div>
   );
