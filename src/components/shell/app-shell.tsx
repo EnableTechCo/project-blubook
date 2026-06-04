@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, LayoutGrid, Menu, Search } from "lucide-react";
+// UPDATED: Added the LogOut icon from lucide-react
+import { Bell, LayoutGrid, LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listNotifications,
@@ -37,7 +38,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { data: user } = useAuth();
+  // UPDATED: Destructured the fresh signOut utility function from our hook
+  const { data: user, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems, markRead, markAllRead } = useNotificationStore();
   const suiteRequests = useCustomerJourneyStore((state) => state.suiteRequests);
@@ -189,95 +191,111 @@ export function AppShell({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+      {/* UPDATED: Added flex and flex-col classes to handle sticky layout distribution */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 border-r border-white/10 bg-ink/95 p-5 transition lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-white/10 bg-ink/95 p-5 transition lg:static lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">
-              BluBook
-            </p>
-            <h1 className="text-xl font-semibold text-white">
-              {roleLabel} Portal
-            </h1>
+        <div className="flex-1">
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">
+                BluBook
+              </p>
+              <h1 className="text-xl font-semibold text-white">
+                {roleLabel} Portal
+              </h1>
+            </div>
+            <button
+              className="lg:hidden"
+              onClick={closeSidebar}
+              aria-label="Close navigation"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            className="lg:hidden"
-            onClick={closeSidebar}
-            aria-label="Close navigation"
-          >
-            ✕
-          </button>
+
+          <nav className="space-y-2">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10",
+                  isNavItemActive(item.href)
+                    ? "bg-cyan-300/15 text-white ring-1 ring-cyan-200/40"
+                    : "",
+                )}
+              >
+                <span>{item.label}</span>
+                {roleLabel === "Customer" &&
+                item.href === "/customer/requests" &&
+                customerRequestAlertCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                    {customerRequestAlertCount > 99
+                      ? "99+"
+                      : customerRequestAlertCount}
+                  </span>
+                ) : null}
+                {roleLabel === "Customer" &&
+                item.href === "/customer/messages" ? (
+                  <span
+                    className={cn(
+                      "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                      customerMessageAlertCount > 0
+                        ? "bg-coral text-white"
+                        : "bg-white/10 text-slate-300",
+                    )}
+                  >
+                    {customerMessageAlertCount > 99
+                      ? "99+"
+                      : customerMessageAlertCount}
+                  </span>
+                ) : null}
+                {roleLabel === "Partner" &&
+                item.href === "/partner/inbox" &&
+                partnerInboxAlertCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                    {partnerInboxAlertCount > 99 ? "99+" : partnerInboxAlertCount}
+                  </span>
+                ) : null}
+                {roleLabel === "Partner" &&
+                item.href === "/partner/messages" &&
+                partnerMessageAlertCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                    {partnerMessageAlertCount > 99
+                      ? "99+"
+                      : partnerMessageAlertCount}
+                  </span>
+                ) : null}
+                {roleLabel === "Partner" &&
+                item.href === "/partner/work-orders" &&
+                partnerWorkOrderAlertCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
+                    {partnerWorkOrderAlertCount > 99
+                      ? "99+"
+                      : partnerWorkOrderAlertCount}
+                  </span>
+                ) : null}
+              </Link>
+            ))}
+          </nav>
         </div>
 
-        <nav className="space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10",
-                isNavItemActive(item.href)
-                  ? "bg-cyan-300/15 text-white ring-1 ring-cyan-200/40"
-                  : "",
-              )}
-            >
-              <span>{item.label}</span>
-              {roleLabel === "Customer" &&
-              item.href === "/customer/requests" &&
-              customerRequestAlertCount > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
-                  {customerRequestAlertCount > 99
-                    ? "99+"
-                    : customerRequestAlertCount}
-                </span>
-              ) : null}
-              {roleLabel === "Customer" &&
-              item.href === "/customer/messages" ? (
-                <span
-                  className={cn(
-                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
-                    customerMessageAlertCount > 0
-                      ? "bg-coral text-white"
-                      : "bg-white/10 text-slate-300",
-                  )}
-                >
-                  {customerMessageAlertCount > 99
-                    ? "99+"
-                    : customerMessageAlertCount}
-                </span>
-              ) : null}
-              {roleLabel === "Partner" &&
-              item.href === "/partner/inbox" &&
-              partnerInboxAlertCount > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
-                  {partnerInboxAlertCount > 99 ? "99+" : partnerInboxAlertCount}
-                </span>
-              ) : null}
-              {roleLabel === "Partner" &&
-              item.href === "/partner/messages" &&
-              partnerMessageAlertCount > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
-                  {partnerMessageAlertCount > 99
-                    ? "99+"
-                    : partnerMessageAlertCount}
-                </span>
-              ) : null}
-              {roleLabel === "Partner" &&
-              item.href === "/partner/work-orders" &&
-              partnerWorkOrderAlertCount > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
-                  {partnerWorkOrderAlertCount > 99
-                    ? "99+"
-                    : partnerWorkOrderAlertCount}
-                </span>
-              ) : null}
-            </Link>
-          ))}
-        </nav>
+        {/* ========================================================================= */}
+        {/* UPDATED: ADDED VISIBLE SIGN OUT ACTION ELEMENT                           */}
+        {/* ========================================================================= */}
+        <div className="mt-auto border-t border-white/10 pt-4">
+          <button
+            onClick={() => void signOut()}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </aside>
 
       <main className="min-w-0">

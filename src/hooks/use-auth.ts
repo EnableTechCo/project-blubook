@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; 
 import { createClient } from "@/lib/supabase/browser";
-
+import { useRouter } from "next/navigation";
 export function useAuth() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
   const query = useQuery({
     queryKey: ["auth-user"],
     queryFn: async () => {
@@ -35,5 +38,23 @@ export function useAuth() {
     };
   }, [query]);
 
-  return query;
+ //Sign Out logic
+  const signOut = async () => {
+    const supabase = createClient();
+    
+    //invalidate the user session tokens
+    await supabase.auth.signOut();
+    
+    //clear the cached user data 
+    queryClient.setQueryData(["auth-user"], null);
+    
+    //redirect the browser to the login screen
+    router.push("/login");
+  };
+
+  return {
+    ...query,        
+    user: query.data, 
+    signOut,          // Exposes the sign-out action to our UI components
+  };
 }
