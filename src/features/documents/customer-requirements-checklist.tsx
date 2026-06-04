@@ -247,13 +247,11 @@ export function CustomerRequirementsChecklist({
                     submittingStates.has(item.status) ||
                     uploadingRequirementId === item.id
                   }
-                  asChild
+                  // asChild prop removed as it is unsupported
                 >
-                  <span>
-                    {uploadingRequirementId === item.id
-                      ? "Uploading..."
-                      : "Upload evidence"}
-                  </span>
+                  {uploadingRequirementId === item.id
+                    ? "Uploading..."
+                    : "Upload evidence"}
                 </Button>
                 <input
                   type="file"

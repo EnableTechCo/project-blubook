@@ -1,5 +1,11 @@
 import path from "node:path";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Response as PlaywrightResponse,
+} from "@playwright/test";
 
 const EXPECTED_PACKAGE_LABEL = "Premium Plus";
 const EXPECTED_PRIMARY_INDUSTRY = "Retail";
@@ -83,7 +89,9 @@ async function ensureCustomerSession(
   }
 }
 
-async function assertCreateAccountSucceededOrUserExists(response: Response) {
+async function assertCreateAccountSucceededOrUserExists(
+  response: PlaywrightResponse,
+) {
   if (response.ok()) {
     return;
   }

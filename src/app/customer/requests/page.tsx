@@ -61,7 +61,10 @@ export default function CustomerRequestsPage() {
     },
   });
 
-  const requests = requestsQuery.data ?? [];
+  const requests = useMemo(
+    () => requestsQuery.data ?? [],
+    [requestsQuery.data],
+  );
 
   const stats = useMemo(() => {
     return {

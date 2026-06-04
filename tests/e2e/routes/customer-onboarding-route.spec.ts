@@ -1,14 +1,16 @@
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Page,
+  type Response as PlaywrightResponse,
+} from "@playwright/test";
 
 const EXPECTED_PACKAGE_LABEL = "Premium Plus";
 const EXPECTED_PRIMARY_INDUSTRY = "Retail";
 const EXPECTED_SUB_INDUSTRY = "Ecommerce";
 
-async function selectPackageByLabel(
-  page: Parameters<typeof test>[0]["page"],
-  packageLabel: string,
-) {
+async function selectPackageByLabel(page: Page, packageLabel: string) {
   const packageCard = page
     .getByRole("button", { name: new RegExp(packageLabel, "i") })
     .first();
@@ -56,7 +58,9 @@ async function ensureCustomerSession(
   }
 }
 
-async function assertCreateAccountSucceededOrUserExists(response: Response) {
+async function assertCreateAccountSucceededOrUserExists(
+  response: PlaywrightResponse,
+) {
   if (response.ok()) {
     return;
   }

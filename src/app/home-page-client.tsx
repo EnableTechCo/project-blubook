@@ -17,14 +17,6 @@ export type LandingPackage = {
   first14Days: string[];
 };
 
-const PACKAGE_IMAGES = [
-  "https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=2000&q=80",
-  "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1600&q=80",
-] as const;
-
 export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [packageModalOpen, setPackageModalOpen] = useState(false);

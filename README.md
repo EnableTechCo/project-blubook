@@ -113,8 +113,8 @@ Workflow-related UI is available in these key areas:
 
 Use pnpm for all QA commands:
 
-- pnpm lint
-- pnpm typecheck
+- pnpm run typecheck
+- pnpm run lint
 - pnpm test
 - pnpm audit
 

@@ -36,7 +36,7 @@ export function useCustomerContext() {
       let organizationId = profile?.organization_id ?? null;
       let role = profile?.role ?? null;
       let email = profile?.email ?? user.email ?? "";
-      let fullName =
+      const fullName =
         profile?.full_name ??
         (typeof user.user_metadata?.full_name === "string"
           ? user.user_metadata.full_name
