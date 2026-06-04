@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, LayoutGrid, Menu, Search } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listNotifications,
@@ -15,7 +15,6 @@ import {
 } from "@/services/notifications.service";
 import { listCustomerRequests } from "@/services/requests.service";
 import { DashboardChatbot } from "@/features/ai/dashboard-chatbot";
-import { MOCK_PORTAL_LINKS } from "@/features/mock/dashboard-data";
 import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import { useNotificationStore } from "@/store/notification-store";
 import { useUiStore } from "@/store/ui-store";
@@ -51,13 +50,6 @@ export function AppShell({
     (state) => state.partnerNotifications,
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [platformOpen, setPlatformOpen] = useState(false);
-
-  const platformLinks: Array<{ label: string; href: Route }> =
-    MOCK_PORTAL_LINKS.map((portal) => ({
-      label: portal.label,
-      href: portal.href as Route,
-    }));
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", user?.id],
@@ -296,35 +288,6 @@ export function AppShell({
                 className="w-full bg-transparent text-sm outline-none"
                 placeholder="Search requests, orders, shipments"
               />
-            </div>
-            <div className="relative">
-              <button
-                className="rounded-xl border border-white/20 bg-white/5 p-2"
-                aria-label="Switch platform"
-                onClick={() => setPlatformOpen((open) => !open)}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-
-              {platformOpen ? (
-                <div className="absolute right-0 z-50 mt-2 w-52 rounded-2xl border border-white/15 bg-ink/95 p-2 shadow-panel">
-                  <p className="px-2 py-1 text-xs uppercase tracking-[0.15em] text-cyan-200/80">
-                    Switch Platform
-                  </p>
-                  <div className="space-y-1">
-                    {platformLinks.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setPlatformOpen(false)}
-                        className="block rounded-xl px-3 py-2 text-sm text-slate-100 transition hover:bg-white/10"
-                      >
-                        {item.label} Dashboard
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
             <div className="relative">
               <button
