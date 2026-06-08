@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -136,81 +136,87 @@ export function SalesOrdersClient() {
     };
   }, [guidedActionStep, guidedOrderId]);
 
-  const log = (step: string, details?: unknown) => {
+  const log = useCallback((step: string, details?: unknown) => {
     if (details === undefined) {
       console.log(`[SalesWorkflow] ${step}`);
       return;
     }
     console.log(`[SalesWorkflow] ${step}`, details);
-  };
+  }, []);
 
-  const fetchOrders = useEffectEvent(async (organizationId: string) => {
-    log("fetchOrders:start", { organizationId });
-    const response = await fetch("/api/system/workflow/orders", {
-      method: "GET",
-    });
+  const selectOrderDetails = useCallback(
+    async (order: SalesOrder) => {
+      log("selectOrderDetails:start", {
+        orderId: order.id,
+        poReference: order.po_reference,
+      });
+      const response = await fetch(
+        `/api/system/workflow/orders?orderId=${encodeURIComponent(order.id)}`,
+        {
+          method: "GET",
+        },
+      );
+      const payload = await response.json();
 
-    const payload = await response.json();
-    if (!response.ok) {
-      console.error("Error fetching orders:", payload);
-      log("fetchOrders:error", payload);
-      return;
-    }
+      if (!response.ok) {
+        console.error("Error fetching order items:", payload);
+        log("selectOrderDetails:error", payload);
+        return;
+      }
 
-    const ordersData = payload?.orders as SalesOrder[] | undefined;
+      const itemsData = payload?.items as OrderItem[] | undefined;
+      const partnerHandoffs = payload?.partnerHandoffs as
+        | PartnerHandoff[]
+        | undefined;
 
-    log("fetchOrders:success", {
-      count: ordersData?.length ?? 0,
-      latestOrderId: ordersData?.[0]?.id ?? null,
-    });
+      log("selectOrderDetails:success", {
+        orderId: order.id,
+        itemCount: itemsData?.length ?? 0,
+      });
 
-    setOrders(ordersData || []);
-    if (ordersData && ordersData.length > 0) {
-      // If we already have a selected order, update it, otherwise select the first one
-      const currentSelected = selectedOrder
-        ? ordersData.find((o) => o.id === selectedOrder.id)
-        : null;
-      await selectOrderDetails(currentSelected || ordersData[0]);
-    } else {
-      setSelectedOrder(null);
-    }
-  });
+      setSelectedOrder({
+        ...order,
+        items: (itemsData as OrderItem[]) || [],
+        partnerHandoffs: partnerHandoffs || [],
+      });
+    },
+    [log],
+  );
 
-  const selectOrderDetails = useEffectEvent(async (order: SalesOrder) => {
-    log("selectOrderDetails:start", {
-      orderId: order.id,
-      poReference: order.po_reference,
-    });
-    const response = await fetch(
-      `/api/system/workflow/orders?orderId=${encodeURIComponent(order.id)}`,
-      {
+  const fetchOrders = useCallback(
+    async (organizationId: string) => {
+      log("fetchOrders:start", { organizationId });
+      const response = await fetch("/api/system/workflow/orders", {
         method: "GET",
-      },
-    );
-    const payload = await response.json();
+      });
 
-    if (!response.ok) {
-      console.error("Error fetching order items:", payload);
-      log("selectOrderDetails:error", payload);
-      return;
-    }
+      const payload = await response.json();
+      if (!response.ok) {
+        console.error("Error fetching orders:", payload);
+        log("fetchOrders:error", payload);
+        return;
+      }
 
-    const itemsData = payload?.items as OrderItem[] | undefined;
-    const partnerHandoffs = payload?.partnerHandoffs as
-      | PartnerHandoff[]
-      | undefined;
+      const ordersData = payload?.orders as SalesOrder[] | undefined;
 
-    log("selectOrderDetails:success", {
-      orderId: order.id,
-      itemCount: itemsData?.length ?? 0,
-    });
+      log("fetchOrders:success", {
+        count: ordersData?.length ?? 0,
+        latestOrderId: ordersData?.[0]?.id ?? null,
+      });
 
-    setSelectedOrder({
-      ...order,
-      items: (itemsData as OrderItem[]) || [],
-      partnerHandoffs: partnerHandoffs || [],
-    });
-  });
+      setOrders(ordersData || []);
+      if (ordersData && ordersData.length > 0) {
+        // If we already have a selected order, update it, otherwise select the first one
+        const currentSelected = selectedOrder
+          ? ordersData.find((o) => o.id === selectedOrder.id)
+          : null;
+        await selectOrderDetails(currentSelected || ordersData[0]);
+      } else {
+        setSelectedOrder(null);
+      }
+    },
+    [log, selectOrderDetails, selectedOrder],
+  );
 
   // Load initial data
   useEffect(() => {

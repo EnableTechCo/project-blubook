@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,7 @@ export function SalesWorkOrdersClient() {
     text: string;
   } | null>(null);
 
-  const fetchWorkOrders = useEffectEvent(async () => {
+  const fetchWorkOrders = useCallback(async () => {
     try {
       // Fetch all work orders with parent relation details
       const { data, error } = await supabase
@@ -61,7 +61,7 @@ export function SalesWorkOrdersClient() {
     } finally {
       setLoading(false);
     }
-  });
+  }, [supabase]);
 
   useEffect(() => {
     void fetchWorkOrders();
