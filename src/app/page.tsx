@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { HomePageClient, type LandingPackage } from "./home-page-client";
 
 const PACKAGE_IMAGES = [
@@ -62,12 +62,36 @@ function mapPackages(
 }
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("service_packages")
-    .select("code, name, description, unit_amount_cents, metadata")
-    .eq("is_active", true)
-    .order("unit_amount_cents", { ascending: true });
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+  let data: Array<{
+    code: string;
+    name: string;
+    description: string | null;
+    unit_amount_cents: number;
+    metadata: unknown;
+  }> | null = null;
+
+  try {
+    const result = await supabase
+      .from("service_packages")
+      .select("code, name, description, unit_amount_cents, metadata")
+      .eq("is_active", true)
+      .order("unit_amount_cents", { ascending: true });
+
+    data = result.data;
+  } catch {
+    data = [];
+  }
 
   const packages = mapPackages(data ?? []);
 

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BluBook icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <path d="M18 18h16c7.7 0 14 6.3 14 14s-6.3 14-14 14H18V18z" fill="#fff" opacity="0.96"/>
+  <path d="M22 24h11.5c4.7 0 8.5 3.8 8.5 8.5S38.2 41 33.5 41H22V24z" fill="#1e3a8a" opacity="0.88"/>
+  <circle cx="27" cy="32" r="4" fill="#bfdbfe"/>
+</svg>

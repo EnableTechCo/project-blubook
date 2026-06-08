@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import {
   MOCK_ADMIN_DASHBOARD_PACK,
   MOCK_AI_SCENARIOS,
@@ -157,6 +158,10 @@ export default function AdminDashboardPage() {
     }
   };
 
+  if (isLoading) {
+    return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -299,9 +304,7 @@ export default function AdminDashboardPage() {
                 {visiblePartners.length === 0 ? (
                   <tr>
                     <td className="px-3 py-3 text-slate-400" colSpan={4}>
-                      {isLoading
-                        ? "Loading partners..."
-                        : "No partners mapped for this stream."}
+                      No partners mapped for this stream.
                     </td>
                   </tr>
                 ) : null}
