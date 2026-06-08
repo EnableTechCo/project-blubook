@@ -1,6 +1,6 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
 import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
-import { LOGISTICS_WORKFLOW_STATES } from "@/constants/workflow-states";
+import { LOGISTICS_WORKFLOW_STATES } from "@/constants/logistics-workflow-states";
 import { MOCK_LOGISTICS_SHIPMENTS_WORKSPACE } from "@/features/mock/dashboard-data";
 
 export default function LogisticsShipmentsPage() {

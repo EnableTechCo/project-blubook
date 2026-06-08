@@ -1,7 +1,6 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
-import { SALES_WORKFLOW_STATES } from "@/constants/workflow-states";
 import { MOCK_SALES_WORK_ORDERS_WORKSPACE } from "@/features/mock/dashboard-data";
+import { SalesWorkOrdersClient } from "./sales-work-orders-client";
 
 export default function SalesWorkOrdersPage() {
   return (
@@ -13,10 +12,7 @@ export default function SalesWorkOrdersPage() {
         metrics={MOCK_SALES_WORK_ORDERS_WORKSPACE.metrics}
         streams={MOCK_SALES_WORK_ORDERS_WORKSPACE.streams}
       />
-      <WorkflowPipeline
-        title="Work-Order Lifecycle"
-        states={SALES_WORKFLOW_STATES}
-      />
+      <SalesWorkOrdersClient />
     </div>
   );
 }

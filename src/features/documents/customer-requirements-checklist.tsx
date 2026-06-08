@@ -1,10 +1,11 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FileUploader } from "@/components/ui/file-uploader";
 import {
   listCustomerRequirements,
   type CustomerRequirementItem,
@@ -38,6 +39,7 @@ export function CustomerRequirementsChecklist({
     string | null
   >(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
   const requirementsQuery = useQuery({
     queryKey: ["customer-requirements", organizationId],
@@ -61,15 +63,16 @@ export function CustomerRequirementsChecklist({
 
   const onRequirementFileChange = async (
     requirementItemId: string,
-    event: ChangeEvent<HTMLInputElement>,
+    files: File[],
   ) => {
-    const file = event.target.files?.[0];
+    const file = files[0];
     if (!file) {
       return;
     }
 
     setUploadingRequirementId(requirementItemId);
     setUploadError(null);
+    setUploadSuccess(null);
 
     try {
       await submitEvidenceMutation.mutateAsync({
@@ -78,8 +81,9 @@ export function CustomerRequirementsChecklist({
         prefix,
         file,
       });
-      event.target.value = "";
+      setUploadSuccess(`File uploaded: ${file.name}.`);
     } catch (error) {
+      setUploadSuccess(null);
       setUploadError(
         error instanceof Error ? error.message : "Could not submit evidence.",
       );
@@ -207,6 +211,15 @@ export function CustomerRequirementsChecklist({
       {uploadError ? (
         <p className="text-sm text-red-300">{uploadError}</p>
       ) : null}
+      {uploadSuccess ? (
+        <p className="text-sm text-emerald-300">
+          {uploadSuccess} View uploaded files in{" "}
+          <Link href="/customer/documents" className="underline">
+            Documents
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <div className="space-y-3">
         {(requirementsQuery.data ?? []).map((item) => (
@@ -239,30 +252,21 @@ export function CustomerRequirementsChecklist({
               </p>
             ) : null}
             <div className="mt-3">
-              <label className="inline-flex cursor-pointer">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={
-                    submittingStates.has(item.status) ||
-                    uploadingRequirementId === item.id
-                  }
-                  // asChild prop removed as it is unsupported
-                >
-                  {uploadingRequirementId === item.id
+              <FileUploader
+                buttonLabel={
+                  uploadingRequirementId === item.id
                     ? "Uploading..."
-                    : "Upload evidence"}
-                </Button>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(event) => onRequirementFileChange(item.id, event)}
-                  disabled={
-                    submittingStates.has(item.status) ||
-                    uploadingRequirementId === item.id
-                  }
-                />
-              </label>
+                    : "Upload evidence"
+                }
+                onFilesSelected={(files) =>
+                  onRequirementFileChange(item.id, files)
+                }
+                disabled={
+                  submittingStates.has(item.status) ||
+                  uploadingRequirementId === item.id
+                }
+                variant="ghost"
+              />
             </div>
           </article>
         ))}

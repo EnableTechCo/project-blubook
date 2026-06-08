@@ -6,6 +6,7 @@ export interface RequestRecord {
   description: string | null;
   status: string;
   priority: string;
+  organization_id: string | null;
   customer_id: string;
   partner_id: string | null;
   created_at: string;
