@@ -46,7 +46,7 @@ const getStatusConfig = (status: string) => {
     submitted: { 
       color: "bg-amber-500/20 text-amber-300",
       icon: <MessageCircle className="w-4 h-4" />,
-      message: "Your request has been received. We'll update you soon."
+      message: "Your request has been received. We&apos;ll update you soon."
     },
     open: { 
       color: "bg-cyan-500/20 text-cyan-300",
@@ -85,7 +85,7 @@ export default function RequestDetailPage() {
       setRequest(JSON.parse(storedRequest));
     }
     setIsLoading(false);
-  }, [router]);
+  }, []); 
 
   if (isLoading) {
     return (
@@ -102,7 +102,7 @@ export default function RequestDetailPage() {
           <Card className="p-12 bg-white/5 backdrop-blur-sm border-white/10 text-center" title={""}>
             <div className="text-4xl mb-4">🔍</div>
             <h3 className="text-xl font-semibold text-white mb-2">Request not found</h3>
-            <p className="text-slate-400 mb-4">The request you're looking for doesn't exist or has been removed.</p>
+            <p className="text-slate-400 mb-4">The request you&apos;re looking for doesn&apos;t exist or has been removed.</p>
             <button
               onClick={() => router.back()}
               className="px-4 py-2 bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30 transition-colors"

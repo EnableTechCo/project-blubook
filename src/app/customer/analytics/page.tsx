@@ -121,7 +121,7 @@ export default function CustomerAnalyticsPage() {
     };
   }, [requestsQuery.data]);
 
-  const navigateToRequests = (filterType: string, title: string, filteredData?: any[]) => {
+  const navigateToRequests = (filterType: string, title: string) => {
     let dataToStore = [];
     
     switch(filterType) {
@@ -219,7 +219,7 @@ export default function CustomerAnalyticsPage() {
         <button
           type="button"
           className="rounded-full cursor-pointer transition-colors hover:bg-cyan-500/10"
-          onClick={() => navigateToRequests('all', 'All Requests', stats.allRequests)}
+          onClick={() => navigateToRequests('all', 'All Requests')}
         >
           <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
             {stats.total} Requests
@@ -232,7 +232,7 @@ export default function CustomerAnalyticsPage() {
           title="Open Requests"
           description="Active workload"
           value={stats.open}
-          onClick={() => navigateToRequests('open', 'Open Requests', stats.openRequests)}
+          onClick={() => navigateToRequests('open', 'Open Requests')}
         />
         
         <ClickableKPICard
@@ -241,7 +241,7 @@ export default function CustomerAnalyticsPage() {
           value={stats.completionRate}
           unit="%"
           valueClassName="text-emerald-400"
-          onClick={() => navigateToRequests('all', 'Completion Analytics', stats.allRequests)}
+          onClick={() => navigateToRequests('all', 'Completion Analytics')}
         />
         
         <ClickableKPICard
@@ -250,7 +250,7 @@ export default function CustomerAnalyticsPage() {
           value={stats.avgAgeDays}
           unit="d"
           valueClassName="text-amber-400"
-          onClick={() => navigateToRequests('all', 'Ticket Age Analytics', stats.allRequests)}
+          onClick={() => navigateToRequests('all', 'Ticket Age Analytics')}
         />
         
         <ClickableKPICard
@@ -258,7 +258,7 @@ export default function CustomerAnalyticsPage() {
           description="Total finished requests"
           value={stats.completed}
           valueClassName="text-rose-400"
-          onClick={() => navigateToRequests('completed', 'Completed Requests', stats.completedRequests)}
+          onClick={() => navigateToRequests('completed', 'Completed Requests')}
         />
       </div>
 
@@ -310,14 +310,14 @@ export default function CustomerAnalyticsPage() {
       {stats.open > 0 && (
         <div 
           className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl p-4 border border-amber-500/20 cursor-pointer hover:bg-amber-500/20 transition-colors"
-          onClick={() => navigateToRequests('open', 'Open Requests', stats.openRequests)}
+          onClick={() => navigateToRequests('open', 'Open Requests')}
         >
           <div className="flex items-start gap-3">
             <div className="text-2xl"></div>
             <div>
               <p className="text-sm font-medium text-white">Active Requests Summary</p>
               <p className="text-sm text-slate-300">
-                You have {stats.open} open request{stats.open !== 1 ? 's' : ''} currently being processed. 
+                You have {stats.open} open request{stats.open !== 1 ? 's' : ''} currently being processed.
                 Your completion rate is {stats.completionRate}% with an average resolution time of {stats.avgAgeDays} days.
                 <span className="text-cyan-400 ml-2">Click to view →</span>
               </p>
