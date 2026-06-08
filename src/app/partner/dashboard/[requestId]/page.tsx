@@ -153,6 +153,7 @@ function FileEvidenceRow({
           </summary>
           <div className="mt-2 overflow-hidden rounded-md border border-amber-300/35 bg-slate-950/35">
             {fileType === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={signedUrl}
                 alt={fileName}

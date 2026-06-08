@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
 import { SALES_WORKFLOW_STATES } from "@/constants/sales-workflow-states";
 
@@ -68,7 +67,7 @@ const GUIDED_STEPS = [
 ] as const;
 
 export function SalesOrdersClient() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,6 +144,74 @@ export function SalesOrdersClient() {
     console.log(`[SalesWorkflow] ${step}`, details);
   };
 
+  const fetchOrders = useEffectEvent(async (organizationId: string) => {
+    log("fetchOrders:start", { organizationId });
+    const response = await fetch("/api/system/workflow/orders", {
+      method: "GET",
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      console.error("Error fetching orders:", payload);
+      log("fetchOrders:error", payload);
+      return;
+    }
+
+    const ordersData = payload?.orders as SalesOrder[] | undefined;
+
+    log("fetchOrders:success", {
+      count: ordersData?.length ?? 0,
+      latestOrderId: ordersData?.[0]?.id ?? null,
+    });
+
+    setOrders(ordersData || []);
+    if (ordersData && ordersData.length > 0) {
+      // If we already have a selected order, update it, otherwise select the first one
+      const currentSelected = selectedOrder
+        ? ordersData.find((o) => o.id === selectedOrder.id)
+        : null;
+      await selectOrderDetails(currentSelected || ordersData[0]);
+    } else {
+      setSelectedOrder(null);
+    }
+  });
+
+  const selectOrderDetails = useEffectEvent(async (order: SalesOrder) => {
+    log("selectOrderDetails:start", {
+      orderId: order.id,
+      poReference: order.po_reference,
+    });
+    const response = await fetch(
+      `/api/system/workflow/orders?orderId=${encodeURIComponent(order.id)}`,
+      {
+        method: "GET",
+      },
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      console.error("Error fetching order items:", payload);
+      log("selectOrderDetails:error", payload);
+      return;
+    }
+
+    const itemsData = payload?.items as OrderItem[] | undefined;
+    const partnerHandoffs = payload?.partnerHandoffs as
+      | PartnerHandoff[]
+      | undefined;
+
+    log("selectOrderDetails:success", {
+      orderId: order.id,
+      itemCount: itemsData?.length ?? 0,
+    });
+
+    setSelectedOrder({
+      ...order,
+      items: (itemsData as OrderItem[]) || [],
+      partnerHandoffs: partnerHandoffs || [],
+    });
+  });
+
   // Load initial data
   useEffect(() => {
     async function loadData() {
@@ -167,7 +234,6 @@ export function SalesOrdersClient() {
           return;
         }
 
-        // Fetch user profile to get organization_id
         const { data: profile, error: profileError } = await supabase
           .from("user_profiles")
           .select("organization_id")
@@ -238,7 +304,6 @@ export function SalesOrdersClient() {
         }
 
         setOrgId(organizationId);
-
         await fetchOrders(organizationId);
       } catch (err) {
         console.error("Failed to load data:", err);
@@ -248,76 +313,9 @@ export function SalesOrdersClient() {
         setLoading(false);
       }
     }
-    loadData();
-  }, []);
 
-  async function fetchOrders(organizationId: string) {
-    log("fetchOrders:start", { organizationId });
-    const response = await fetch("/api/system/workflow/orders", {
-      method: "GET",
-    });
-
-    const payload = await response.json();
-    if (!response.ok) {
-      console.error("Error fetching orders:", payload);
-      log("fetchOrders:error", payload);
-      return;
-    }
-
-    const ordersData = payload?.orders as SalesOrder[] | undefined;
-
-    log("fetchOrders:success", {
-      count: ordersData?.length ?? 0,
-      latestOrderId: ordersData?.[0]?.id ?? null,
-    });
-
-    setOrders(ordersData || []);
-    if (ordersData && ordersData.length > 0) {
-      // If we already have a selected order, update it, otherwise select the first one
-      const currentSelected = selectedOrder
-        ? ordersData.find((o) => o.id === selectedOrder.id)
-        : null;
-      await selectOrderDetails(currentSelected || ordersData[0]);
-    } else {
-      setSelectedOrder(null);
-    }
-  }
-
-  async function selectOrderDetails(order: SalesOrder) {
-    log("selectOrderDetails:start", {
-      orderId: order.id,
-      poReference: order.po_reference,
-    });
-    const response = await fetch(
-      `/api/system/workflow/orders?orderId=${encodeURIComponent(order.id)}`,
-      {
-        method: "GET",
-      },
-    );
-    const payload = await response.json();
-
-    if (!response.ok) {
-      console.error("Error fetching order items:", payload);
-      log("selectOrderDetails:error", payload);
-      return;
-    }
-
-    const itemsData = payload?.items as OrderItem[] | undefined;
-    const partnerHandoffs = payload?.partnerHandoffs as
-      | PartnerHandoff[]
-      | undefined;
-
-    log("selectOrderDetails:success", {
-      orderId: order.id,
-      itemCount: itemsData?.length ?? 0,
-    });
-
-    setSelectedOrder({
-      ...order,
-      items: (itemsData as OrderItem[]) || [],
-      partnerHandoffs: partnerHandoffs || [],
-    });
-  }
+    void loadData();
+  }, [fetchOrders, supabase]);
 
   function updateGuidedStep(index: number, status: GuidedStepStatus) {
     setGuidedStatuses((current) =>

@@ -331,7 +331,7 @@ function RequestListItem({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-white">{item.title}</h3>
         <div className="flex flex-wrap items-center gap-2">
-          {viewed ? <Badge variant="ghost">Viewed</Badge> : null}
+          {viewed ? <Badge>Viewed</Badge> : null}
           <Badge className="capitalize">{getDisplayStatusLabel(item)}</Badge>
         </div>
       </div>

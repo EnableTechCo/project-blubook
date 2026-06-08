@@ -406,8 +406,8 @@ export async function GET() {
     }>
   >();
 
-  let latestPriorityScoreByOrg = new Map<string, RawPriorityScoreRow>();
-  let confidenceByOrg = new Map<string, number | null>();
+  const latestPriorityScoreByOrg = new Map<string, RawPriorityScoreRow>();
+  const confidenceByOrg = new Map<string, number | null>();
 
   if (organizationIds.length > 0) {
     const { data: priorityScores, error: priorityScoresError } = await admin
