@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,12 @@ export default function CustomerRequestsPage() {
     useState<(typeof REQUEST_PRIORITIES)[number]>("medium");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "priority">("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 10;
+
   const requestsQuery = useQuery({
     queryKey: ["customer-requests", customerContext.data?.userId],
     enabled: Boolean(customerContext.data?.userId),
@@ -61,10 +67,11 @@ export default function CustomerRequestsPage() {
     },
   });
 
-  const requests = useMemo(
-    () => requestsQuery.data ?? [],
-    [requestsQuery.data],
-  );
+  const requests = useMemo<RequestRecord[]>(() => {
+    return Array.isArray(requestsQuery.data)
+      ? requestsQuery.data
+      : [];
+  }, [requestsQuery.data]);
 
   const stats = useMemo(() => {
     return {
@@ -81,27 +88,90 @@ export default function CustomerRequestsPage() {
     };
   }, [requests]);
 
-  const filteredCustomRequests = useMemo(() => {
-    if (activeFilter === "all") {
-      return requests;
-    }
+  const processedRequests = useMemo(() => {
+    let result = [...requests];
 
+    // Filtering
     if (activeFilter === "open") {
-      return requests.filter(
+      result = result.filter(
         (item) => !["completed", "cancelled"].includes(item.status),
       );
     }
 
+    if (activeFilter === "cancelled") {
+      result = result.filter((item) => item.status === "cancelled");
+    }
+
     if (activeFilter === "at_risk") {
-      return requests.filter(
+      result = result.filter(
         (item) =>
           ["urgent", "high"].includes(item.priority) &&
           !["completed", "cancelled"].includes(item.status),
       );
     }
 
-    return requests.filter((item) => item.status === "cancelled");
-  }, [activeFilter, requests]);
+    // Searchin
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+
+      result = result.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.description?.toLowerCase().includes(q) ||
+          item.status.toLowerCase().includes(q),
+      );
+    }
+
+    // Sorting
+    const priorityRank = {
+      urgent: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    } as const;
+
+    result.sort((a, b) => {
+      if (sortBy === "oldest") {
+        return (
+          new Date(a.created_at).getTime() -
+          new Date(b.created_at).getTime()
+        );
+      }
+
+      if (sortBy === "priority") {
+        return (
+          priorityRank[b.priority as keyof typeof priorityRank] -
+          priorityRank[a.priority as keyof typeof priorityRank]
+        );
+      }
+
+      // newest default
+      return (
+        new Date(b.created_at).getTime() -
+        new Date(a.created_at).getTime()
+      );
+    });
+
+    return result;
+  }, [requests, activeFilter, searchTerm, sortBy]);
+
+  const paginatedRequests = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return processedRequests.slice(start, start + PAGE_SIZE);
+  }, [processedRequests, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchTerm, sortBy, requestsQuery.data]);
+
+  useEffect(() => {
+    const maxPage = Math.max(
+      1,
+      Math.ceil(processedRequests.length / PAGE_SIZE),
+    );
+
+    setCurrentPage((prev) => Math.min(prev, maxPage));
+  }, [processedRequests.length]);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -244,6 +314,26 @@ export default function CustomerRequestsPage() {
       </Card>
 
       <Card title="Request List">
+        <div className="flex flex-wrap gap-3 mb-4">
+
+        <Input
+          placeholder="Search requests..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+
+        <select
+          className="h-11 rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
+          value={sortBy}
+          onChange={(e) =>
+            setSortBy(e.target.value as any)
+          }
+        >
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="priority">Priority</option>
+        </select>
+      </div>
         {requestsQuery.isLoading ? (
           <p className="text-sm text-slate-300">Loading requests...</p>
         ) : requestsQuery.isError ? (
@@ -252,14 +342,54 @@ export default function CustomerRequestsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {filteredCustomRequests.map((item) => (
+            {paginatedRequests.map((item) => (
               <RequestListItem key={item.id} item={item} />
             ))}
 
-            {filteredCustomRequests.length === 0 ? (
+            {requests.length === 0 ? (
               <p className="text-sm text-slate-300">No requests available.</p>
+            ) : processedRequests.length === 0 ? (
+              <p className="text-sm text-slate-300">No matching results.</p>
             ) : null}
+
+            {processedRequests.length >= 0 && (
+              <div className="mt-4 flex flex-col items-center gap-3 border-t border-white/10 pt-4">
+                
+                <p className="text-sm text-slate-300 text-center">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1} -{" "}
+                  {Math.min(currentPage * PAGE_SIZE, processedRequests.length)} of{" "}
+                  {processedRequests.length}
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+
+                  <span className="px-2 text-sm text-white">
+                    {currentPage} /{" "}
+                    {Math.max(1, Math.ceil(processedRequests.length / PAGE_SIZE))}
+                  </span>
+
+                  <Button
+                    variant="secondary"
+                    disabled={
+                      currentPage >=
+                      Math.ceil(processedRequests.length / PAGE_SIZE)
+                    }
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+          
         )}
       </Card>
     </div>
