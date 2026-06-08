@@ -14,7 +14,6 @@ import {
   subscribeToNotifications,
 } from "@/services/notifications.service";
 import { listCustomerRequests } from "@/services/requests.service";
-import { DashboardChatbot } from "@/features/ai/dashboard-chatbot";
 import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import { useNotificationStore } from "@/store/notification-store";
 import { useUiStore } from "@/store/ui-store";
@@ -23,6 +22,39 @@ import { cn } from "@/lib/utils";
 export interface ShellNavItem {
   href: Route;
   label: string;
+}
+
+function getCustomerNameFromNotification(item: {
+  customer_name?: string | null;
+  customerName?: string | null;
+  organization_name?: string | null;
+  organizationName?: string | null;
+  payload?: {
+    customer_name?: string;
+    customerName?: string;
+    organization_name?: string;
+    organizationName?: string;
+  } | null;
+}) {
+  return (
+    item.customer_name ||
+    item.customerName ||
+    item.organization_name ||
+    item.organizationName ||
+    item.payload?.customer_name ||
+    item.payload?.customerName ||
+    item.payload?.organization_name ||
+    item.payload?.organizationName ||
+    undefined
+  );
+}
+
+function formatNotificationMessage(message: string, customerName?: string) {
+  if (!customerName) {
+    return message;
+  }
+
+  return message.replace(/^Customer\b/, customerName);
 }
 
 export function AppShell({
@@ -74,6 +106,7 @@ export function AppShell({
         message: item.message,
         createdAt: item.created_at,
         read: Boolean(item.read_at),
+        customerName: getCustomerNameFromNotification(item),
       })),
     );
   }, [notificationsQuery.data, setItems]);
@@ -137,7 +170,9 @@ export function AppShell({
   const customerRequestAlertCount = useMemo(() => {
     if (roleLabel === "Customer") {
       return (customerRequestsQuery.data ?? []).filter(
-        (request) => !["completed", "cancelled"].includes(request.status),
+        (request) =>
+          !viewedSuiteRequestIds.includes(request.id) &&
+          !["completed", "cancelled"].includes(request.status),
       ).length;
     }
 
@@ -152,14 +187,6 @@ export function AppShell({
     suiteRequests,
     viewedSuiteRequestIds,
   ]);
-
-  const partnerInboxAlertCount = useMemo(
-    () =>
-      suiteRequests.filter(
-        (request) => request.status === "pending_partner_review",
-      ).length,
-    [suiteRequests],
-  );
 
   const partnerMessageAlertCount = useMemo(
     () => partnerAlerts.filter((item) => !item.read).length,
@@ -178,6 +205,14 @@ export function AppShell({
 
   const isNavItemActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  const userDisplayName =
+    (typeof user?.user_metadata?.name === "string" &&
+      user.user_metadata.name.trim()) ||
+    (typeof user?.user_metadata?.full_name === "string" &&
+      user.user_metadata.full_name.trim()) ||
+    user?.email ||
+    "Signed in";
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -250,13 +285,6 @@ export function AppShell({
                   </span>
                 ) : null}
                 {roleLabel === "Partner" &&
-                item.href === "/partner/inbox" &&
-                partnerInboxAlertCount > 0 ? (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
-                    {partnerInboxAlertCount > 99 ? "99+" : partnerInboxAlertCount}
-                  </span>
-                ) : null}
-                {roleLabel === "Partner" &&
                 item.href === "/partner/messages" &&
                 partnerMessageAlertCount > 0 ? (
                   <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-semibold text-white">
@@ -280,10 +308,16 @@ export function AppShell({
         </div>
 
         {/* Restored clean alignment style constraint */}
-        <div className="mt-auto border-t border-white/10 pt-4 bg-ink/95">
+        <div className="mt-auto border-t border-white/10 bg-ink/95 px-1 pt-4">
+          <p
+            className="mb-2 truncate px-3 text-xs font-medium text-slate-300/90"
+            title={userDisplayName}
+          >
+            {userDisplayName}
+          </p>
           <button
             onClick={() => void signOut()}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral"
           >
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>
@@ -323,64 +357,77 @@ export function AppShell({
               </button>
 
               {notificationsOpen ? (
-                <div className="absolute right-0 z-50 mt-2 w-[320px] rounded-2xl border border-white/15 bg-ink/95 p-3 shadow-panel">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-white">
-                      Notifications
-                    </p>
-                    <button
-                      className="text-xs text-cyan-200 hover:text-white disabled:opacity-60"
-                      onClick={() =>
-                        user?.id && markAllReadMutation.mutate(user.id)
-                      }
-                      disabled={
-                        markAllReadMutation.isPending || unreadCount === 0
-                      }
-                    >
-                      Mark all read
-                    </button>
-                  </div>
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close notifications"
+                    className="fixed inset-0 z-40 cursor-default"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
 
-                  <div className="max-h-72 space-y-2 overflow-y-auto">
-                    {notificationsQuery.isLoading ? (
-                      <p className="text-xs text-slate-300">Loading...</p>
-                    ) : null}
-                    {items.map((item) => (
+                  <div className="absolute right-0 z-50 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/15 bg-ink/95 p-3 shadow-panel">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white">
+                        Notifications
+                      </p>
                       <button
-                        key={item.id}
-                        className={cn(
-                          "w-full rounded-xl border px-3 py-2 text-left transition",
-                          item.read
-                            ? "border-white/10 bg-white/5"
-                            : "border-coral/40 bg-coral/10",
-                        )}
+                        className="text-xs text-cyan-200 hover:text-white disabled:opacity-60"
                         onClick={() =>
-                          user?.id &&
-                          markReadMutation.mutate({
-                            notificationId: item.id,
-                            userId: user.id,
-                          })
+                          user?.id && markAllReadMutation.mutate(user.id)
+                        }
+                        disabled={
+                          markAllReadMutation.isPending || unreadCount === 0
                         }
                       >
-                        <p className="text-sm text-white">{item.message}</p>
-                        <p className="mt-1 text-[11px] text-slate-300">
-                          {new Date(item.createdAt).toLocaleString()}
-                        </p>
+                        Mark all read
                       </button>
-                    ))}
-                    {!notificationsQuery.isLoading && items.length === 0 ? (
-                      <p className="text-xs text-slate-300">
-                        No notifications yet.
-                      </p>
-                    ) : null}
+                    </div>
+
+                    <div className="max-h-72 space-y-2 overflow-y-auto">
+                      {notificationsQuery.isLoading ? (
+                        <p className="text-xs text-slate-300">Loading...</p>
+                      ) : null}
+                      {items.map((item) => (
+                        <button
+                          key={item.id}
+                          className={cn(
+                            "w-full rounded-xl border px-3 py-2 text-left transition",
+                            item.read
+                              ? "border-white/10 bg-white/5"
+                              : "border-coral/40 bg-coral/10",
+                          )}
+                          onClick={() =>
+                            user?.id &&
+                            markReadMutation.mutate({
+                              notificationId: item.id,
+                              userId: user.id,
+                            })
+                          }
+                        >
+                          <p className="text-sm text-white">
+                            {formatNotificationMessage(
+                              item.message,
+                              item.customerName,
+                            )}
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-300">
+                            {new Date(item.createdAt).toLocaleString()}
+                          </p>
+                        </button>
+                      ))}
+                      {!notificationsQuery.isLoading && items.length === 0 ? (
+                        <p className="text-xs text-slate-300">
+                          No notifications yet.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
+                </>
               ) : null}
             </div>
           </div>
         </header>
         <div className="p-4 lg:p-8">{children}</div>
-        <DashboardChatbot roleLabel={roleLabel} />
       </main>
     </div>
   );

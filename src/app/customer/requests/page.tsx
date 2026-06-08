@@ -3,11 +3,13 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCustomerContext } from "@/hooks/use-customer-context";
+import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import {
   createCustomerRequest,
   listCustomerRequests,
@@ -25,9 +27,35 @@ function formatStatusLabel(value: string) {
     .join(" ");
 }
 
+function isProviderOnboardingRequest(item: RequestRecord) {
+  return (
+    item.title.startsWith("Provider onboarding request -") ||
+    (item.description?.startsWith("Auto-generated provider request") ?? false)
+  );
+}
+
+function getDisplayStatusLabel(item: RequestRecord) {
+  if (item.status === "submitted" && isProviderOnboardingRequest(item)) {
+    return "Action Required";
+  }
+
+  return formatStatusLabel(item.status);
+}
+
+function getCustomerFacingDescription(item: RequestRecord) {
+  if (isProviderOnboardingRequest(item)) {
+    return "Upload the requested documents to start this service and activate SLA timelines.";
+  }
+
+  return item.description || "No description";
+}
+
 export default function CustomerRequestsPage() {
   const queryClient = useQueryClient();
   const customerContext = useCustomerContext();
+  const viewedSuiteRequestIds = useCustomerJourneyStore(
+    (state) => state.viewedSuiteRequestIds,
+  );
   const [activeFilter, setActiveFilter] = useState<
     "all" | "open" | "cancelled" | "at_risk"
   >("all");
@@ -118,22 +146,23 @@ export default function CustomerRequestsPage() {
   };
 
   if (customerContext.isLoading) {
-    return <p className="text-sm text-slate-300">Loading requests...</p>;
+    return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
   }
 
   if (customerContext.isError || !customerContext.data) {
-    return (
-      <p className="text-sm text-red-300">
-        Could not load your customer request workspace.
-      </p>
-    );
+    return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-3xl font-semibold text-white">Customer Requests</h2>
-        <Badge>{stats.open} Open</Badge>
+        <div className="flex items-center gap-2">
+          <Link href="/customer/dashboard" className="inline-flex">
+            <Button>Upload PO</Button>
+          </Link>
+          <Badge>{stats.open} Open</Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -245,7 +274,18 @@ export default function CustomerRequestsPage() {
 
       <Card title="Request List">
         {requestsQuery.isLoading ? (
-          <p className="text-sm text-slate-300">Loading requests...</p>
+          <div className="space-y-3 animate-pulse">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`request-row-skeleton-${index}`}
+                className="rounded-xl border border-white/15 bg-white/5 p-4"
+              >
+                <div className="h-5 w-2/3 rounded bg-white/10" />
+                <div className="mt-2 h-4 w-11/12 rounded bg-white/10" />
+                <div className="mt-2 h-4 w-2/5 rounded bg-white/10" />
+              </div>
+            ))}
+          </div>
         ) : requestsQuery.isError ? (
           <p className="text-sm text-red-300">
             Could not load customer requests right now.
@@ -253,7 +293,11 @@ export default function CustomerRequestsPage() {
         ) : (
           <div className="space-y-3">
             {filteredCustomRequests.map((item) => (
-              <RequestListItem key={item.id} item={item} />
+              <RequestListItem
+                key={item.id}
+                item={item}
+                viewed={viewedSuiteRequestIds.includes(item.id)}
+              />
             ))}
 
             {filteredCustomRequests.length === 0 ? (
@@ -266,21 +310,48 @@ export default function CustomerRequestsPage() {
   );
 }
 
-function RequestListItem({ item }: { item: RequestRecord }) {
+function RequestListItem({
+  item,
+  viewed,
+}: {
+  item: RequestRecord;
+  viewed: boolean;
+}) {
+  const providerOnboarding = isProviderOnboardingRequest(item);
+
   return (
     <Link
       href={`/customer/requests/${item.id}`}
-      className="block rounded-xl border border-white/15 bg-white/5 p-4 transition hover:border-white/25"
+      className={`block rounded-xl border p-4 transition hover:border-white/25 ${
+        viewed
+          ? "border-white/10 bg-white/[0.03]"
+          : "border-white/15 bg-white/5"
+      }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-white">{item.title}</h3>
-        <Badge className="capitalize">{formatStatusLabel(item.status)}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {viewed ? <Badge variant="ghost">Viewed</Badge> : null}
+          <Badge className="capitalize">{getDisplayStatusLabel(item)}</Badge>
+        </div>
       </div>
-      <p className="mt-1 text-sm text-slate-200/85">
-        {item.description || "No description"}
+      <p
+        className={`mt-1 text-sm ${viewed ? "text-slate-300/75" : "text-slate-200/85"}`}
+      >
+        {getCustomerFacingDescription(item)}
       </p>
-      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
-        <Badge className="uppercase">{item.priority}</Badge>
+      {providerOnboarding ? (
+        <p
+          className={`mt-2 text-xs ${viewed ? "text-slate-400" : "text-slate-300"}`}
+        >
+          Open this request to see which documents you need to upload before
+          service timelines begin.
+        </p>
+      ) : null}
+      <div
+        className={`mt-2 flex flex-wrap gap-2 text-xs ${viewed ? "text-slate-400" : "text-slate-300"}`}
+      >
+        <Badge>Priority: {formatStatusLabel(item.priority)}</Badge>
         <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
       </div>
     </Link>

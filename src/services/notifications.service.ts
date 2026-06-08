@@ -6,6 +6,16 @@ export interface NotificationRecord {
   message: string;
   created_at: string;
   read_at: string | null;
+  customer_name?: string | null;
+  customerName?: string | null;
+  organization_name?: string | null;
+  organizationName?: string | null;
+  payload?: {
+    customer_name?: string;
+    customerName?: string;
+    organization_name?: string;
+    organizationName?: string;
+  } | null;
 }
 
 export async function listNotifications(userId: string) {

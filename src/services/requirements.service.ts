@@ -53,63 +53,21 @@ export interface CustomerRequirementItem {
 }
 
 export async function listCustomerRequirements(organizationId: string) {
-  const supabase = createClient();
-
-  const { data: requirementRows, error: requirementsError } = await supabase
-    .from("customer_requirement_items")
-    .select(
-      "id, package_stream, provider_id, title, description, why_required, evidence_type, is_required, status, status_reason, due_at, updated_at",
-    )
-    .eq("organization_id", organizationId)
-    .order("package_stream", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  if (requirementsError) {
-    throw requirementsError;
-  }
-
-  const providerIds = Array.from(
-    new Set(
-      (requirementRows ?? [])
-        .map((row) => row.provider_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
+  const response = await fetch(
+    `/api/customer/requirements?organizationId=${encodeURIComponent(organizationId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
   );
 
-  const providerNamesById = new Map<string, string>();
+  const payload = await response.json().catch(() => null);
 
-  if (providerIds.length > 0) {
-    const { data: providerRows, error: providersError } = await supabase
-      .from("service_partners")
-      .select("id, name")
-      .in("id", providerIds);
-
-    if (providersError) {
-      throw providersError;
-    }
-
-    for (const provider of providerRows ?? []) {
-      providerNamesById.set(provider.id, provider.name);
-    }
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Could not load customer requirements.");
   }
 
-  return (requirementRows ?? []).map((row) => ({
-    id: row.id,
-    packageStream: row.package_stream,
-    providerName: row.provider_id
-      ? (providerNamesById.get(row.provider_id) ?? null)
-      : null,
-    title: row.title,
-    description: row.description,
-    whyRequired: row.why_required,
-    evidenceType: row.evidence_type,
-    isRequired: row.is_required,
-    status: row.status as RequirementStatus,
-    statusReason: row.status_reason,
-    dueAt: row.due_at,
-    updatedAt: row.updated_at,
-  })) as CustomerRequirementItem[];
+  return (payload ?? []) as CustomerRequirementItem[];
 }
 
 export async function submitRequirementEvidence(input: {
@@ -183,7 +141,55 @@ export async function submitRequirementEvidence(input: {
     throw evidenceError;
   }
 
-  return { documentId: documentRow.id, path };
+  const kickoffRequest = fetch("/api/customer/workflow/po-uploaded", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requirementItemId: input.requirementItemId,
+      fileName: input.file.name,
+    }),
+  }).catch(() => null);
+
+  // Keep the dashboard responsive when kickoff is slow; backend work can continue.
+  const kickoffResponse = await Promise.race([
+    kickoffRequest,
+    new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), 12000);
+    }),
+  ]);
+
+  let kickoff: {
+    ok?: boolean;
+    skipped?: boolean;
+    reason?: string;
+    salesOrderId?: string | null;
+    poReference?: string | null;
+    queuedEventId?: string | null;
+    error?: string;
+  } | null = null;
+
+  if (kickoffResponse?.ok) {
+    kickoff = await kickoffResponse.json().catch(() => null);
+  }
+
+  if (kickoffResponse && !kickoffResponse.ok) {
+    const kickoffPayload = await kickoffResponse.json().catch(() => null);
+    console.warn("[requirements] PO workflow kickoff did not complete", {
+      requirementItemId: input.requirementItemId,
+      error: kickoffPayload?.error ?? "unknown",
+    });
+  }
+
+  if (!kickoffResponse) {
+    console.warn("[requirements] PO workflow kickoff still processing", {
+      requirementItemId: input.requirementItemId,
+    });
+  }
+
+  return { documentId: documentRow.id, path, kickoff };
 }
 
 const requirementsService = {

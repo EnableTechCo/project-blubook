@@ -37,6 +37,8 @@ export interface DocumentRecord {
   size?: number;
   createdAt?: string;
   updatedAt?: string;
+  documentType?: string;
+  documentTypeLabel?: string;
 }
 
 export async function listDocuments(input: { bucket: string; prefix: string }) {
@@ -44,7 +46,7 @@ export async function listDocuments(input: { bucket: string; prefix: string }) {
   const prefixPattern = input.prefix ? `${input.prefix}/%` : "%";
   const { data, error } = await supabase
     .from("documents")
-    .select("file_name, path, size_bytes, created_at, updated_at")
+    .select("file_name, path, size_bytes, created_at, updated_at, metadata")
     .eq("bucket", input.bucket)
     .like("path", prefixPattern)
     .order("updated_at", { ascending: false })
@@ -61,6 +63,10 @@ export async function listDocuments(input: { bucket: string; prefix: string }) {
       size_bytes: number | null;
       created_at: string | null;
       updated_at: string | null;
+      metadata: {
+        documentType?: unknown;
+        documentTypeLabel?: unknown;
+      } | null;
     }>
   ).map((item) => ({
     name: item.file_name,
@@ -68,6 +74,14 @@ export async function listDocuments(input: { bucket: string; prefix: string }) {
     size: item.size_bytes ?? undefined,
     createdAt: item.created_at ?? undefined,
     updatedAt: item.updated_at ?? undefined,
+    documentType:
+      typeof item.metadata?.documentType === "string"
+        ? item.metadata.documentType
+        : undefined,
+    documentTypeLabel:
+      typeof item.metadata?.documentTypeLabel === "string"
+        ? item.metadata.documentTypeLabel
+        : undefined,
   }));
 }
 
@@ -75,6 +89,8 @@ export async function uploadDocument(input: {
   bucket: string;
   path: string;
   file: File;
+  documentType?: string;
+  documentTypeLabel?: string;
 }) {
   const supabase = createClient();
   const {
@@ -101,6 +117,14 @@ export async function uploadDocument(input: {
 
   const fileName = input.path.split("/").pop() ?? input.file.name;
   const organizationId = await resolveValidOrganizationId(supabase, input.path);
+  const metadata: Record<string, unknown> = {};
+  if (input.documentType) {
+    metadata.documentType = input.documentType;
+  }
+  if (input.documentTypeLabel) {
+    metadata.documentTypeLabel = input.documentTypeLabel;
+  }
+
   const { error: metadataError } = await supabase.from("documents").insert({
     uploaded_by: user.id,
     organization_id: organizationId,
@@ -109,6 +133,7 @@ export async function uploadDocument(input: {
     file_name: fileName,
     mime_type: input.file.type || null,
     size_bytes: input.file.size,
+    metadata,
   });
 
   if (metadataError) {
