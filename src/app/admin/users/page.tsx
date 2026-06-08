@@ -109,7 +109,7 @@ export default function AdminUsersPage() {
           />
         </div> */}
 
-        {/* Table Card (UNCHANGED) */}
+        {/* Table Card */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -132,24 +132,6 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 text-gray-600">
                       {u.email}
                     </td>
-
-                    {/* <td className="px-6 py-4">
-                      <select
-                        value={u.role}
-                        onChange={(e) =>
-                          handleRoleChange(
-                            u.id,
-                            e.target.value as MockUserRole
-                          )
-                        }
-                        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="staff">Staff</option>
-                        <option value="partner">Partner</option>
-                        <option value="customer">Customer</option>
-                      </select>
-                    </td> */}
 
                     <td className="px-6 py-4 text-gray-600 capitalize">
                       {u.role}
@@ -179,7 +161,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* ADD MODAL (NOW INCLUDES ROLE FIELD) */}
+        {/* Add modal */}
         {showAddModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/40">
             <div className="w-full max-w-md rounded-xl bg-white p-6">
@@ -260,7 +242,7 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {/* EDIT MODAL */}
+        {/* Edit modal */}
         {editingUser && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/40">
             <div className="w-full max-w-md rounded-xl bg-white p-6">
