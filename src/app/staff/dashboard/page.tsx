@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -6,6 +10,30 @@ import {
 } from "@/features/mock/dashboard-data";
 
 export default function StaffDashboardPage() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrapDashboard() {
+      await Promise.resolve();
+
+      if (!cancelled) {
+        setIsLoading(false);
+      }
+    }
+
+    void bootstrapDashboard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (isLoading) {
+    return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">

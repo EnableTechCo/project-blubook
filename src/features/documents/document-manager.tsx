@@ -1,17 +1,30 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FileUploader } from "@/components/ui/file-uploader";
 import {
   createSignedDocumentUrl,
+  type DocumentRecord,
   listDocuments,
   removeDocument,
   uploadDocument,
 } from "@/services/documents.service";
 import type { MockDocument } from "@/features/mock/dashboard-data";
+
+interface DocumentTypeOption {
+  value: string;
+  label: string;
+  group?: string;
+}
+
+type LocalMockDocument = MockDocument & {
+  documentType?: string;
+  documentTypeLabel?: string;
+};
 
 function formatSize(size?: number) {
   if (!size || size <= 0) {
@@ -35,18 +48,23 @@ export function DocumentManager({
   bucket,
   prefix,
   mockDocuments,
+  documentTypeOptions,
 }: {
   title: string;
   description: string;
   bucket: string;
   prefix: string;
   mockDocuments?: MockDocument[];
+  documentTypeOptions?: DocumentTypeOption[];
 }) {
   const useMockData = Boolean(mockDocuments?.length);
   const queryClient = useQueryClient();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  const [localDocs, setLocalDocs] = useState<MockDocument[]>(
+  const [selectedDocumentType, setSelectedDocumentType] = useState<string>(
+    documentTypeOptions?.[0]?.value ?? "",
+  );
+  const [localDocs, setLocalDocs] = useState<LocalMockDocument[]>(
     mockDocuments ?? [],
   );
 
@@ -54,6 +72,23 @@ export function DocumentManager({
     () => ["documents", bucket, prefix],
     [bucket, prefix],
   );
+
+  const groupedDocumentTypeOptions = useMemo(() => {
+    const groups = new Map<string, DocumentTypeOption[]>();
+    (documentTypeOptions ?? []).forEach((option) => {
+      const groupLabel = option.group ?? "Other";
+      const items = groups.get(groupLabel) ?? [];
+      items.push(option);
+      groups.set(groupLabel, items);
+    });
+
+    return Array.from(groups.entries())
+      .map(([group, options]) => ({
+        group,
+        options: options.sort((a, b) => a.label.localeCompare(b.label)),
+      }))
+      .sort((a, b) => a.group.localeCompare(b.group));
+  }, [documentTypeOptions]);
 
   const documentsQuery = useQuery({
     queryKey,
@@ -82,8 +117,8 @@ export function DocumentManager({
     },
   });
 
-  const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const onFilesSelected = async (files: File[]) => {
+    const file = files[0];
     if (!file) {
       return;
     }
@@ -91,8 +126,20 @@ export function DocumentManager({
     setUploadError(null);
     setUploadSuccess(null);
 
+    if (documentTypeOptions?.length && !selectedDocumentType) {
+      setUploadError("Select a document type before uploading.");
+      return;
+    }
+
+    const selectedType = documentTypeOptions?.find(
+      (option) => option.value === selectedDocumentType,
+    );
+
     const cleanedName = file.name.replace(/\s+/g, "-").toLowerCase();
-    const path = `${prefix}/${Date.now()}-${cleanedName}`;
+    const typePathSegment = selectedType
+      ? selectedType.value.replace(/[^a-z0-9\-]/gi, "-").toLowerCase()
+      : null;
+    const path = `${prefix}/${typePathSegment ? `${typePathSegment}/` : ""}${Date.now()}-${cleanedName}`;
 
     if (useMockData) {
       setLocalDocs((current) => [
@@ -101,32 +148,48 @@ export function DocumentManager({
           name: file.name,
           size: file.size,
           updatedAt: new Date().toISOString(),
+          documentType: selectedType?.value,
+          documentTypeLabel: selectedType?.label,
         },
         ...current,
       ]);
-      setUploadSuccess(`Uploaded ${file.name}`);
+      setUploadSuccess(
+        selectedType
+          ? `File uploaded: ${file.name} (${selectedType.label}).`
+          : `File uploaded: ${file.name}.`,
+      );
       console.info("[documents] upload success", {
         mode: "mock",
         bucket,
         path,
         fileName: file.name,
         sizeBytes: file.size,
+        documentType: selectedType?.value,
       });
-      event.target.value = "";
       return;
     }
 
     try {
-      await uploadMutation.mutateAsync({ bucket, path, file });
-      setUploadSuccess(`Uploaded ${file.name}`);
+      await uploadMutation.mutateAsync({
+        bucket,
+        path,
+        file,
+        documentType: selectedType?.value,
+        documentTypeLabel: selectedType?.label,
+      });
+      setUploadSuccess(
+        selectedType
+          ? `File uploaded: ${file.name} (${selectedType.label}).`
+          : `File uploaded: ${file.name}.`,
+      );
       console.info("[documents] upload success", {
         mode: "live",
         bucket,
         path,
         fileName: file.name,
         sizeBytes: file.size,
+        documentType: selectedType?.value,
       });
-      event.target.value = "";
     } catch (error) {
       setUploadSuccess(null);
       console.error("[documents] upload failed", {
@@ -139,15 +202,17 @@ export function DocumentManager({
     }
   };
 
-  const documentItems = useMockData ? localDocs : (documentsQuery.data ?? []);
+  const documentItems: Array<
+    Pick<DocumentRecord, "name" | "path" | "size" | "updatedAt"> & {
+      documentType?: string;
+      documentTypeLabel?: string;
+    }
+  > = useMockData ? localDocs : (documentsQuery.data ?? []);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
-            Phase 2
-          </p>
           <h2 className="text-3xl font-semibold text-white">{title}</h2>
           <p className="mt-1 text-sm text-slate-200/80">{description}</p>
         </div>
@@ -158,17 +223,59 @@ export function DocumentManager({
         title="Upload"
         description="Upload and store files securely in your workspace."
       >
-        <label className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10">
-          <span>
-            {uploadMutation.isPending ? "Uploading..." : "Choose file"}
-          </span>
-          <input
-            type="file"
-            className="hidden"
-            onChange={onFileChange}
-            disabled={uploadMutation.isPending}
-          />
-        </label>
+        {documentTypeOptions?.length ? (
+          <div className="relative mb-4 overflow-hidden rounded-xl border border-cyan-300/25 bg-slate-950/40 p-3">
+            <div className="pointer-events-none absolute -right-6 -top-6 h-14 w-14 rounded-full bg-cyan-300/20 blur-xl" />
+            <div className="pointer-events-none absolute -bottom-8 left-8 h-12 w-12 rounded-full bg-sky-300/20 blur-xl" />
+
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/90">
+              Document type
+            </label>
+
+            <div className="relative">
+              <select
+                value={selectedDocumentType}
+                onChange={(event) =>
+                  setSelectedDocumentType(event.target.value)
+                }
+                disabled={uploadMutation.isPending}
+                className="w-full appearance-none rounded-lg border border-cyan-200/30 bg-slate-950/80 px-3 py-2 pr-10 text-sm text-slate-100 outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+              >
+                {!selectedDocumentType ? (
+                  <option value="" className="bg-slate-950 text-slate-100">
+                    Select document type
+                  </option>
+                ) : null}
+                {groupedDocumentTypeOptions.map((group) => (
+                  <optgroup key={group.group} label={group.group}>
+                    {group.options.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        className="bg-slate-950 text-slate-100"
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-cyan-100/90">
+                ▾
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        <FileUploader
+          buttonLabel={
+            uploadMutation.isPending ? "Uploading..." : "Choose file"
+          }
+          onFilesSelected={onFilesSelected}
+          disabled={uploadMutation.isPending}
+          variant="ghost"
+          className="border border-white/20 bg-white/5 hover:bg-white/10"
+        />
         {uploadError ? (
           <p className="mt-2 text-sm text-red-300">{uploadError}</p>
         ) : null}
@@ -202,7 +309,12 @@ export function DocumentManager({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-white">{doc.name}</p>
-                <Badge>{formatSize(doc.size)}</Badge>
+                <div className="flex items-center gap-2">
+                  {doc.documentTypeLabel ? (
+                    <Badge>{doc.documentTypeLabel}</Badge>
+                  ) : null}
+                  <Badge>{formatSize(doc.size)}</Badge>
+                </div>
               </div>
               <p className="mt-1 text-xs text-slate-300">
                 {doc.updatedAt

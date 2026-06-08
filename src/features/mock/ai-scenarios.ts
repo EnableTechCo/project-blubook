@@ -1,8 +1,4 @@
-import type {
-  MockAiAutomation,
-  MockAiPrompt,
-  MockAiRecommendation,
-} from "./types";
+import type { MockAiAutomation, MockAiRecommendation } from "./types";
 
 export interface MockAiScenario {
   id: string;
@@ -78,25 +74,6 @@ export const MOCK_AI_RECOMMENDATION_BACKLOG: MockAiRecommendation[] = [
     confidence: 0.89,
     action: "Pause flow and open admin review",
     linkedEntity: "AUTO-11",
-  },
-];
-
-export const MOCK_AI_CHATBOT_PROMPTS: MockAiPrompt[] = [
-  {
-    id: "AIP-1",
-    prompt: "What are my top SLA risks in the next 6 hours?",
-    expectedOutcome: "A ranked list with reasons and escalation options.",
-  },
-  {
-    id: "AIP-2",
-    prompt: "Summarize all partner delivery blockers for today's standup.",
-    expectedOutcome: "Concise summary grouped by owner and ETA.",
-  },
-  {
-    id: "AIP-3",
-    prompt:
-      "Draft a status update for delayed shipments for customer accounts.",
-    expectedOutcome: "Role-safe message draft with shipment IDs and ETAs.",
   },
 ];
 
