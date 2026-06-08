@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 export type PackageTier = "bronze" | "silver" | "premium";
 export type CorporateSuite =
@@ -303,404 +304,416 @@ const DEFAULT_LOGIN_NOTIFICATIONS: JourneyNotification[] = [
   ),
 ];
 
-export const useCustomerJourneyStore = create<CustomerJourneyState>((set) => ({
-  packageTier: DEFAULT_LOGIN_TIER,
-  paid: true,
-  onboardingCompleted: true,
-  poUploaded: false,
-  poReference: "",
-  salesStage: SALES_STAGES[0],
-  logisticsStage: LOGISTICS_STAGES[0],
-  onboardingSnapshot: {
-    businessTitle: "BluBook Demo Customer",
-    businessSummary: "Demo profile loaded for customer workspace walkthrough.",
-    companyType: "llc",
-    employees: "21-49",
-    country: "South Africa",
-    city: "Johannesburg",
-    inventoryHandling: "in_house",
-    regions: ["domestic"],
-    regulated: false,
-    submittedAt: new Date().toISOString(),
-  },
-  suiteRequests: DEFAULT_LOGIN_SUITE_REQUESTS,
-  viewedSuiteRequestIds: [],
-  notifications: DEFAULT_LOGIN_NOTIFICATIONS,
-  partnerNotifications: [
-    newNotification(
-      "system",
-      "Partner inbox seeded with five active suite queues for demo mode.",
-    ),
-  ],
-
-  selectPackage: (tier) =>
-    set(() => ({
-      packageTier: tier,
-      paid: false,
-      onboardingCompleted: false,
-      onboardingSnapshot: null,
-      suiteRequests: [],
-      viewedSuiteRequestIds: [],
-      partnerNotifications: [],
-      notifications: [
-        newNotification(
-          "system",
-          `${tier.toUpperCase()} package selected. Complete payment to continue onboarding.`,
-        ),
-      ],
-    })),
-
-  completePayment: () =>
-    set((state) => ({
+export const useCustomerJourneyStore = create<CustomerJourneyState>()(
+  persist(
+    (set) => ({
+      packageTier: DEFAULT_LOGIN_TIER,
       paid: true,
-      notifications: [
+      onboardingCompleted: true,
+      poUploaded: false,
+      poReference: "",
+      salesStage: SALES_STAGES[0],
+      logisticsStage: LOGISTICS_STAGES[0],
+      onboardingSnapshot: {
+        businessTitle: "BluBook Demo Customer",
+        businessSummary:
+          "Demo profile loaded for customer workspace walkthrough.",
+        companyType: "llc",
+        employees: "21-49",
+        country: "South Africa",
+        city: "Johannesburg",
+        inventoryHandling: "in_house",
+        regions: ["domestic"],
+        regulated: false,
+        submittedAt: new Date().toISOString(),
+      },
+      suiteRequests: DEFAULT_LOGIN_SUITE_REQUESTS,
+      viewedSuiteRequestIds: [],
+      notifications: DEFAULT_LOGIN_NOTIFICATIONS,
+      partnerNotifications: [
         newNotification(
           "system",
-          "Payment successful. Continue to onboarding form.",
+          "Partner inbox seeded with five active suite queues for demo mode.",
         ),
-        ...state.notifications,
       ],
-    })),
 
-  completeOnboarding: (snapshot) =>
-    set((state) => {
-      if (!state.packageTier) {
-        return state;
-      }
-
-      const suiteRequests = buildSuiteRequestsForTier(state.packageTier);
-      const suiteNotifications = suiteRequests.map((request) =>
-        newNotification(
-          request.suite,
-          `${formatSuiteLabel(request.suite)} requested: ${request.requiredDocs[0]}. Partner review pending.`,
-        ),
-      );
-      const partnerNotifications = suiteRequests.map((request) =>
-        newNotification(
-          request.suite,
-          `New ${formatSuiteLabel(request.suite)} request received. Accept or reject to start execution.`,
-        ),
-      );
-
-      return {
-        onboardingCompleted: true,
-        onboardingSnapshot: snapshot,
-        suiteRequests,
-        viewedSuiteRequestIds: [],
-        partnerNotifications: [
-          ...partnerNotifications,
-          ...state.partnerNotifications,
-        ],
-        notifications: [
-          newNotification(
-            "system",
-            "Onboarding submitted. All 5 corporate suites are now activated.",
-          ),
-          ...suiteNotifications,
-          ...state.notifications,
-        ],
-      };
-    }),
-
-  uploadSuiteDocument: (requestId, docName) =>
-    set((state) => {
-      const partnerNotifications: JourneyNotification[] = [];
-      const customerNotifications: JourneyNotification[] = [];
-
-      const updated: SuiteRequest[] = state.suiteRequests.map(
-        (request): SuiteRequest => {
-          if (request.id !== requestId) {
-            return request;
-          }
-
-          const receivedDocs = Array.from(
-            new Set([...request.receivedDocs, docName]),
-          );
-          const completed = request.requiredDocs.every((doc) =>
-            receivedDocs.includes(doc),
-          );
-          const canStartExecution =
-            request.partnerDecision === "accepted" &&
-            completed &&
-            (!request.poRequired || state.poUploaded);
-          const waitingForPo =
-            request.partnerDecision === "accepted" &&
-            completed &&
-            request.poRequired &&
-            !state.poUploaded;
-          const nextStatus = canStartExecution
-            ? "in_progress"
-            : waitingForPo
-              ? "waiting_purchase_order"
-              : request.partnerDecision === "accepted"
-                ? "pending_customer_docs"
-                : request.status;
-          const nextSlaDueAt = canStartExecution
-            ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
-            : request.slaDueAt;
-
-          partnerNotifications.push(
-            newNotification(
-              request.suite,
-              `Customer uploaded ${docName} for ${formatSuiteLabel(request.suite)} request ${request.id}.`,
-            ),
-          );
-          customerNotifications.push(
+      selectPackage: (tier) =>
+        set(() => ({
+          packageTier: tier,
+          paid: false,
+          onboardingCompleted: false,
+          onboardingSnapshot: null,
+          suiteRequests: [],
+          viewedSuiteRequestIds: [],
+          partnerNotifications: [],
+          notifications: [
             newNotification(
               "system",
-              `Document uploaded (${docName}). ${formatSuiteLabel(request.suite)} provider notified.`,
+              `${tier.toUpperCase()} package selected. Complete payment to continue onboarding.`,
+            ),
+          ],
+        })),
+
+      completePayment: () =>
+        set((state) => ({
+          paid: true,
+          notifications: [
+            newNotification(
+              "system",
+              "Payment successful. Continue to onboarding form.",
+            ),
+            ...state.notifications,
+          ],
+        })),
+
+      completeOnboarding: (snapshot) =>
+        set((state) => {
+          if (!state.packageTier) {
+            return state;
+          }
+
+          const suiteRequests = buildSuiteRequestsForTier(state.packageTier);
+          const suiteNotifications = suiteRequests.map((request) =>
+            newNotification(
+              request.suite,
+              `${formatSuiteLabel(request.suite)} requested: ${request.requiredDocs[0]}. Partner review pending.`,
             ),
           );
-          if (canStartExecution && nextSlaDueAt) {
-            customerNotifications.push(
+          const partnerNotifications = suiteRequests.map((request) =>
+            newNotification(
+              request.suite,
+              `New ${formatSuiteLabel(request.suite)} request received. Accept or reject to start execution.`,
+            ),
+          );
+
+          return {
+            onboardingCompleted: true,
+            onboardingSnapshot: snapshot,
+            suiteRequests,
+            viewedSuiteRequestIds: [],
+            partnerNotifications: [
+              ...partnerNotifications,
+              ...state.partnerNotifications,
+            ],
+            notifications: [
               newNotification(
-                request.suite,
-                `${formatSuiteLabel(request.suite)} started execution. SLA target due by ${new Date(nextSlaDueAt).toLocaleString()}.`,
+                "system",
+                "Onboarding submitted. All 5 corporate suites are now activated.",
               ),
-            );
-          }
-
-          return {
-            ...request,
-            receivedDocs,
-            status: nextStatus,
-            slaDueAt: nextSlaDueAt,
+              ...suiteNotifications,
+              ...state.notifications,
+            ],
           };
-        },
-      );
+        }),
 
-      return {
-        suiteRequests: updated,
-        notifications: [...customerNotifications, ...state.notifications],
-        partnerNotifications: [
-          ...partnerNotifications,
-          ...state.partnerNotifications,
-        ],
-      };
-    }),
+      uploadSuiteDocument: (requestId, docName) =>
+        set((state) => {
+          const partnerNotifications: JourneyNotification[] = [];
+          const customerNotifications: JourneyNotification[] = [];
 
-  uploadPurchaseOrder: (poReference) =>
-    set((state) => {
-      const customerNotifications: JourneyNotification[] = [
-        newNotification(
-          "sales_ops",
-          `Purchase order ${poReference} uploaded. Sales workflow started.`,
-        ),
-      ];
-      const partnerNotifications: JourneyNotification[] = [
-        newNotification(
-          "sales_ops",
-          `Customer uploaded PO ${poReference}. Continue partner intake for PO-bound suites.`,
-        ),
-      ];
+          const updated: SuiteRequest[] = state.suiteRequests.map(
+            (request): SuiteRequest => {
+              if (request.id !== requestId) {
+                return request;
+              }
 
-      const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
-        (request): SuiteRequest => {
-          const docsComplete = request.requiredDocs.every((doc) =>
-            request.receivedDocs.includes(doc),
-          );
-          const canStart =
-            request.partnerDecision === "accepted" &&
-            request.poRequired &&
-            docsComplete;
+              const receivedDocs = Array.from(
+                new Set([...request.receivedDocs, docName]),
+              );
+              const completed = request.requiredDocs.every((doc) =>
+                receivedDocs.includes(doc),
+              );
+              const canStartExecution =
+                request.partnerDecision === "accepted" &&
+                completed &&
+                (!request.poRequired || state.poUploaded);
+              const waitingForPo =
+                request.partnerDecision === "accepted" &&
+                completed &&
+                request.poRequired &&
+                !state.poUploaded;
+              const nextStatus = canStartExecution
+                ? "in_progress"
+                : waitingForPo
+                  ? "waiting_purchase_order"
+                  : request.partnerDecision === "accepted"
+                    ? "pending_customer_docs"
+                    : request.status;
+              const nextSlaDueAt = canStartExecution
+                ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
+                : request.slaDueAt;
 
-          if (!canStart) {
-            return request;
-          }
-
-          const slaDueAt =
-            request.slaDueAt ?? addHoursIso(request.slaTargetHours);
-          customerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} execution is active. SLA target due by ${new Date(slaDueAt).toLocaleString()}.`,
-            ),
-          );
-
-          return {
-            ...request,
-            status: "in_progress",
-            slaDueAt,
-          };
-        },
-      );
-
-      return {
-        poUploaded: true,
-        poReference,
-        salesStage: SALES_STAGES[0],
-        logisticsStage: LOGISTICS_STAGES[0],
-        suiteRequests,
-        notifications: [...customerNotifications, ...state.notifications],
-        partnerNotifications: [
-          ...partnerNotifications,
-          ...state.partnerNotifications,
-        ],
-      };
-    }),
-
-  reviewSuiteRequest: (requestId, decision) =>
-    set((state) => {
-      const customerNotifications: JourneyNotification[] = [];
-      const partnerNotifications: JourneyNotification[] = [];
-
-      const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
-        (request): SuiteRequest => {
-          if (request.id !== requestId) {
-            return request;
-          }
-
-          if (decision === "rejected") {
-            customerNotifications.push(
-              newNotification(
-                request.suite,
-                `${formatSuiteLabel(request.suite)} provider rejected request ${request.id}. Team will follow up with alternatives.`,
-              ),
-            );
-
-            return {
-              ...request,
-              partnerDecision: "rejected",
-              status: "rejected",
-              slaDueAt: null,
-            };
-          }
-
-          const docsComplete = request.requiredDocs.every((doc) =>
-            request.receivedDocs.includes(doc),
-          );
-          const canStart =
-            docsComplete && (!request.poRequired || state.poUploaded);
-          const waitingForPo =
-            docsComplete && request.poRequired && !state.poUploaded;
-          const nextStatus = canStart
-            ? "in_progress"
-            : waitingForPo
-              ? "waiting_purchase_order"
-              : "pending_customer_docs";
-          const slaDueAt = canStart
-            ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
-            : request.slaDueAt;
-
-          partnerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} accepted request ${request.id}. Required docs are already requested from customer.`,
-            ),
-          );
-          customerNotifications.push(
-            newNotification(
-              request.suite,
-              `${formatSuiteLabel(request.suite)} accepted your request. ${
-                nextStatus === "waiting_purchase_order"
-                  ? "Upload purchase order to start execution."
-                  : nextStatus === "in_progress"
-                    ? `SLA target due by ${new Date(slaDueAt as string).toLocaleString()}.`
-                    : "Finish required document uploads to start execution."
-              }`,
-            ),
-          );
-
-          return {
-            ...request,
-            partnerDecision: "accepted",
-            status: nextStatus,
-            slaDueAt,
-          };
-        },
-      );
-
-      return {
-        suiteRequests,
-        notifications: [...customerNotifications, ...state.notifications],
-        partnerNotifications: [
-          ...partnerNotifications,
-          ...state.partnerNotifications,
-        ],
-      };
-    }),
-
-  advanceSalesWorkflow: () =>
-    set((state) => {
-      const current = SALES_STAGES.indexOf(
-        state.salesStage as (typeof SALES_STAGES)[number],
-      );
-      const next = Math.min(current + 1, SALES_STAGES.length - 1);
-      const nextStage = SALES_STAGES[next];
-      const shouldTriggerLogistics = nextStage === "Ready for Logistics";
-
-      return {
-        salesStage: nextStage,
-        notifications: [
-          newNotification(
-            "sales_ops",
-            `Sales workflow moved to: ${nextStage}.`,
-          ),
-          ...(shouldTriggerLogistics
-            ? [
+              partnerNotifications.push(
                 newNotification(
-                  "logistics",
-                  "Sales handoff complete. Logistics workflow triggered.",
+                  request.suite,
+                  `Customer uploaded ${docName} for ${formatSuiteLabel(request.suite)} request ${request.id}.`,
                 ),
-              ]
-            : []),
-          ...state.notifications,
-        ],
-      };
-    }),
+              );
+              customerNotifications.push(
+                newNotification(
+                  "system",
+                  `Document uploaded (${docName}). ${formatSuiteLabel(request.suite)} provider notified.`,
+                ),
+              );
+              if (canStartExecution && nextSlaDueAt) {
+                customerNotifications.push(
+                  newNotification(
+                    request.suite,
+                    `${formatSuiteLabel(request.suite)} started execution. SLA target due by ${new Date(nextSlaDueAt).toLocaleString()}.`,
+                  ),
+                );
+              }
 
-  advanceLogisticsWorkflow: () =>
-    set((state) => {
-      const current = LOGISTICS_STAGES.indexOf(
-        state.logisticsStage as (typeof LOGISTICS_STAGES)[number],
-      );
-      const next = Math.min(current + 1, LOGISTICS_STAGES.length - 1);
-      const nextStage = LOGISTICS_STAGES[next];
+              return {
+                ...request,
+                receivedDocs,
+                status: nextStatus,
+                slaDueAt: nextSlaDueAt,
+              };
+            },
+          );
 
-      return {
-        logisticsStage: nextStage,
-        notifications: [
-          newNotification(
-            "logistics",
-            `Logistics workflow moved to: ${nextStage}.`,
+          return {
+            suiteRequests: updated,
+            notifications: [...customerNotifications, ...state.notifications],
+            partnerNotifications: [
+              ...partnerNotifications,
+              ...state.partnerNotifications,
+            ],
+          };
+        }),
+
+      uploadPurchaseOrder: (poReference) =>
+        set((state) => {
+          const customerNotifications: JourneyNotification[] = [
+            newNotification(
+              "sales_ops",
+              `Purchase order ${poReference} uploaded. Sales workflow started.`,
+            ),
+          ];
+          const partnerNotifications: JourneyNotification[] = [
+            newNotification(
+              "sales_ops",
+              `Customer uploaded PO ${poReference}. Continue partner intake for PO-bound suites.`,
+            ),
+          ];
+
+          const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
+            (request): SuiteRequest => {
+              const docsComplete = request.requiredDocs.every((doc) =>
+                request.receivedDocs.includes(doc),
+              );
+              const canStart =
+                request.partnerDecision === "accepted" &&
+                request.poRequired &&
+                docsComplete;
+
+              if (!canStart) {
+                return request;
+              }
+
+              const slaDueAt =
+                request.slaDueAt ?? addHoursIso(request.slaTargetHours);
+              customerNotifications.push(
+                newNotification(
+                  request.suite,
+                  `${formatSuiteLabel(request.suite)} execution is active. SLA target due by ${new Date(slaDueAt).toLocaleString()}.`,
+                ),
+              );
+
+              return {
+                ...request,
+                status: "in_progress",
+                slaDueAt,
+              };
+            },
+          );
+
+          return {
+            poUploaded: true,
+            poReference,
+            salesStage: SALES_STAGES[0],
+            logisticsStage: LOGISTICS_STAGES[0],
+            suiteRequests,
+            notifications: [...customerNotifications, ...state.notifications],
+            partnerNotifications: [
+              ...partnerNotifications,
+              ...state.partnerNotifications,
+            ],
+          };
+        }),
+
+      reviewSuiteRequest: (requestId, decision) =>
+        set((state) => {
+          const customerNotifications: JourneyNotification[] = [];
+          const partnerNotifications: JourneyNotification[] = [];
+
+          const suiteRequests: SuiteRequest[] = state.suiteRequests.map(
+            (request): SuiteRequest => {
+              if (request.id !== requestId) {
+                return request;
+              }
+
+              if (decision === "rejected") {
+                customerNotifications.push(
+                  newNotification(
+                    request.suite,
+                    `${formatSuiteLabel(request.suite)} provider rejected request ${request.id}. Team will follow up with alternatives.`,
+                  ),
+                );
+
+                return {
+                  ...request,
+                  partnerDecision: "rejected",
+                  status: "rejected",
+                  slaDueAt: null,
+                };
+              }
+
+              const docsComplete = request.requiredDocs.every((doc) =>
+                request.receivedDocs.includes(doc),
+              );
+              const canStart =
+                docsComplete && (!request.poRequired || state.poUploaded);
+              const waitingForPo =
+                docsComplete && request.poRequired && !state.poUploaded;
+              const nextStatus = canStart
+                ? "in_progress"
+                : waitingForPo
+                  ? "waiting_purchase_order"
+                  : "pending_customer_docs";
+              const slaDueAt = canStart
+                ? (request.slaDueAt ?? addHoursIso(request.slaTargetHours))
+                : request.slaDueAt;
+
+              partnerNotifications.push(
+                newNotification(
+                  request.suite,
+                  `${formatSuiteLabel(request.suite)} accepted request ${request.id}. Required docs are already requested from customer.`,
+                ),
+              );
+              customerNotifications.push(
+                newNotification(
+                  request.suite,
+                  `${formatSuiteLabel(request.suite)} accepted your request. ${
+                    nextStatus === "waiting_purchase_order"
+                      ? "Upload purchase order to start execution."
+                      : nextStatus === "in_progress"
+                        ? `SLA target due by ${new Date(slaDueAt as string).toLocaleString()}.`
+                        : "Finish required document uploads to start execution."
+                  }`,
+                ),
+              );
+
+              return {
+                ...request,
+                partnerDecision: "accepted",
+                status: nextStatus,
+                slaDueAt,
+              };
+            },
+          );
+
+          return {
+            suiteRequests,
+            notifications: [...customerNotifications, ...state.notifications],
+            partnerNotifications: [
+              ...partnerNotifications,
+              ...state.partnerNotifications,
+            ],
+          };
+        }),
+
+      advanceSalesWorkflow: () =>
+        set((state) => {
+          const current = SALES_STAGES.indexOf(
+            state.salesStage as (typeof SALES_STAGES)[number],
+          );
+          const next = Math.min(current + 1, SALES_STAGES.length - 1);
+          const nextStage = SALES_STAGES[next];
+          const shouldTriggerLogistics = nextStage === "Ready for Logistics";
+
+          return {
+            salesStage: nextStage,
+            notifications: [
+              newNotification(
+                "sales_ops",
+                `Sales workflow moved to: ${nextStage}.`,
+              ),
+              ...(shouldTriggerLogistics
+                ? [
+                    newNotification(
+                      "logistics",
+                      "Sales handoff complete. Logistics workflow triggered.",
+                    ),
+                  ]
+                : []),
+              ...state.notifications,
+            ],
+          };
+        }),
+
+      advanceLogisticsWorkflow: () =>
+        set((state) => {
+          const current = LOGISTICS_STAGES.indexOf(
+            state.logisticsStage as (typeof LOGISTICS_STAGES)[number],
+          );
+          const next = Math.min(current + 1, LOGISTICS_STAGES.length - 1);
+          const nextStage = LOGISTICS_STAGES[next];
+
+          return {
+            logisticsStage: nextStage,
+            notifications: [
+              newNotification(
+                "logistics",
+                `Logistics workflow moved to: ${nextStage}.`,
+              ),
+              ...state.notifications,
+            ],
+          };
+        }),
+
+      remindSuiteDocument: (suite, docName) =>
+        set((state) => ({
+          notifications: [
+            newNotification(
+              suite,
+              `${formatSuiteLabel(suite)} requires document: ${docName}.`,
+            ),
+            ...state.notifications,
+          ],
+        })),
+
+      markSuiteRequestViewed: (requestId) =>
+        set((state) => ({
+          viewedSuiteRequestIds: state.viewedSuiteRequestIds.includes(requestId)
+            ? state.viewedSuiteRequestIds
+            : [...state.viewedSuiteRequestIds, requestId],
+        })),
+
+      markNotificationRead: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((item) =>
+            item.id === id ? { ...item, read: true } : item,
           ),
-          ...state.notifications,
-        ],
-      };
+        })),
+
+      markPartnerNotificationRead: (id) =>
+        set((state) => ({
+          partnerNotifications: state.partnerNotifications.map((item) =>
+            item.id === id ? { ...item, read: true } : item,
+          ),
+        })),
     }),
-
-  remindSuiteDocument: (suite, docName) =>
-    set((state) => ({
-      notifications: [
-        newNotification(
-          suite,
-          `${formatSuiteLabel(suite)} requires document: ${docName}.`,
-        ),
-        ...state.notifications,
-      ],
-    })),
-
-  markSuiteRequestViewed: (requestId) =>
-    set((state) => ({
-      viewedSuiteRequestIds: state.viewedSuiteRequestIds.includes(requestId)
-        ? state.viewedSuiteRequestIds
-        : [...state.viewedSuiteRequestIds, requestId],
-    })),
-
-  markNotificationRead: (id) =>
-    set((state) => ({
-      notifications: state.notifications.map((item) =>
-        item.id === id ? { ...item, read: true } : item,
-      ),
-    })),
-
-  markPartnerNotificationRead: (id) =>
-    set((state) => ({
-      partnerNotifications: state.partnerNotifications.map((item) =>
-        item.id === id ? { ...item, read: true } : item,
-      ),
-    })),
-}));
+    {
+      name: "customer-journey-store",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        viewedSuiteRequestIds: state.viewedSuiteRequestIds,
+      }),
+    },
+  ),
+);
 
 export const SALES_WORKFLOW_STAGES = SALES_STAGES;
 export const LOGISTICS_WORKFLOW_STAGES = LOGISTICS_STAGES;

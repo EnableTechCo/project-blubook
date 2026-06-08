@@ -5,6 +5,7 @@ interface NotificationItem {
   message: string;
   createdAt: string;
   read: boolean;
+  customerName?: string;
 }
 
 interface NotificationState {

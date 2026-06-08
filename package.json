@@ -11,6 +11,9 @@
     "test:ci": "pnpm lint && pnpm typecheck",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "debug:auth:partner": "node --env-file=.env.local scripts/debug-partner-auth.mjs",
+    "debug:login:partner": "node scripts/debug-partner-login.mjs",
+    "db:introspect": "node --env-file=.env.local scripts/introspect-db-and-apis.mjs",
     "email:test:onboarding": "node --env-file=.env.local scripts/send-test-onboarding-email.mjs",
     "seed:providers:mock": "node --env-file=.env.local scripts/seed-mock-provider-accounts.mjs"
   },

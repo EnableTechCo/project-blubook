@@ -1,17 +1,19 @@
+import type { Route } from "next";
 import { ShellNavItem } from "@/components/shell/app-shell";
 
 export const customerNav: ShellNavItem[] = [
-  { href: "/customer/billing", label: "Billing" },
-  { href: "/customer/requests", label: "Requests" },
-  { href: "/customer/messages", label: "Messages" },
-  { href: "/customer/documents", label: "Documents" },
-  { href: "/customer/analytics", label: "Analytics" },
-  { href: "/customer/settings", label: "Settings" },
+  { href: "/customer/dashboard" as Route, label: "Dashboard" },
+  { href: "/customer/billing" as Route, label: "Billing" },
+  { href: "/customer/orders" as Route, label: "Orders" },
+  { href: "/customer/requests" as Route, label: "Requests" },
+  { href: "/customer/messages" as Route, label: "Messages" },
+  { href: "/customer/documents" as Route, label: "Documents" },
+  { href: "/customer/analytics" as Route, label: "Analytics" },
+  { href: "/customer/settings" as Route, label: "Settings" },
 ];
 
 export const partnerNav: ShellNavItem[] = [
   { href: "/partner/dashboard", label: "Dashboard" },
-  { href: "/partner/inbox", label: "Inbox" },
   { href: "/partner/work-orders", label: "Work Orders" },
   { href: "/partner/messages", label: "Messages" },
   { href: "/partner/documents", label: "Documents" },
