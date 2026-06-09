@@ -62,9 +62,6 @@ export default function CustomerAnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
-            Phase 2
-          </p>
           <h2 className="text-3xl font-semibold text-white">
             Customer Analytics
           </h2>

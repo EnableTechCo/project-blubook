@@ -56,26 +56,97 @@ export interface PersistedOnboardingAutomationResult {
   priorityTier: "standard" | "high" | "critical" | "strategic";
 }
 
-function computePriorityScore(onboarding: OnboardingAutomationSignals): number {
-  let score = 40;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function tierSignal(packageTier: string): number {
+  const normalized = packageTier.toLowerCase();
+  if (normalized.includes("enterprise") || normalized.includes("strategic")) {
+    return 10;
+  }
+  if (normalized.includes("pro") || normalized.includes("premium")) {
+    return 6;
+  }
+  if (normalized.includes("growth") || normalized.includes("plus")) {
+    return 3;
+  }
+  return 0;
+}
+
+function computePriorityScore(
+  onboarding: OnboardingAutomationSignals,
+  packageTier: string,
+): number {
+  let score = 38;
 
   if (onboarding.regulated) {
-    score += 20;
+    score += 16;
   }
   if (onboarding.regions.includes("cross_border")) {
-    score += 15;
+    score += 12;
   }
   if (["reseller", "distributor"].includes(onboarding.businessModel)) {
-    score += 10;
+    score += 8;
+  }
+  if (["marketplace", "manufacturer"].includes(onboarding.businessModel)) {
+    score += 6;
   }
   if (
     onboarding.salesChannels.includes("marketplace") ||
     onboarding.salesChannels.includes("social")
   ) {
-    score += 10;
+    score += 8;
+  }
+  if (onboarding.customerSegment === "hybrid") {
+    score += 5;
+  }
+  if (
+    ["10m_50m", "50m_200m", "200m_plus"].includes(onboarding.annualRevenueBand)
+  ) {
+    score += 6;
+  }
+  if (
+    ["1000_10000", "10000_plus"].includes(onboarding.monthlyOrderVolumeBand)
+  ) {
+    score += 7;
+  }
+  if (onboarding.salesChannels.length >= 3) {
+    score += 4;
+  }
+  score += tierSignal(packageTier);
+
+  return clamp(score, 0, 100);
+}
+
+function computeConfidenceScore(
+  onboarding: OnboardingAutomationSignals,
+): number {
+  let confidence = 62;
+
+  if (onboarding.subIndustry && onboarding.subIndustry.trim().length >= 2) {
+    confidence += 5;
+  }
+  if (onboarding.salesChannels.length >= 2) {
+    confidence += 5;
+  }
+  if (onboarding.regions.length >= 1) {
+    confidence += 4;
+  }
+  if (onboarding.annualRevenueBand !== "under_1m") {
+    confidence += 4;
+  }
+  if (onboarding.monthlyOrderVolumeBand !== "under_100") {
+    confidence += 4;
+  }
+  if (onboarding.customerSegment === "hybrid") {
+    confidence += 3;
+  }
+  if (onboarding.inventoryModel === "hybrid") {
+    confidence -= 2;
   }
 
-  return Math.min(score, 100);
+  return clamp(confidence, 45, 95);
 }
 
 function priorityTierFromScore(
@@ -96,8 +167,14 @@ function priorityTierFromScore(
 export async function persistCustomerOnboardingAutomation(
   input: PersistCustomerOnboardingAutomationInput,
 ): Promise<PersistedOnboardingAutomationResult> {
-  const { supabase, organizationId, onboardingSubmissionId, onboarding } =
-    input;
+  const {
+    supabase,
+    organizationId,
+    onboardingSubmissionId,
+    onboarding,
+    packageTier,
+  } = input;
+  const confidenceScore = computeConfidenceScore(onboarding);
 
   const { data: intelligenceProfile, error: intelligenceError } = await supabase
     .from("customer_intelligence_profiles")
@@ -121,11 +198,11 @@ export async function persistCustomerOnboardingAutomation(
         inventory_handling: onboarding.inventoryHandling,
       },
       signal_snapshot: {
-        package_tier: input.packageTier,
+        package_tier: packageTier,
         country: input.country,
         city: input.city,
       },
-      confidence_score: 78,
+      confidence_score: confidenceScore,
     })
     .select("id")
     .single();
@@ -137,7 +214,7 @@ export async function persistCustomerOnboardingAutomation(
     );
   }
 
-  const priorityScore = computePriorityScore(onboarding);
+  const priorityScore = computePriorityScore(onboarding, packageTier);
   const priorityTier = priorityTierFromScore(priorityScore);
 
   const { error: priorityError } = await supabase
@@ -148,14 +225,17 @@ export async function persistCustomerOnboardingAutomation(
       score: priorityScore,
       tier: priorityTier,
       reason_summary:
-        "Initial onboarding-derived priority score based on model, channels, and compliance flags.",
+        "Initial readiness estimate based on onboarding information.",
       score_factors: {
+        package_tier: packageTier,
         regulated: onboarding.regulated,
         regions: onboarding.regions,
         business_model: onboarding.businessModel,
         sales_channels: onboarding.salesChannels,
+        annual_revenue_band: onboarding.annualRevenueBand,
+        monthly_order_volume_band: onboarding.monthlyOrderVolumeBand,
       },
-      model_version: "onboarding-v1",
+      model_version: "onboarding-v2",
       is_active: true,
       created_by: input.createdBy,
     });

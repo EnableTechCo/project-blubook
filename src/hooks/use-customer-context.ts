@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/browser";
 import { useAuth } from "@/hooks/use-auth";
 
 type CustomerContext = {
@@ -20,54 +19,43 @@ export function useCustomerContext() {
     queryKey: ["customer-context", authQuery.data?.id],
     enabled: Boolean(authQuery.data?.id),
     queryFn: async (): Promise<CustomerContext> => {
-      const supabase = createClient();
       const user = authQuery.data;
 
       if (!user) {
         throw new Error("Unauthorized");
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("user_id, email, full_name, role, organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const response = await fetch("/api/auth/context", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      let organizationId = profile?.organization_id ?? null;
-      let role = profile?.role ?? null;
-      let email = profile?.email ?? user.email ?? "";
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        userId?: string | null;
+        organizationId?: string | null;
+        organizationName?: string | null;
+        role?: string | null;
+      } | null;
+
+      if (!response.ok || !body) {
+        throw new Error(body?.error ?? "Could not resolve customer context.");
+      }
+
+      const organizationId = body.organizationId ?? null;
+      const role = body.role ?? null;
+      const email = user.email ?? "";
       const fullName =
-        profile?.full_name ??
-        (typeof user.user_metadata?.full_name === "string"
+        typeof user.user_metadata?.full_name === "string"
           ? user.user_metadata.full_name
           : typeof user.user_metadata?.name === "string"
             ? user.user_metadata.name
-            : null);
+            : null;
 
-      // Fallback for users that exist in Auth but do not yet have a profile row.
-      if (!organizationId && !profileError) {
-        const { data: membership, error: membershipError } = await supabase
-          .from("organization_memberships")
-          .select("organization_id, role, email")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (!membershipError && membership?.organization_id) {
-          organizationId = membership.organization_id;
-          role = role ?? membership.role;
-          email = email || membership.email || "";
-        }
-      }
-
-      let organizationName: string | null = null;
-      if (organizationId) {
-        const { data: organization } = await supabase
-          .from("organizations")
-          .select("name")
-          .eq("id", organizationId)
-          .maybeSingle();
-
-        organizationName = organization?.name ?? null;
+      if (!organizationId) {
+        throw new Error(
+          "No organization mapping found for this user. Ensure user_profiles or organization_memberships includes this user.",
+        );
       }
 
       return {
@@ -75,8 +63,8 @@ export function useCustomerContext() {
         email,
         fullName,
         role: role ?? "customer",
-        organizationId: organizationId ?? user.id,
-        organizationName,
+        organizationId,
+        organizationName: body.organizationName ?? null,
       };
     },
   });

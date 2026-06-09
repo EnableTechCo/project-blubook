@@ -1,28 +1,53 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { MOCK_CUSTOMER_REQUESTS } from "@/features/mock/dashboard-data";
+
+type PartnerReportHandoff = {
+  id: string;
+  status: "pending" | "accepted" | "in_progress" | "completed" | "rejected";
+  package_stream: string;
+  assigned_at: string;
+  metadata: {
+    source_provider_name?: string | null;
+    target_provider_name?: string | null;
+  } | null;
+  sales_order_items: {
+    product_name: string;
+    sales_orders: {
+      po_reference: string | null;
+      status: string;
+    } | null;
+  } | null;
+};
 
 export default function PartnerReportsPage() {
-  const stats = useMemo(() => {
-    const items = MOCK_CUSTOMER_REQUESTS;
-    const total = items.length;
-    const completed = items.filter(
-      (item) => item.status === "completed",
-    ).length;
-    const inProgress = items.filter(
-      (item) => item.status === "in_progress",
-    ).length;
-    const rejected = items.filter((item) => item.status === "rejected").length;
-    const completionRate =
-      total > 0 ? Math.round((completed / total) * 100) : 0;
+  const reportsQuery = useQuery({
+    queryKey: ["partner-report-handoffs"],
+    queryFn: async (): Promise<PartnerReportHandoff[]> => {
+      const response = await fetch("/api/partner/work-orders", {
+        method: "GET",
+        credentials: "include",
+      });
+      const body = await response.json().catch(() => null);
 
-    const byPriority = items.reduce<Record<string, number>>((acc, item) => {
-      acc[item.priority] = (acc[item.priority] ?? 0) + 1;
-      return acc;
-    }, {});
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Could not load partner reports.");
+      }
+
+      return (body?.inboundProviderHandoffs ?? []) as PartnerReportHandoff[];
+    },
+  });
+
+  const stats = useMemo(() => {
+    const items = reportsQuery.data ?? [];
+    const total = items.length;
+    const completed = items.filter((item) => item.status === "completed").length;
+    const inProgress = items.filter((item) => ["accepted", "in_progress"].includes(item.status)).length;
+    const rejected = items.filter((item) => item.status === "rejected").length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return {
       total,
@@ -30,72 +55,87 @@ export default function PartnerReportsPage() {
       inProgress,
       rejected,
       completionRate,
-      byPriority,
+      latestCompleted: items.filter((item) => item.status === "completed").slice(0, 8),
     };
-  }, []);
+  }, [reportsQuery.data]);
+
+  if (reportsQuery.isLoading) {
+    return <p className="text-sm text-slate-300">Loading partner history...</p>;
+  }
+
+  if (reportsQuery.isError) {
+    return (
+      <p className="text-sm text-red-300">
+        {reportsQuery.error instanceof Error
+          ? reportsQuery.error.message
+          : "Could not load partner reports."}
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
-            Phase 2
-          </p>
           <h2 className="text-3xl font-semibold text-white">Partner Reports</h2>
+          <p className="mt-1 text-sm text-slate-200/85">
+            Historical partner handoffs, completion rate, and delivery outcomes.
+          </p>
         </div>
-        <Badge>{stats.total} Assigned</Badge>
+        <Badge>{stats.total} Total Handoffs</Badge>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card title="Completion Rate" description="Assigned to completed">
-          <p className="text-3xl font-semibold text-mint">
-            {stats.completionRate}%
-          </p>
+          <p className="text-3xl font-semibold text-mint">{stats.completionRate}%</p>
         </Card>
         <Card title="Completed" description="Finished operations">
           <p className="text-3xl font-semibold text-coral">{stats.completed}</p>
         </Card>
-        <Card title="In Progress" description="Active work orders">
-          <p className="text-3xl font-semibold text-white">
-            {stats.inProgress}
-          </p>
+        <Card title="In Progress" description="Accepted or active work">
+          <p className="text-3xl font-semibold text-white">{stats.inProgress}</p>
         </Card>
         <Card title="Rejected" description="Declined or failed jobs">
-          <p className="text-3xl font-semibold text-red-300">
-            {stats.rejected}
-          </p>
+          <p className="text-3xl font-semibold text-red-300">{stats.rejected}</p>
         </Card>
       </div>
 
       <Card
-        title="Priority Mix"
-        description="Hardcoded workload composition by priority."
+        title="Completed Handoff History"
+        description="Recent completed logistics assignments and their final order states."
       >
-        <div className="mt-2 space-y-3">
-          {Object.entries(stats.byPriority).map(([priority, count]) => {
-            const pct =
-              stats.total > 0
-                ? Math.max(6, Math.round((count / stats.total) * 100))
-                : 0;
-            return (
-              <div key={priority}>
-                <div className="mb-1 flex items-center justify-between text-xs text-slate-200/90">
-                  <span className="uppercase">{priority}</span>
-                  <span>{count}</span>
-                </div>
-                <div className="h-2 rounded-full bg-white/10">
-                  <div
-                    className="h-2 rounded-full bg-mint"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {Object.keys(stats.byPriority).length === 0 ? (
-            <p className="text-sm text-slate-300">No assigned workload yet.</p>
-          ) : null}
-        </div>
+        {stats.latestCompleted.length === 0 ? (
+          <p className="text-sm text-slate-300">No completed handoffs yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {stats.latestCompleted.map((item) => {
+              const poRef = item.sales_order_items?.sales_orders?.po_reference ?? "No PO reference";
+              const product = item.sales_order_items?.product_name ?? "Product unavailable";
+              const finalOrderStatus = item.sales_order_items?.sales_orders?.status ?? "Unknown";
+
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-xl border border-white/15 bg-white/5 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-white">PO {poRef}</p>
+                    <span className="text-[11px] text-slate-300">
+                      {new Date(item.assigned_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-300">{product}</p>
+                  <p className="mt-1 text-xs text-slate-300">
+                    Final order state: {finalOrderStatus}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Source: {item.metadata?.source_provider_name ?? "Unknown source"}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -29,14 +29,14 @@ export default function AdminDashboardPage() {
 
       {/* Page header */}
       <div>
-        <h2 className="text-3xl font-semibold text-white">Admin Dashboard</h2>
+        <h2 className="text-3xl font-semibold text-white">Dashboard</h2>
         <p className="mt-2 text-sm text-slate-200/85">
           Here's what's happening in your business today.
         </p>
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {[
           { label: "Active packages", hint: "Packages on offer", value: 3, delta: "Homekeeping, Handyman, Beauty" },
           { label: "Service providers", hint: "Registered providers", value: 25, delta: "1 pending approval" },
