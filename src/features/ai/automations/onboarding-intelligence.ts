@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  detectOnboardingAnomalies,
+  persistOnboardingAnomalies,
+} from "./onboarding-anomaly";
 
 export interface OnboardingAutomationSignals {
   primaryIndustry: string;
@@ -243,6 +247,21 @@ export async function persistCustomerOnboardingAutomation(
   if (priorityError) {
     throw new Error(priorityError.message);
   }
+
+  // Anomaly detection — runs after scoring so confidence is available.
+  // Non-fatal: failures are logged inside persistOnboardingAnomalies.
+  const anomalies = detectOnboardingAnomalies(
+    onboarding,
+    packageTier,
+    confidenceScore,
+  );
+  await persistOnboardingAnomalies({
+    supabase,
+    organizationId,
+    onboardingSubmissionId,
+    profileId: intelligenceProfile.id,
+    anomalies,
+  });
 
   return {
     profileId: intelligenceProfile.id,
