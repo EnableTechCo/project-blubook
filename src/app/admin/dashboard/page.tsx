@@ -270,7 +270,6 @@ export default function AdminDashboardPage() {
                 View All
               </button>
             </div>
-
             <div className="space-y-3">
               {PROVIDERS.map((provider) => (
                 <div
