@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
+          <h1 className="text-3xl font-semibold text-white">Admin Dashboard</h1>
           <p className="mt-2 text-sm text-slate-300">
             Monitor your platform, providers, packages and business growth.
           </p>
