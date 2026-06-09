@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,36 @@ type PartnerRow = {
   packageStream: string;
   name: string;
   site: string;
+};
+
+type RoutingRec = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  stream: string;
+  recommendedPartnerId: string | null;
+  recommendedPartnerName: string;
+  priority: string;
+  confidence: number;
+  source: string;
+  explanation: string;
+  status: string;
+  createdAt: string;
+  alternativePartners: Array<{ id: string; name: string }>;
+};
+
+const PRIORITY_CLASSES: Record<string, string> = {
+  strategic: "bg-purple-500/20 text-purple-200 border-purple-400/40",
+  critical: "bg-red-500/20 text-red-200 border-red-400/40",
+  high: "bg-orange-500/20 text-orange-200 border-orange-400/40",
+  standard: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+};
+
+const SOURCE_CLASSES: Record<string, string> = {
+  rule: "bg-cyan-500/20 text-cyan-200 border-cyan-400/40",
+  ai: "bg-emerald-500/20 text-emerald-200 border-emerald-400/40",
+  hybrid: "bg-blue-500/20 text-blue-200 border-blue-400/40",
+  manual: "bg-slate-500/20 text-slate-300 border-slate-400/40",
 };
 
 function normalizeSite(site: string) {
@@ -34,6 +64,17 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Routing recommendations state ─────────────────────────────────────────
+  const [routingRecs, setRoutingRecs] = useState<RoutingRec[]>([]);
+  const [routingPendingCount, setRoutingPendingCount] = useState(0);
+  const [routingLoading, setRoutingLoading] = useState(true);
+  const [routingError, setRoutingError] = useState<string | null>(null);
+  const [routingActioning, setRoutingActioning] = useState<string | null>(null);
+  // Inline override form state
+  const [overrideTarget, setOverrideTarget] = useState<string | null>(null);
+  const [overridePartnerId, setOverridePartnerId] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
 
   const loadPartners = async () => {
     setIsLoading(true);
@@ -71,6 +112,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void loadPartners();
+    void loadRoutingRecs();
   }, []);
 
   const streamOptions = useMemo(() => streams, [streams]);
@@ -124,6 +166,103 @@ export default function AdminDashboardPage() {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // ── Routing recommendation loaders / actions ──────────────────────────────
+  const loadRoutingRecs = async () => {
+    setRoutingLoading(true);
+    setRoutingError(null);
+    try {
+      const response = await fetch(
+        "/api/admin/routing-recommendations?status=pending",
+        { credentials: "include" },
+      );
+      const body = (await response.json()) as {
+        error?: string;
+        recommendations?: RoutingRec[];
+        pendingCount?: number;
+      };
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? "Could not load provider routing recommendations.",
+        );
+      }
+      setRoutingRecs(body.recommendations ?? []);
+      setRoutingPendingCount(body.pendingCount ?? 0);
+    } catch (e) {
+      setRoutingError(
+        e instanceof Error
+          ? e.message
+          : "Could not load provider routing recommendations.",
+      );
+    } finally {
+      setRoutingLoading(false);
+    }
+  };
+
+  const handleRoutingAction = async (
+    id: string,
+    action: "accept" | "dismiss",
+  ) => {
+    if (routingActioning) return;
+    setRoutingActioning(id);
+    try {
+      const response = await fetch(`/api/admin/routing-recommendations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action }),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? `Could not ${action} recommendation.`);
+      }
+      setRoutingRecs((current) => current.filter((r) => r.id !== id));
+      setRoutingPendingCount((n) => Math.max(0, n - 1));
+    } catch (e) {
+      setRoutingError(
+        e instanceof Error ? e.message : `Could not ${action} recommendation.`,
+      );
+    } finally {
+      setRoutingActioning(null);
+    }
+  };
+
+  const handleRoutingOverride = async (id: string) => {
+    if (!overridePartnerId || !overrideReason.trim() || routingActioning) {
+      return;
+    }
+    setRoutingActioning(id);
+    try {
+      const response = await fetch(`/api/admin/routing-recommendations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          action: "override",
+          newPartnerId: overridePartnerId,
+          reason: overrideReason.trim(),
+        }),
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        newPartnerName?: string;
+      };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Could not override recommendation.");
+      }
+      setRoutingRecs((current) => current.filter((r) => r.id !== id));
+      setRoutingPendingCount((n) => Math.max(0, n - 1));
+      setOverrideTarget(null);
+      setOverridePartnerId("");
+      setOverrideReason("");
+    } catch (e) {
+      setRoutingError(
+        e instanceof Error ? e.message : "Could not override recommendation.",
+      );
+    } finally {
+      setRoutingActioning(null);
     }
   };
 
@@ -311,6 +450,202 @@ export default function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      </Card>
+
+      {/* ── Provider Routing Queue ──────────────────────────────────────────── */}
+      <Card
+        title={`Provider Routing Queue${routingPendingCount > 0 ? ` (${routingPendingCount} pending)` : ""}`}
+        description="AI-generated partner routing recommendations. Accept to confirm, override to reassign, or dismiss to skip."
+      >
+        <div className="space-y-3">
+          {routingError ? (
+            <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+              {routingError}
+            </p>
+          ) : null}
+
+          {routingLoading ? (
+            <p className="text-xs text-slate-400">
+              Loading routing recommendations…
+            </p>
+          ) : routingRecs.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              No pending routing recommendations.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm text-slate-200">
+                <thead>
+                  <tr className="border-b border-white/15 text-xs uppercase tracking-[0.08em] text-slate-400">
+                    <th className="px-3 py-2">Organisation</th>
+                    <th className="px-3 py-2">Stream</th>
+                    <th className="px-3 py-2">Recommended Partner</th>
+                    <th className="px-3 py-2">Priority</th>
+                    <th className="px-3 py-2">Confidence</th>
+                    <th className="px-3 py-2">Source</th>
+                    <th className="px-3 py-2">Reason</th>
+                    <th className="px-3 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {routingRecs.map((rec) => (
+                    <Fragment key={rec.id}>
+                      <tr className="border-b border-white/10 align-top">
+                        <td className="max-w-[140px] truncate px-3 py-2 text-xs">
+                          {rec.organizationName}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-medium text-white">
+                          {rec.stream}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {rec.recommendedPartnerName}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${PRIORITY_CLASSES[rec.priority] ?? PRIORITY_CLASSES.standard}`}
+                          >
+                            {rec.priority}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-xs tabular-nums">
+                          {rec.confidence}%
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${SOURCE_CLASSES[rec.source] ?? SOURCE_CLASSES.manual}`}
+                          >
+                            {rec.source}
+                          </span>
+                        </td>
+                        <td className="max-w-[240px] px-3 py-2 text-xs text-slate-300">
+                          {rec.explanation.length > 100
+                            ? rec.explanation.slice(0, 97) + "…"
+                            : rec.explanation}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              variant="ghost"
+                              onClick={() =>
+                                void handleRoutingAction(rec.id, "accept")
+                              }
+                              disabled={Boolean(routingActioning)}
+                              className="text-emerald-300 hover:text-emerald-200"
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setOverrideTarget(
+                                  overrideTarget === rec.id ? null : rec.id,
+                                );
+                                setOverridePartnerId(
+                                  rec.alternativePartners[0]?.id ?? "",
+                                );
+                                setOverrideReason("");
+                              }}
+                              disabled={Boolean(routingActioning)}
+                              className="text-amber-300 hover:text-amber-200"
+                            >
+                              Override
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() =>
+                                void handleRoutingAction(rec.id, "dismiss")
+                              }
+                              disabled={Boolean(routingActioning)}
+                              className="text-slate-400 hover:text-slate-200"
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Inline override form — shown below the row it targets */}
+                      {overrideTarget === rec.id ? (
+                        <tr className="border-b border-amber-400/20 bg-amber-500/5">
+                          <td colSpan={8} className="px-3 py-3">
+                            <p className="mb-2 text-xs font-semibold text-amber-200">
+                              Override routing for{" "}
+                              <span className="text-white">
+                                {rec.organizationName}
+                              </span>{" "}
+                              → {rec.stream}
+                            </p>
+                            <div className="flex flex-wrap items-end gap-3">
+                              <label className="text-xs text-slate-300">
+                                New Partner
+                                <select
+                                  className="mt-1 h-9 w-52 rounded-lg border border-white/20 bg-slate-900 px-2 text-sm text-white"
+                                  value={overridePartnerId}
+                                  onChange={(e) =>
+                                    setOverridePartnerId(e.target.value)
+                                  }
+                                >
+                                  {rec.alternativePartners.length === 0 ? (
+                                    <option value="" disabled>
+                                      No alternatives in this stream
+                                    </option>
+                                  ) : (
+                                    rec.alternativePartners.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                              </label>
+                              <label className="flex-1 text-xs text-slate-300">
+                                Reason
+                                <input
+                                  className="mt-1 h-9 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-sm text-white"
+                                  placeholder="Why are you overriding this recommendation?"
+                                  value={overrideReason}
+                                  onChange={(e) =>
+                                    setOverrideReason(e.target.value)
+                                  }
+                                />
+                              </label>
+                              <div className="flex gap-2 pb-0.5">
+                                <Button
+                                  onClick={() =>
+                                    void handleRoutingOverride(rec.id)
+                                  }
+                                  disabled={
+                                    Boolean(routingActioning) ||
+                                    !overridePartnerId ||
+                                    !overrideReason.trim()
+                                  }
+                                >
+                                  {routingActioning === rec.id
+                                    ? "Saving…"
+                                    : "Confirm Override"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setOverrideTarget(null);
+                                    setOverridePartnerId("");
+                                    setOverrideReason("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Card>
 

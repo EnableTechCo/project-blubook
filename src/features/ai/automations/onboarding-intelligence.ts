@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  generateRoutingRecommendations,
+  persistRoutingRecommendations,
+} from "./provider-routing";
 
 export interface OnboardingAutomationSignals {
   primaryIndustry: string;
@@ -243,6 +247,46 @@ export async function persistCustomerOnboardingAutomation(
   if (priorityError) {
     throw new Error(priorityError.message);
   }
+
+  // Generate and persist provider routing recommendations (non-fatal).
+  // Loads active rules and partners from DB then writes to automation_decisions.
+  void (async () => {
+    try {
+      const [{ data: rules }, { data: partners }] = await Promise.all([
+        supabase
+          .from("automation_rules")
+          .select(
+            "rule_key, name, stream, condition_json, action_json, priority_weight, enabled",
+          )
+          .eq("enabled", true),
+        supabase
+          .from("service_partners")
+          .select("id, package_stream, name")
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
+      ]);
+
+      const recommendations = generateRoutingRecommendations(
+        onboarding,
+        priorityTier,
+        confidenceScore,
+        partners ?? [],
+        (rules ?? []) as Parameters<typeof generateRoutingRecommendations>[4],
+      );
+
+      await persistRoutingRecommendations({
+        supabase,
+        organizationId,
+        profileId: intelligenceProfile.id,
+        recommendations,
+      });
+    } catch (err) {
+      console.error(
+        "[onboarding-intelligence] provider routing step failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  })();
 
   return {
     profileId: intelligenceProfile.id,
