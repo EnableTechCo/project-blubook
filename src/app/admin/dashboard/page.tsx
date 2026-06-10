@@ -113,9 +113,7 @@ export default function AdminDashboardPage() {
   const [anomalyPendingCount, setAnomalyPendingCount] = useState(0);
   const [anomaliesLoading, setAnomaliesLoading] = useState(true);
   const [anomaliesError, setAnomaliesError] = useState<string | null>(null);
-  const [anomalyActioning, setAnomalyActioning] = useState<string | null>(
-    null,
-  );
+  const [anomalyActioning, setAnomalyActioning] = useState<string | null>(null);
 
   const loadPartners = async () => {
     setIsLoading(true);
