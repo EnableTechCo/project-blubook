@@ -2,9 +2,7 @@
 
 ## Scope and Method
 
-This document is a deep technical overview of the **non-ignored repository codebase**.
-
-What was included:
+What is included:
 
 - Root architecture and workflow docs
 - Next.js app routes and API handlers
@@ -12,11 +10,6 @@ What was included:
 - Services, hooks, stores, and supporting libraries
 - Database-facing behavior inferred from API code and workflow code
 - Scripts and test coverage
-
-What was intentionally excluded from this document:
-
-- Any `.gitignore`-ignored paths (for example build artifacts, local env files, dependencies)
-- Sensitive credential values
 
 ---
 
@@ -56,27 +49,20 @@ Blubook is a multi-role operations platform with dedicated role experiences:
 
 High-level source distribution (non-ignored files counted):
 
-- `src/app`: 82 files
-- `src/components`: 11 files
-- `src/features`: 24 files
-- `src/lib`: 14 files
-- `src/services`: 6 files
-- `src/store`: 5 files
-- `src/hooks`: 3 files
-- `tests/e2e`: 6 files
-- `scripts`: 12 files
-- `docs`: 4 files
+- `src/app`
+- `src/components`
+- `src/features`
+- `src/lib`:
+- `src/services`
+- `src/store`
+- `src/hooks`
+- `tests/e2e`
+- `scripts`
+- `docs`
 
 ### Root docs that drive implementation direction
 
 - `README.md`: product and route-level orientation
-- `RULES.md`: database-first constraints and guardrails
-- `PHASES.md`: phased delivery model
-- `IMPLEMENTATION_PHASES.md`: detailed phase execution and AI rollout intent
-- `SALES_WORKFLOW_MANAGEMENT.md`: sales workflow narrative
-- `LOGISTICS_WORKFLOW_MANAGEMENT.md`: logistics workflow narrative
-- `WORKFLOW_INTERACTIONS.md`: handoff model between sales and logistics
-- `AI_WORKFLOW_SERVICES.md`: AI service intent and governance boundaries
 
 ---
 
@@ -805,15 +791,6 @@ flowchart TD
 - writes storage state files under `playwright/.auth`
 
 ### Notable test suites
-
-- `tests/e2e/api/customer-provider-readiness-api.spec.ts`
-  - auth rejection test + authenticated payload shape test
-- `tests/e2e/routes/customer-po-upload-workflow.spec.ts`
-  - deep PO upload and workflow orchestration validation, multi-user diagnostics
-- `tests/e2e/routes/customer-onboarding-route.spec.ts`
-- `tests/e2e/routes/customer-provider-readiness.spec.ts`
-- `tests/e2e/routes/sales-guided-partner-concurrency.spec.ts`
-  - staff guided flow and partner concurrency behavior
 
 ### Coverage reality
 
