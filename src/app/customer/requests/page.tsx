@@ -38,7 +38,8 @@ export default function CustomerRequestsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "priority">("newest");
+  type SortOption = "newest" | "oldest" | "priority";
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
   const PAGE_SIZE = 10;
@@ -326,7 +327,7 @@ export default function CustomerRequestsPage() {
           className="h-11 rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
           value={sortBy}
           onChange={(e) =>
-            setSortBy(e.target.value as any)
+            setSortBy(e.target.value as SortOption)
           }
         >
           <option value="newest">Newest</option>
@@ -363,7 +364,6 @@ export default function CustomerRequestsPage() {
 
                 <div className="flex items-center gap-3">
                   <Button
-                    variant="secondary"
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   >
@@ -376,7 +376,6 @@ export default function CustomerRequestsPage() {
                   </span>
 
                   <Button
-                    variant="secondary"
                     disabled={
                       currentPage >=
                       Math.ceil(processedRequests.length / PAGE_SIZE)
