@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, JSX } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -179,7 +180,9 @@ export default function RequestsPage() {
                     onClick={() => {
                       // Store individual request for detail page
                       sessionStorage.setItem('selectedRequest', JSON.stringify(request));
-                      router.push('/customer/analytics/requests/[id]');
+                      router.push(
+                        `/customer/analytics/requests/${request.id}` as Route,
+                      );
                     }}
                   >
                     <div className="flex-1">

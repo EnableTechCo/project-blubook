@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +143,7 @@ export default function CustomerAnalyticsPage() {
     sessionStorage.setItem('filteredRequests', JSON.stringify(dataToStore));
     sessionStorage.setItem('pageTitle', title);
     sessionStorage.setItem('filterType', filterType);
-    router.push('/customer/analytics/requests');
+    router.push('/customer/analytics/requests' as Route);
   };
 
   const navigateByStatus = (status: string, count: number) => {
@@ -153,7 +154,7 @@ export default function CustomerAnalyticsPage() {
     sessionStorage.setItem('filteredRequests', JSON.stringify(statusRequests));
     sessionStorage.setItem('pageTitle', `${status.replace(/_/g, ' ')} Requests`);
     sessionStorage.setItem('filterType', status);
-    router.push('/customer/analytics/requests');
+    router.push('/customer/analytics/requests' as Route);
   };
 
   const isLoading = customerContext.isLoading || requestsQuery.isLoading;
