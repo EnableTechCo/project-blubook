@@ -660,6 +660,47 @@ export interface Database {
           updated_at?: string;
         };
       };
+      onboarding_anomaly_alerts: {
+        Row: {
+          id: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          onboarding_submission_id?: string;
+          profile_id?: string;
+          anomaly_type?: string;
+          reason?: string;
+          severity?: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+      };
       automation_overrides: {
         Row: {
           id: string;
@@ -671,12 +712,7 @@ export interface Database {
             | "critical"
             | "strategic"
             | null;
-          new_priority:
-            | "standard"
-            | "high"
-            | "critical"
-            | "strategic"
-            | null;
+          new_priority: "standard" | "high" | "critical" | "strategic" | null;
           previous_owner_id: string | null;
           new_owner_id: string | null;
           reason: string;
@@ -693,12 +729,7 @@ export interface Database {
             | "critical"
             | "strategic"
             | null;
-          new_priority?:
-            | "standard"
-            | "high"
-            | "critical"
-            | "strategic"
-            | null;
+          new_priority?: "standard" | "high" | "critical" | "strategic" | null;
           previous_owner_id?: string | null;
           new_owner_id?: string | null;
           reason: string;
@@ -715,12 +746,7 @@ export interface Database {
             | "critical"
             | "strategic"
             | null;
-          new_priority?:
-            | "standard"
-            | "high"
-            | "critical"
-            | "strategic"
-            | null;
+          new_priority?: "standard" | "high" | "critical" | "strategic" | null;
           previous_owner_id?: string | null;
           new_owner_id?: string | null;
           reason?: string;

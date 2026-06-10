@@ -45,6 +45,38 @@ const SOURCE_CLASSES: Record<string, string> = {
   ai: "bg-emerald-500/20 text-emerald-200 border-emerald-400/40",
   hybrid: "bg-blue-500/20 text-blue-200 border-blue-400/40",
   manual: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+
+type AnomalyRow = {
+  id: string;
+  organizationId: string;
+  submissionId: string;
+  anomalyType: string;
+  reason: string;
+  severity: "low" | "medium" | "high";
+  status: string;
+  createdAt: string;
+  organizationName: string;
+  businessTitle: string;
+  primaryIndustry: string | null;
+  businessModel: string | null;
+  country: string | null;
+};
+
+const ANOMALY_TYPE_LABELS: Record<string, string> = {
+  revenue_volume_contradiction: "Revenue / Volume Mismatch",
+  employee_revenue_mismatch: "Employee / Revenue Mismatch",
+  inventory_fulfillment_contradiction: "Inventory / Fulfillment Conflict",
+  high_volume_single_channel: "High Volume — Single Channel",
+  service_provider_b2c_volume: "Service Provider B2C Volume",
+  regulated_minimal_footprint: "Regulated — Minimal Footprint",
+  enterprise_tier_profile_mismatch: "Enterprise Tier Mismatch",
+  low_confidence_profile: "Low Confidence Profile",
+};
+
+const SEVERITY_CLASSES: Record<"low" | "medium" | "high", string> = {
+  high: "border-coral/40 bg-coral/10 text-coral",
+  medium: "border-amber-400/30 bg-amber-400/10 text-amber-300",
+  low: "border-yellow-400/20 bg-yellow-400/5 text-yellow-300",
 };
 
 function normalizeSite(site: string) {
@@ -75,6 +107,14 @@ export default function AdminDashboardPage() {
   const [overrideTarget, setOverrideTarget] = useState<string | null>(null);
   const [overridePartnerId, setOverridePartnerId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+
+  const [anomalies, setAnomalies] = useState<AnomalyRow[]>([]);
+  const [anomalyPendingCount, setAnomalyPendingCount] = useState(0);
+  const [anomaliesLoading, setAnomaliesLoading] = useState(true);
+  const [anomaliesError, setAnomaliesError] = useState<string | null>(null);
+  const [anomalyActioning, setAnomalyActioning] = useState<string | null>(
+    null,
+  );
 
   const loadPartners = async () => {
     setIsLoading(true);
@@ -110,9 +150,77 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const loadAnomalies = async () => {
+    setAnomaliesLoading(true);
+    setAnomaliesError(null);
+
+    try {
+      const response = await fetch("/api/admin/onboarding-anomalies", {
+        credentials: "include",
+      });
+
+      const body = (await response.json()) as {
+        error?: string;
+        anomalies?: AnomalyRow[];
+        pendingCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? "Could not load onboarding anomaly alerts.",
+        );
+      }
+
+      setAnomalies(body.anomalies ?? []);
+      setAnomalyPendingCount(body.pendingCount ?? 0);
+    } catch (loadError) {
+      setAnomaliesError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load onboarding anomaly alerts.",
+      );
+    } finally {
+      setAnomaliesLoading(false);
+    }
+  };
+
+  const handleAnomalyAction = async (
+    id: string,
+    action: "reviewed" | "dismissed",
+  ) => {
+    if (anomalyActioning) return;
+    setAnomalyActioning(id);
+
+    try {
+      const response = await fetch(`/api/admin/onboarding-anomalies/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: action }),
+      });
+
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Could not update anomaly alert.");
+      }
+
+      setAnomalies((current) => current.filter((a) => a.id !== id));
+      setAnomalyPendingCount((n) => Math.max(0, n - 1));
+    } catch (actionError) {
+      setAnomaliesError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Could not update anomaly alert.",
+      );
+    } finally {
+      setAnomalyActioning(null);
+    }
+  };
+
   useEffect(() => {
     void loadPartners();
     void loadRoutingRecs();
+    void loadAnomalies();
   }, []);
 
   const streamOptions = useMemo(() => streams, [streams]);
@@ -691,6 +799,106 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
       </div>
+
+      <Card
+        title={`Onboarding Anomaly Alerts${anomalyPendingCount > 0 ? ` (${anomalyPendingCount} pending)` : ""}`}
+        description="Flagged submissions requiring manual review before provider dispatch."
+      >
+        {anomaliesError ? (
+          <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {anomaliesError}
+          </p>
+        ) : null}
+
+        {anomaliesLoading ? (
+          <p className="text-xs text-slate-400">Loading anomaly alerts...</p>
+        ) : anomalies.length === 0 ? (
+          <p className="text-xs text-slate-400">
+            No pending anomaly alerts — all onboarding submissions are clean.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {anomalies.map((anomaly) => (
+              <div
+                key={anomaly.id}
+                className="rounded-xl border border-white/10 bg-white/5 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${SEVERITY_CLASSES[anomaly.severity]}`}
+                      >
+                        {anomaly.severity}
+                      </span>
+                      <span className="text-sm font-semibold text-white">
+                        {ANOMALY_TYPE_LABELS[anomaly.anomalyType] ??
+                          anomaly.anomalyType}
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 text-xs text-slate-300">
+                      {anomaly.reason}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                      <span>
+                        <span className="text-slate-500">Organisation: </span>
+                        {anomaly.organizationName}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Submission: </span>
+                        {anomaly.businessTitle}
+                      </span>
+                      {anomaly.businessModel ? (
+                        <span>
+                          <span className="text-slate-500">Model: </span>
+                          {anomaly.businessModel}
+                        </span>
+                      ) : null}
+                      {anomaly.country ? (
+                        <span>
+                          <span className="text-slate-500">Country: </span>
+                          {anomaly.country}
+                        </span>
+                      ) : null}
+                      <span>
+                        <span className="text-slate-500">Flagged: </span>
+                        {new Date(anomaly.createdAt).toLocaleDateString(
+                          "en-ZA",
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-3 text-xs"
+                      disabled={anomalyActioning === anomaly.id}
+                      onClick={() =>
+                        void handleAnomalyAction(anomaly.id, "reviewed")
+                      }
+                    >
+                      Mark Reviewed
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-3 text-xs text-slate-400 hover:text-white"
+                      disabled={anomalyActioning === anomaly.id}
+                      onClick={() =>
+                        void handleAnomalyAction(anomaly.id, "dismissed")
+                      }
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card
