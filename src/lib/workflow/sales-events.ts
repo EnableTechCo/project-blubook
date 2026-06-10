@@ -14,7 +14,8 @@ import type {
   WorkflowPayload,
 } from "@/lib/workflow/types";
 
-const DEFAULT_PARTNER_STREAM = "Sales Ops";
+const SALES_PARTNER_STREAM = "Sales Ops";
+const LOGISTICS_PARTNER_STREAM = "Logistics";
 
 function readPreferredPartnerEmail(metadata: unknown, key: string) {
   return readStringMetadata(metadata, key);
@@ -128,15 +129,17 @@ export async function processSalesWorkflowEvent(
         : await admin
             .from("service_partners")
             .select("id, package_stream, name")
-            .eq("package_stream", DEFAULT_PARTNER_STREAM)
+            .eq("package_stream", SALES_PARTNER_STREAM)
             .eq("is_active", true)
             .order("name", { ascending: true })
             .limit(1)
             .maybeSingle();
 
-      let assignedLogisticsProvider:
-        | { id: string; package_stream: string; name: string }
-        | null = null;
+      let assignedLogisticsProvider: {
+        id: string;
+        package_stream: string;
+        name: string;
+      } | null = null;
 
       for (const item of items) {
         if (item.fulfillment_route === "pick") {
@@ -157,7 +160,7 @@ export async function processSalesWorkflowEvent(
         } else if (item.fulfillment_route === "order") {
           if (!partner?.id) {
             throw new Error(
-              `No active service partner available for stream ${DEFAULT_PARTNER_STREAM}`,
+              `No active service partner available for stream ${SALES_PARTNER_STREAM}`,
             );
           }
 
@@ -179,7 +182,7 @@ export async function processSalesWorkflowEvent(
             : await admin
                 .from("service_partners")
                 .select("id, package_stream, name")
-                .eq("package_stream", "Logistics")
+                .eq("package_stream", LOGISTICS_PARTNER_STREAM)
                 .eq("is_active", true)
                 .order("name", { ascending: true })
                 .limit(1)
@@ -248,7 +251,8 @@ export async function processSalesWorkflowEvent(
                   actor: "sales",
                   message: `${order.po_reference ?? orderId} was handed to ${assignedLogisticsProvider?.name ?? "logistics"}.`,
                   details: {
-                    logisticsPartnerName: assignedLogisticsProvider?.name ?? null,
+                    logisticsPartnerName:
+                      assignedLogisticsProvider?.name ?? null,
                   },
                 },
               )
