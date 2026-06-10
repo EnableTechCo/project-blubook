@@ -589,6 +589,47 @@ export interface Database {
         Insert: Record<string, Json>;
         Update: Record<string, Json>;
       };
+      onboarding_anomaly_alerts: {
+        Row: {
+          id: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          onboarding_submission_id?: string;
+          profile_id?: string;
+          anomaly_type?: string;
+          reason?: string;
+          severity?: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
