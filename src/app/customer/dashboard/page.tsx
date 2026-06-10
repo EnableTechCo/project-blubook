@@ -66,6 +66,15 @@ export default function CustomerDashboardPage() {
     },
   });
 
+  const ensurePoRequirementMutation = useMutation({
+    mutationFn: requirementsService.ensurePurchaseOrderRequirement,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["customer-requirements", organizationId],
+      });
+    },
+  });
+
   const pendingPurchaseOrders = (requirementsQuery.data ?? []).filter(
     (item) =>
       item.isRequired &&
@@ -126,6 +135,28 @@ export default function CustomerDashboardPage() {
     }
   }
 
+  async function onPurchaseOrderFileChangeWithEnsure(files: File[]) {
+    const file = files[0];
+    if (!file) {
+      return;
+    }
+
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    try {
+      const result = await ensurePoRequirementMutation.mutateAsync();
+      await onPurchaseOrderFileChange(result.requirementId, [file]);
+    } catch (error) {
+      setUploadSuccess(null);
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : "Could not prepare purchase order upload.",
+      );
+    }
+  }
+
   if (customerContext.isLoading) {
     return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
   }
@@ -159,9 +190,27 @@ export default function CustomerDashboardPage() {
             Could not load PO requirements.
           </p>
         ) : pendingPurchaseOrders.length === 0 ? (
-          <p className="text-sm text-slate-300">
-            No pending purchase orders right now.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-300">
+              No pending purchase orders right now.
+            </p>
+            <div className="inline-flex">
+              <FileUploader
+                buttonLabel={
+                  ensurePoRequirementMutation.isPending
+                    ? "Preparing PO upload..."
+                    : "Upload Purchase Order"
+                }
+                disabled={
+                  ensurePoRequirementMutation.isPending ||
+                  submitEvidenceMutation.isPending
+                }
+                onFilesSelected={(files) =>
+                  void onPurchaseOrderFileChangeWithEnsure(files)
+                }
+              />
+            </div>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {pendingPurchaseOrders.map((item) => (

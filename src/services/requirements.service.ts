@@ -70,6 +70,32 @@ export async function listCustomerRequirements(organizationId: string) {
   return (payload ?? []) as CustomerRequirementItem[];
 }
 
+export async function ensurePurchaseOrderRequirement() {
+  const response = await fetch("/api/customer/workflow/ensure-po-requirement", {
+    method: "POST",
+    credentials: "include",
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error ?? "Could not prepare purchase-order upload.",
+    );
+  }
+
+  const requirementId =
+    payload && typeof payload.requirementId === "string"
+      ? payload.requirementId
+      : null;
+
+  if (!requirementId) {
+    throw new Error("Could not resolve purchase-order requirement.");
+  }
+
+  return { requirementId };
+}
+
 export async function submitRequirementEvidence(input: {
   requirementItemId: string;
   bucket: string;
@@ -194,6 +220,7 @@ export async function submitRequirementEvidence(input: {
 
 const requirementsService = {
   listCustomerRequirements,
+  ensurePurchaseOrderRequirement,
   submitRequirementEvidence,
 };
 

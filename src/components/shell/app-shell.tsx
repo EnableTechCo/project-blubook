@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listNotifications,
@@ -40,10 +40,11 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { data: user } = useAuth();
+  const { data: user, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems, markRead, markAllRead } = useNotificationStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", user?.id],
@@ -115,67 +116,107 @@ export function AppShell({
   const isNavItemActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
+  const userDisplayName =
+    (typeof user?.user_metadata?.name === "string" &&
+      user.user_metadata.name.trim()) ||
+    (typeof user?.user_metadata?.full_name === "string" &&
+      user.user_metadata.full_name.trim()) ||
+    user?.email ||
+    "Signed in";
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 border-r border-white/10 bg-ink/95 p-5 transition lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-white/10 bg-ink/95 p-5 transition lg:sticky lg:top-0 lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">
-              BluBook
-            </p>
-            <h1 className="text-xl font-semibold text-white">
-              {roleLabel} Portal
-            </h1>
+        <div className="flex flex-1 flex-col overflow-y-auto no-scrollbar pb-4">
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">
+                BluBook
+              </p>
+              <h1 className="text-xl font-semibold text-white">
+                {roleLabel} Portal
+              </h1>
+            </div>
+            <button
+              className="lg:hidden"
+              onClick={closeSidebar}
+              aria-label="Close navigation"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            className="lg:hidden"
-            onClick={closeSidebar}
-            aria-label="Close navigation"
-          >
-            ✕
-          </button>
+
+          <nav className="space-y-2 px-1">
+            {navItems.map((item) => {
+              const showBadge =
+                item.badgeAlwaysVisible ||
+                (item.badge != null && item.badge > 0);
+              const badgeCount = item.badge ?? 0;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10",
+                    isNavItemActive(item.href)
+                      ? "bg-cyan-300/15 text-white ring-1 ring-cyan-200/40"
+                      : "",
+                  )}
+                >
+                  <span>{item.label}</span>
+                  {showBadge ? (
+                    <span
+                      className={cn(
+                        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                        badgeCount > 0
+                          ? "bg-coral text-white"
+                          : "bg-white/10 text-slate-300",
+                      )}
+                    >
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        <nav className="space-y-2">
-          {navItems.map((item) => {
-            const showBadge =
-              item.badgeAlwaysVisible ||
-              (item.badge != null && item.badge > 0);
-            const badgeCount = item.badge ?? 0;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-100/90 transition hover:bg-white/10",
-                  isNavItemActive(item.href)
-                    ? "bg-cyan-300/15 text-white ring-1 ring-cyan-200/40"
-                    : "",
-                )}
-              >
-                <span>{item.label}</span>
-                {showBadge ? (
-                  <span
-                    className={cn(
-                      "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
-                      badgeCount > 0
-                        ? "bg-coral text-white"
-                        : "bg-white/10 text-slate-300",
-                    )}
-                  >
-                    {badgeCount > 99 ? "99+" : badgeCount}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="mt-auto border-t border-white/10 bg-ink/95 px-1 pt-4">
+          <p
+            className="mb-2 truncate px-3 text-xs font-medium text-slate-300/90"
+            title={userDisplayName}
+          >
+            {userDisplayName}
+          </p>
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => {
+              void handleSignOut();
+            }}
+            disabled={isSigningOut}
+            aria-label="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+          </button>
+        </div>
       </aside>
 
       <main className="min-w-0">
