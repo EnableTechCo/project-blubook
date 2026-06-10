@@ -72,19 +72,14 @@ export function AppShell({
       return;
     }
 
-    let unsubscribe: (() => void) | undefined;
-    void subscribeToNotifications(user.id, () => {
+    const unsubscribe = subscribeToNotifications(user.id, () => {
       void queryClient.invalidateQueries({
         queryKey: ["notifications", user.id],
       });
-    }).then((teardown) => {
-      unsubscribe = teardown;
     });
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
     };
   }, [queryClient, user?.id]);
 
