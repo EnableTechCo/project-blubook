@@ -33,10 +33,17 @@ export const staffNav: ShellNavItem[] = [
 ];
 
 export const adminNav: ShellNavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/roles", label: "Roles" },
-  { href: "/admin/settings", label: "Settings" },
-  { href: "/admin/audit-logs", label: "Audit Logs" },
-  { href: "/admin/workflows", label: "Workflows" },
+  { href: "/admin/dashboard" as Route, label: "Dashboard" },
+
+  { href: "/admin/packages" as Route, label: "Packages" },
+  { href: "/admin/services" as Route, label: "Services" },
+  { href: "/admin/providers" as Route, label: "Providers" },
+
+  { href: "/admin/clients" as Route, label: "Clients" },
+
+  { href: "/admin/support" as Route, label: "Support" },
+  { href: "/admin/reports" as Route, label: "Reports & Analytics" },
+
+  { href: "/admin/admin-users" as Route, label: "Admin Users" },
+  { href: "/admin/settings" as Route, label: "Settings" },
 ];
