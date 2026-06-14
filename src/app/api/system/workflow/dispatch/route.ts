@@ -25,5 +25,15 @@ export async function POST() {
   }
 
   const result = await processWorkflowEvents(20);
+  if (result.failed > 0) {
+    return NextResponse.json(
+      {
+        error: `Workflow dispatch completed with failures. Processed: ${result.processed}, Succeeded: ${result.succeeded}, Failed: ${result.failed}.`,
+        ...result,
+      },
+      { status: 409 },
+    );
+  }
+
   return NextResponse.json(result);
 }

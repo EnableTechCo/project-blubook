@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -40,7 +41,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { data: user, signOut } = useAuth();
+  const { data: user, isLoading: authLoading, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems, markRead, markAllRead } = useNotificationStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -119,6 +120,11 @@ export function AppShell({
     user?.email ||
     "Signed in";
 
+  const userEmail =
+    typeof user?.email === "string" && user.email.length > 0
+      ? user.email
+      : "No email on file";
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -147,6 +153,7 @@ export function AppShell({
               </h1>
             </div>
             <button
+              type="button"
               className="lg:hidden"
               onClick={closeSidebar}
               aria-label="Close navigation"
@@ -193,12 +200,25 @@ export function AppShell({
         </div>
 
         <div className="mt-auto border-t border-white/10 bg-ink/95 px-1 pt-4">
-          <p
-            className="mb-2 truncate px-3 text-xs font-medium text-slate-300/90"
-            title={userDisplayName}
-          >
-            {userDisplayName}
-          </p>
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-300/15 text-xs font-semibold text-cyan-100">
+              {userDisplayName.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p
+                className="truncate text-xs font-semibold text-slate-100"
+                title={userDisplayName}
+              >
+                {userDisplayName}
+              </p>
+              <p
+                className="truncate text-[11px] text-slate-400"
+                title={userEmail}
+              >
+                {userEmail}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-coral/10 hover:text-coral disabled:cursor-not-allowed disabled:opacity-60"
@@ -218,6 +238,7 @@ export function AppShell({
         <header className="sticky top-0 z-40 border-b border-white/10 bg-ink/80 px-4 py-3 backdrop-blur lg:px-8">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               className="lg:hidden"
               onClick={toggleSidebar}
               aria-label="Open navigation"
@@ -233,6 +254,7 @@ export function AppShell({
             </div>
             <div className="relative">
               <button
+                type="button"
                 className="relative rounded-xl border border-white/20 bg-white/5 p-2"
                 aria-label="Notifications"
                 onClick={() => setNotificationsOpen((open) => !open)}
@@ -252,6 +274,7 @@ export function AppShell({
                       Notifications
                     </p>
                     <button
+                      type="button"
                       className="text-xs text-cyan-200 hover:text-white disabled:opacity-60"
                       onClick={() =>
                         user?.id && markAllReadMutation.mutate(user.id)
@@ -271,6 +294,7 @@ export function AppShell({
                     {items.map((item) => (
                       <button
                         key={item.id}
+                        type="button"
                         className={cn(
                           "w-full rounded-xl border px-3 py-2 text-left transition",
                           item.read
@@ -302,7 +326,9 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <div className="p-4 lg:p-8">{children}</div>
+        <div className="p-4 lg:p-8">
+          {authLoading ? <DashboardLoadingSkeleton /> : children}
+        </div>
       </main>
     </div>
   );

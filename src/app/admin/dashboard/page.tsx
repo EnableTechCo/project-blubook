@@ -5,10 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
-import {
-  MOCK_ADMIN_DASHBOARD_PACK,
-  MOCK_AI_SCENARIOS,
-} from "@/features/mock/dashboard-data";
 
 type PartnerRow = {
   id: string;
@@ -224,6 +220,36 @@ export default function AdminDashboardPage() {
 
   const streamOptions = useMemo(() => streams, [streams]);
 
+  const adminMetrics = useMemo(
+    () => [
+      {
+        id: "mapped-partners",
+        label: "Mapped Partners",
+        value: String(partners.length),
+        hint: "Active service partner records",
+      },
+      {
+        id: "active-streams",
+        label: "Active Streams",
+        value: String(streams.length),
+        hint: "Package streams with configured partners",
+      },
+      {
+        id: "routing-pending",
+        label: "Routing Pending",
+        value: String(routingPendingCount),
+        hint: "Routing recommendations awaiting decisions",
+      },
+      {
+        id: "anomaly-pending",
+        label: "Anomalies Pending",
+        value: String(anomalyPendingCount),
+        hint: "Onboarding anomaly alerts awaiting review",
+      },
+    ],
+    [anomalyPendingCount, partners.length, routingPendingCount, streams.length],
+  );
+
   const visiblePartners = useMemo(() => {
     if (activeStream === "all") {
       return partners;
@@ -422,12 +448,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {MOCK_ADMIN_DASHBOARD_PACK.metrics.map((metric) => (
+        {adminMetrics.map((metric) => (
           <Card key={metric.id} title={metric.label} description={metric.hint}>
             <p className="text-3xl font-semibold text-white">{metric.value}</p>
-            {metric.delta ? (
-              <p className="mt-1 text-xs text-slate-300">{metric.delta}</p>
-            ) : null}
           </Card>
         ))}
       </div>
@@ -759,20 +782,27 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Governance Tasks" description="Policy and approval tasks.">
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.tasks.map((task) => (
+            {routingRecs.slice(0, 3).map((task) => (
               <div
                 key={task.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
-                <p className="text-sm font-semibold text-white">{task.title}</p>
+                <p className="text-sm font-semibold text-white">
+                  Review routing: {task.organizationName}
+                </p>
                 <p className="mt-1 text-xs text-slate-300">
-                  Owner: {task.owner} | ETA: {task.eta}
+                  Stream: {task.stream} | Source: {task.source}
                 </p>
                 <p className="mt-1 text-xs text-slate-200">
                   Status: {task.status}
                 </p>
               </div>
             ))}
+            {routingRecs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No pending governance tasks right now.
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -781,20 +811,23 @@ export default function AdminDashboardPage() {
           description="Audit and security incidents."
         >
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.alerts.map((alert) => (
+            {anomalies.slice(0, 3).map((alert) => (
               <div
                 key={alert.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
                 <p className="text-sm font-semibold text-coral">
-                  {alert.title}
+                  {ANOMALY_TYPE_LABELS[alert.anomalyType] ?? alert.anomalyType}
                 </p>
-                <p className="mt-1 text-xs text-slate-300">{alert.detail}</p>
+                <p className="mt-1 text-xs text-slate-300">{alert.reason}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Source: {alert.source}
+                  Source: onboarding-anomaly
                 </p>
               </div>
             ))}
+            {anomalies.length === 0 ? (
+              <p className="text-xs text-slate-400">No critical alerts.</p>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -905,19 +938,25 @@ export default function AdminDashboardPage() {
           description="Recommendations with confidence and action mapping."
         >
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.aiRecommendations.map((item) => (
+            {routingRecs.slice(0, 5).map((item) => (
               <div
                 key={item.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
-                <p className="text-sm text-white">{item.title}</p>
-                <p className="mt-1 text-xs text-slate-300">{item.reason}</p>
+                <p className="text-sm text-white">{item.organizationName}</p>
+                <p className="mt-1 text-xs text-slate-300">
+                  {item.explanation}
+                </p>
                 <p className="mt-2 text-xs text-slate-200">
-                  Action: {item.action} (confidence{" "}
-                  {Math.round(item.confidence * 100)}%)
+                  Action: {item.status} (confidence {item.confidence}%)
                 </p>
               </div>
             ))}
+            {routingRecs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No AI governance recommendations pending.
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -926,22 +965,20 @@ export default function AdminDashboardPage() {
           description="Scenario coverage for AI ticketing."
         >
           <div className="space-y-3">
-            {MOCK_AI_SCENARIOS.map((scenario) => (
-              <div
-                key={scenario.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm font-semibold text-white">
-                  {scenario.name}
-                </p>
-                <p className="mt-1 text-xs text-slate-300">
-                  {scenario.trigger}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {scenario.phase} | Expected: {scenario.expectedOutcome}
-                </p>
-              </div>
-            ))}
+            <div className="rounded-xl border border-white/15 bg-white/5 p-3">
+              <p className="text-sm font-semibold text-white">
+                Scenario definitions are now sourced from live workflow
+                behavior.
+              </p>
+              <p className="mt-1 text-xs text-slate-300">
+                Use routing and anomaly queues above to validate current model
+                output.
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Static mock scenario libraries have been removed from this
+                dashboard.
+              </p>
+            </div>
           </div>
         </Card>
       </div>

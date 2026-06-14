@@ -948,3 +948,141 @@ These are used heavily by test setup and development diagnostics.
 This overview documents the full non-ignored application implementation: routes, API logic, workflows, services, AI scoring, relational data usage, tests, and operational scripts.
 
 If needed next, this can be split into role-specific runbooks and an endpoint-by-endpoint contract appendix (request/response schemas and status matrix).
+
+## 24. Workflow Step System
+
+The workflow step system replaces all status/timeline inference with an explicit, interaction-driven model. Every step completion is recorded to a database ledger and rendered from that ledger — never derived from order status strings or timeline arrays.
+
+### 24.1 Canonical Step Contract
+
+**File:** `src/lib/workflow/workflow-step-contract.ts`
+
+Defines 17 steps (6 sales-owned, 11 logistics-owned). Each step carries:
+
+| Field                 | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `key`                 | Canonical identifier (e.g. `order_validated`)   |
+| `label`               | Human-readable label                            |
+| `owner`               | `"sales"` or `"logistics"`                      |
+| `requiresInteraction` | Always `true` — no step auto-advances           |
+| `visibleTo`           | Roles that see this step in their UI            |
+| `proofRequirements`   | Optional proof gates (e.g. `proof-of-delivery`) |
+| `terminal`            | `true` only on `delivered`                      |
+
+#### Step list
+
+**Sales-owned (6)**
+
+| Step                      | `visibleTo`                |
+| ------------------------- | -------------------------- |
+| Purchase Order Received   | sales, customer            |
+| Order Validated           | sales                      |
+| Inventory Reserved        | sales                      |
+| Logistics Handoff Created | sales, logistics           |
+| Invoice Generated         | sales, customer            |
+| Shipment Created          | sales, logistics, customer |
+
+**Logistics-owned (11)**
+
+| Step                                    | `visibleTo`                |
+| --------------------------------------- | -------------------------- |
+| Order Received                          | logistics, sales           |
+| Order Transmitted to Warehouse          | logistics                  |
+| Notify Customer                         | logistics, customer        |
+| Pack Items for Shipment                 | logistics                  |
+| Generate Shipping Label & Documentation | logistics                  |
+| Track Shipment In Transit               | logistics, customer        |
+| Reroute Delivery                        | logistics                  |
+| Order Arrives at Destination            | logistics, customer        |
+| Customer Receives & Signs POD           | logistics, customer        |
+| BluBook System Updated                  | logistics                  |
+| Delivered _(terminal)_                  | logistics, sales, customer |
+
+#### Audience visibility summary
+
+| Audience    | Steps shown | Notes                                                       |
+| ----------- | ----------- | ----------------------------------------------------------- |
+| `customer`  | 8 steps     | Their touchpoints only — no internal ops steps              |
+| `sales`     | 8 steps     | All 6 sales steps + Order Received + Delivered              |
+| `logistics` | 13 steps    | Handoff Created + Shipment Created + all 11 logistics steps |
+| `staff`     | 17 steps    | Full contract, no filtering                                 |
+
+### 24.2 Pure Logic Helpers (contract file)
+
+```ts
+// Returns steps visible to the given audience (staff always gets all 17)
+getWorkflowStepsForAudience(audience: WorkflowAudienceRole)
+
+// Returns event-driven step view with `completed` and `current` flags
+// completedStepKeys comes from the DB ledger — no status inference
+buildAudienceStepView({ audience, completedStepKeys })
+```
+
+### 24.3 DB Ledger
+
+**Table:** `order_workflow_step_events`  
+**Migration:** `supabase/migrations/20260612000000_order_workflow_step_events.sql`
+
+| Column       | Type        | Notes                                                 |
+| ------------ | ----------- | ----------------------------------------------------- |
+| `id`         | uuid        | PK                                                    |
+| `order_id`   | uuid        | FK → `sales_orders`                                   |
+| `step_key`   | text        | Must match contract key                               |
+| `step_owner` | text        | `sales` or `logistics`                                |
+| `actor_type` | text        | `staff`, `sales`, `logistics`, `customer`, `system`   |
+| `actor_id`   | uuid        | Auth user who triggered the action (null for system)  |
+| `source`     | text        | Action identifier or API route                        |
+| `proof_url`  | text        | Storage URL for uploaded proof documents              |
+| `proof_type` | text        | e.g. `proof-of-delivery`, `invoice`, `shipping-label` |
+| `metadata`   | jsonb       | Arbitrary structured context                          |
+| `created_at` | timestamptz |                                                       |
+
+Unique constraint on `(order_id, step_key)` — each step can only be recorded once per order.
+
+RLS: staff/sales/logistics read all; customers read only their own orders; inserts via service role only.
+
+### 24.4 Step Events API
+
+**Route:** `src/app/api/orders/[orderId]/step-events/route.ts`
+
+| Method                 | Description                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET ?audience=<role>` | Returns audience-filtered step view, `completedStepKeys`, and raw event rows                          |
+| `POST`                 | Records a completed step event; validates `stepKey` against contract; returns 409 if already recorded |
+
+### 24.5 Service Layer
+
+**File:** `src/services/workflow-step-events.service.ts`
+
+Key functions:
+
+- `getStepEventsForOrder(orderId)` — fetches all events in insertion order
+- `getCompletedStepKeysForOrder(orderId)` — returns just the key array
+- `recordStepEvent(input)` — validates against contract, inserts row, surfaces duplicate as clear error
+- `getActiveStepKey({ audience, completedStepKeys })` — first incomplete step in the visible set
+
+### 24.6 UI Component
+
+**Component:** `WorkflowStepMatrix` in `src/components/ui/workflow-progress.tsx`
+
+```tsx
+<WorkflowStepMatrix
+  completedStepKeys={string[]}  // from DB ledger via step-events API
+  audience="customer" | "sales" | "logistics" | "staff"
+  title?={string}
+/>
+```
+
+- Completion state is derived **entirely** from `completedStepKeys` — no status/timeline strings
+- Steps are filtered by `visibleTo` before rendering — each role sees only their relevant steps
+- First incomplete step is highlighted as `current`; completed steps show green; future steps show muted
+- Each role gets audience-appropriate action hints on the current step
+
+#### Dashboard wiring
+
+| Page                                                         | Audience    | Query                                                       |
+| ------------------------------------------------------------ | ----------- | ----------------------------------------------------------- |
+| `src/app/customer/dashboard/page.tsx`                        | `customer`  | Fetches step events for most recent active order            |
+| `src/app/customer/orders/page.tsx`                           | `customer`  | Per-order `OrderStepMatrix` component fetches independently |
+| `src/app/sales/orders/sales-orders-client.tsx`               | `sales`     | Fetches on selected order change                            |
+| `src/app/logistics/shipments/logistics-shipments-client.tsx` | `logistics` | Fetches on selected order change                            |

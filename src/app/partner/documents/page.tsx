@@ -1,10 +1,13 @@
 "use client";
 
+import type { Route } from "next";
 import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PARTNER_UPLOAD_FILE_TYPES } from "@/constants/partner-upload-file-types";
+import { getStreamDisplayName } from "@/constants/stream-display";
 import { DocumentManager } from "@/features/documents/document-manager";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -58,6 +61,8 @@ function getCustomerInitials(name: string) {
 }
 
 export default function PartnerDocumentsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: user, isLoading, isError } = useAuth();
 
   const userId = user?.id ?? "";
@@ -120,15 +125,25 @@ export default function PartnerDocumentsPage() {
       .sort((a, b) => a.customerName.localeCompare(b.customerName));
   }, [customerDocsQuery.data?.requests]);
 
-  const filteredDocumentTypeOptions = useMemo(() => {
+  const streamResolution = useMemo(() => {
     const partnerStream = normalizeStream(
       customerDocsQuery.data?.partner?.offeredServiceStream,
     );
+    const rawPartnerStream =
+      customerDocsQuery.data?.partner?.offeredServiceStream?.trim() ?? "";
 
     const requestStreams = new Set(
       (customerDocsQuery.data?.requests ?? [])
         .map((request) => normalizeStream(request.packageStream))
         .filter(Boolean),
+    );
+
+    const rawRequestStreams = Array.from(
+      new Set(
+        (customerDocsQuery.data?.requests ?? [])
+          .map((request) => request.packageStream?.trim() ?? "")
+          .filter(Boolean),
+      ),
     );
 
     const byPartnerStream = partnerStream
@@ -138,7 +153,12 @@ export default function PartnerDocumentsPage() {
       : [];
 
     if (byPartnerStream.length > 0) {
-      return byPartnerStream;
+      return {
+        options: byPartnerStream,
+        hasMissingMapping: false,
+        rawPartnerStream,
+        rawRequestStreams,
+      };
     }
 
     const byRequestStreams =
@@ -149,14 +169,77 @@ export default function PartnerDocumentsPage() {
         : [];
 
     if (byRequestStreams.length > 0) {
-      return byRequestStreams;
+      return {
+        options: byRequestStreams,
+        hasMissingMapping: false,
+        rawPartnerStream,
+        rawRequestStreams,
+      };
     }
 
-    return PARTNER_UPLOAD_FILE_TYPES;
+    const hasStreamSignals = Boolean(partnerStream) || requestStreams.size > 0;
+
+    return {
+      options: hasStreamSignals ? [] : PARTNER_UPLOAD_FILE_TYPES,
+      hasMissingMapping: hasStreamSignals,
+      rawPartnerStream,
+      rawRequestStreams,
+    };
   }, [customerDocsQuery.data]);
+
+  const missingDocumentKeys = useMemo(() => {
+    const raw = searchParams.get("missing") ?? "";
+    if (!raw) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        raw
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [searchParams]);
+
+  const retryCompleteId = searchParams.get("retryCompleteId") ?? "";
+  const shouldRetryComplete = searchParams.get("retryComplete") === "1";
+
+  const prioritizedDocumentTypeOptions = useMemo(() => {
+    if (missingDocumentKeys.length === 0) {
+      return streamResolution.options;
+    }
+
+    const missingSet = new Set(missingDocumentKeys);
+    const missingFirst = streamResolution.options
+      .filter((item) => missingSet.has(item.key))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    if (missingFirst.length > 0) {
+      return missingFirst;
+    }
+
+    return streamResolution.options;
+  }, [streamResolution.options, missingDocumentKeys]);
+
+  const missingDocumentLabels = useMemo(() => {
+    if (missingDocumentKeys.length === 0) {
+      return [];
+    }
+
+    const labelByKey = new Map(
+      PARTNER_UPLOAD_FILE_TYPES.map((item) => [item.key, item.label]),
+    );
+
+    return missingDocumentKeys.map((key) => labelByKey.get(key) ?? key);
+  }, [missingDocumentKeys]);
 
   const resolvedPartnerId = customerDocsQuery.data?.partner?.id ?? "";
   const canUploadForPartner = Boolean(resolvedPartnerId);
+  const shouldBlockUploadsForMissingStream =
+    streamResolution.hasMissingMapping &&
+    prioritizedDocumentTypeOptions.length === 0;
   const prefix = canUploadForPartner ? `partners/${resolvedPartnerId}` : "";
 
   return (
@@ -177,6 +260,42 @@ export default function PartnerDocumentsPage() {
             title="Customer Submitted Documents"
             description="Documents uploaded by customers for your assigned requests, grouped by customer."
           >
+            {missingDocumentLabels.length > 0 ? (
+              <div className="mb-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-100">
+                  Missing Required Documents
+                </p>
+                <p className="mt-1 text-xs text-amber-50/95">
+                  Upload these first to complete work order:{" "}
+                  {missingDocumentLabels.join(", ")}.
+                </p>
+                {shouldRetryComplete ? (
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      className="h-8 rounded-md bg-amber-300/90 px-3 text-xs font-semibold text-slate-950 hover:bg-amber-200"
+                      onClick={() => {
+                        const query = new URLSearchParams();
+                        if (retryCompleteId) {
+                          query.set("retryComplete", "1");
+                          query.set("retryCompleteId", retryCompleteId);
+                        }
+
+                        const target = `/partner/work-orders${query.toString() ? `?${query.toString()}` : ""}`;
+                        router.push(target as Route);
+                      }}
+                    >
+                      Return And Finalize Work Order
+                    </Button>
+                    <p className="mt-1 text-[11px] text-amber-50/90">
+                      After upload, click here to auto-complete and trigger
+                      delivery/SLA updates.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {customerDocsQuery.isLoading ? (
               <p className="text-sm text-slate-300">
                 Loading customer documents...
@@ -267,19 +386,60 @@ export default function PartnerDocumentsPage() {
             </div>
           </Card>
 
-          {canUploadForPartner ? (
+          {canUploadForPartner && shouldBlockUploadsForMissingStream ? (
+            <Card
+              title="Partner Workspace Documents"
+              description="Files your partner team uploads for delivery and reporting."
+            >
+              <div className="rounded-xl border border-amber-300/35 bg-amber-300/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-100">
+                  Upload Mapping Needed
+                </p>
+                <p className="mt-2 text-sm text-amber-50/95">
+                  Uploads are currently blocked because this stream has no
+                  mapped partner document types.
+                </p>
+                <p className="mt-2 text-xs text-amber-50/90">
+                  Partner stream:{" "}
+                  {getStreamDisplayName(
+                    streamResolution.rawPartnerStream || "Unknown Stream",
+                  )}
+                </p>
+                {streamResolution.rawRequestStreams.length > 0 ? (
+                  <p className="mt-1 text-xs text-amber-50/90">
+                    Request streams:{" "}
+                    {streamResolution.rawRequestStreams
+                      .map((stream) => getStreamDisplayName(stream))
+                      .join(", ")}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-xs text-amber-50/90">
+                  Next action: add matching entries in PARTNER_UPLOAD_FILE_TYPES
+                  so this workspace can accept uploads.
+                </p>
+              </div>
+            </Card>
+          ) : null}
+
+          {canUploadForPartner && !shouldBlockUploadsForMissingStream ? (
             <DocumentManager
               title="Partner Workspace Documents"
               description="Files your partner team uploads for delivery and reporting."
               bucket={bucket}
               prefix={prefix}
-              documentTypeOptions={filteredDocumentTypeOptions.map((item) => ({
-                value: item.key,
-                label: item.label,
-                group: item.stream,
-              }))}
+              acceptedFileTypes="application/pdf,image/*"
+              uploadHint="Accepted formats: PDF and images (JPG, PNG, HEIC, WebP)."
+              documentTypeOptions={prioritizedDocumentTypeOptions.map(
+                (item) => ({
+                  value: item.key,
+                  label: item.label,
+                  group: getStreamDisplayName(item.stream),
+                }),
+              )}
             />
-          ) : (
+          ) : null}
+
+          {!canUploadForPartner ? (
             <Card
               title="Partner Workspace Documents"
               description="Files your partner team uploads for delivery and reporting."
@@ -288,7 +448,7 @@ export default function PartnerDocumentsPage() {
                 Resolving partner workspace...
               </p>
             </Card>
-          )}
+          ) : null}
         </>
       ) : null}
     </div>

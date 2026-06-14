@@ -15,6 +15,7 @@ import type {
   WorkflowPayload,
   QueueWorkflowEvent,
 } from "@/lib/workflow/types";
+import { assertValidTransition } from "@/lib/workflow/transition-validator";
 
 export function isLogisticsWorkflowEvent(
   eventType: WorkflowEventType,
@@ -22,7 +23,16 @@ export function isLogisticsWorkflowEvent(
   return (
     eventType === "logistics.handoff_created" ||
     eventType === "logistics.order_received" ||
+    eventType === "logistics.warehouse_transmitted" ||
+    eventType === "logistics.customer_notified" ||
+    eventType === "logistics.items_packed" ||
+    eventType === "logistics.shipping_label_generated" ||
     eventType === "order.shipped" ||
+    eventType === "logistics.reroute_delivery" ||
+    eventType === "logistics.reroute_complete" ||
+    eventType === "logistics.order_arrived" ||
+    eventType === "logistics.pod_signed" ||
+    eventType === "logistics.system_updated" ||
     eventType === "order.delivered"
   );
 }
@@ -33,6 +43,12 @@ export async function processLogisticsWorkflowEvent(
   queueWorkflowEvent: QueueWorkflowEvent,
 ) {
   const admin = createAdminClient();
+
+  const orderIdFromPayload =
+    typeof payload.orderId === "string" ? payload.orderId : null;
+  if (orderIdFromPayload) {
+    await assertValidTransition(orderIdFromPayload, eventType);
+  }
 
   switch (eventType) {
     case "logistics.handoff_created": {
@@ -89,6 +105,66 @@ export async function processLogisticsWorkflowEvent(
       return;
     }
 
+    case "logistics.warehouse_transmitted": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Order Transmitted to Warehouse",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.customer_notified": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Notify Customer",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.items_packed": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Pack Items for Shipment",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.shipping_label_generated": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Generate Shipping Label & Documentation",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
     case "order.shipped": {
       const { orderId } = payload;
       if (!orderId) throw new Error("Missing orderId in payload");
@@ -123,7 +199,84 @@ export async function processLogisticsWorkflowEvent(
           .eq("id", orderId);
       }
 
-      await queueWorkflowEvent("order.delivered", { orderId });
+      // order.delivered must be triggered explicitly by the logistics UI
+      // after POD upload — do not auto-queue here.
+      return;
+    }
+
+    case "logistics.order_arrived": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Order Arrives at Destination",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.reroute_delivery": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Reroute Delivery",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.reroute_complete": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      // Reroute resolved — return order to active in-transit tracking.
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Track Shipment In Transit",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.pod_signed": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "Customer Receives & Signs POD",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return;
+    }
+
+    case "logistics.system_updated": {
+      const { orderId } = payload;
+      if (!orderId) throw new Error("Missing orderId in payload");
+
+      await admin
+        .from("sales_orders")
+        .update({
+          status: "BluBook System Updated",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
       return;
     }
 

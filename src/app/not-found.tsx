@@ -9,9 +9,12 @@ export default function NotFound() {
       <p className="mt-3 text-sm text-slate-200/85">
         The page you requested does not exist or was moved.
       </p>
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         <Link href="/">
           <Button>Back to Home</Button>
+        </Link>
+        <Link href="/unauthorized">
+          <Button variant="ghost">Access Help</Button>
         </Link>
       </div>
     </main>

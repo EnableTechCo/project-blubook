@@ -4,10 +4,47 @@ import { useEffect, useState } from "react";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  MOCK_AI_AUTOMATIONS,
-  MOCK_STAFF_DASHBOARD_PACK,
-} from "@/features/mock/dashboard-data";
+
+const STAFF_OPERATION_AREAS = [
+  {
+    title: "Cross-Team Tasks",
+    description:
+      "Monitor tasks that require handoff between sales, staff, and logistics.",
+    points: [
+      "Review newly assigned operational tasks.",
+      "Escalate blockers that impact SLA windows.",
+      "Confirm completion evidence is attached before closure.",
+    ],
+  },
+  {
+    title: "Anomaly Alerts",
+    description: "Review workflow anomalies and route them for remediation.",
+    points: [
+      "Validate anomaly signals against current order state.",
+      "Assign owner and remediation action.",
+      "Close or re-open alerts based on evidence.",
+    ],
+  },
+  {
+    title: "Recommendations",
+    description:
+      "Action recommendations are generated from active workflow events.",
+    points: [
+      "Prioritize recommendations with SLA impact.",
+      "Approve only recommendations with sufficient context.",
+      "Capture overrides for governance review.",
+    ],
+  },
+  {
+    title: "Automation Health",
+    description: "Track automation reliability and failed execution runs.",
+    points: [
+      "Check failed automation executions.",
+      "Retry eligible workflows after validation.",
+      "Log recurring failures for engineering follow-up.",
+    ],
+  },
+] as const;
 
 export default function StaffDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -42,111 +79,44 @@ export default function StaffDashboardPage() {
             Staff Operations Dashboard
           </h2>
           <p className="mt-2 text-sm text-slate-200/85">
-            {MOCK_STAFF_DASHBOARD_PACK.subheading}
+            Operational visibility for live workflow queues and intervention
+            points.
           </p>
         </div>
-        <Badge>Phase 3 Data Pack</Badge>
+        <Badge>Phase 3 Operations</Badge>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {MOCK_STAFF_DASHBOARD_PACK.metrics.map((metric) => (
-          <Card key={metric.id} title={metric.label} description={metric.hint}>
-            <p className="text-3xl font-semibold text-white">{metric.value}</p>
-            {metric.delta ? (
-              <p className="mt-1 text-xs text-slate-300">{metric.delta}</p>
-            ) : null}
+        {STAFF_OPERATION_AREAS.map((area) => (
+          <Card
+            key={area.title}
+            title={area.title}
+            description={area.description}
+          >
+            <p className="text-sm text-slate-200">
+              Live values are shown in dedicated workflow views.
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              Status: monitoring enabled
+            </p>
           </Card>
         ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card
-          title="Cross-Team Tasks"
-          description="Mock operational queue for standups."
-        >
-          <div className="space-y-3">
-            {MOCK_STAFF_DASHBOARD_PACK.tasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm font-semibold text-white">{task.title}</p>
-                <p className="mt-1 text-xs text-slate-300">
-                  Owner: {task.owner} | ETA: {task.eta}
-                </p>
-                <p className="mt-1 text-xs text-slate-200">
-                  Status: {task.status}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card
-          title="Anomaly Alerts"
-          description="Signals from AI anomaly detection model."
-        >
-          <div className="space-y-3">
-            {MOCK_STAFF_DASHBOARD_PACK.alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm font-semibold text-coral">
-                  {alert.title}
-                </p>
-                <p className="mt-1 text-xs text-slate-300">{alert.detail}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Source: {alert.source}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card
-          title="AI Recommendations"
-          description="Next-best actions for operators."
-        >
-          <div className="space-y-3">
-            {MOCK_STAFF_DASHBOARD_PACK.aiRecommendations.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm text-white">{item.title}</p>
-                <p className="mt-1 text-xs text-slate-300">{item.reason}</p>
-                <p className="mt-2 text-xs text-slate-200">
-                  Action: {item.action}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card
-          title="Automation Health"
-          description="Mock automation flows for ticket implementation and QA."
-        >
-          <div className="space-y-3">
-            {MOCK_AI_AUTOMATIONS.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm font-semibold text-white">{item.name}</p>
-                <p className="mt-1 text-xs text-slate-300">
-                  Trigger: {item.trigger}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Status: {item.status}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
+        {STAFF_OPERATION_AREAS.map((area) => (
+          <Card
+            key={`${area.title}-detail`}
+            title={area.title}
+            description={area.description}
+          >
+            <ul className="list-disc space-y-2 pl-5 text-sm text-slate-100/90">
+              {area.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </Card>
+        ))}
       </div>
     </div>
   );

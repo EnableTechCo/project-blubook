@@ -49,8 +49,10 @@ export default function CustomerBillingPage() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  const refresh = async () => {
-    setLoading(true);
+  const refresh = async (options?: { preserveView?: boolean }) => {
+    if (!options?.preserveView) {
+      setLoading(true);
+    }
     const response = await fetch("/api/customer/billing");
 
     if (!response.ok) {
@@ -107,7 +109,7 @@ export default function CustomerBillingPage() {
         ? "Subscription will cancel at period end."
         : "Subscription updated successfully.",
     );
-    await refresh();
+    await refresh({ preserveView: true });
     setBusy(false);
   };
 

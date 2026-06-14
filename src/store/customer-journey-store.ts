@@ -283,24 +283,12 @@ function newNotification(
   };
 }
 
-const DEFAULT_LOGIN_TIER: PackageTier = "premium";
-const DEFAULT_LOGIN_SUITE_REQUESTS = buildSuiteRequestsForTier(
-  DEFAULT_LOGIN_TIER,
-).map((item) => ({
-  ...item,
-  partnerDecision: "accepted" as const,
-  status: "pending_customer_docs" as const,
-}));
+const DEFAULT_LOGIN_TIER: PackageTier | null = null;
+const DEFAULT_LOGIN_SUITE_REQUESTS: SuiteRequest[] = [];
 const DEFAULT_LOGIN_NOTIFICATIONS: JourneyNotification[] = [
   newNotification(
     "system",
-    "Welcome back. Your activated service providers have sent required document requests.",
-  ),
-  ...DEFAULT_LOGIN_SUITE_REQUESTS.map((request) =>
-    newNotification(
-      request.suite,
-      `${formatSuiteLabel(request.suite)} requested: ${request.requiredDocs[0]}.`,
-    ),
+    "Welcome. Select a package to begin the onboarding workflow.",
   ),
 ];
 
@@ -308,34 +296,17 @@ export const useCustomerJourneyStore = create<CustomerJourneyState>()(
   persist(
     (set) => ({
       packageTier: DEFAULT_LOGIN_TIER,
-      paid: true,
-      onboardingCompleted: true,
+      paid: false,
+      onboardingCompleted: false,
       poUploaded: false,
       poReference: "",
       salesStage: SALES_STAGES[0],
       logisticsStage: LOGISTICS_STAGES[0],
-      onboardingSnapshot: {
-        businessTitle: "BluBook Demo Customer",
-        businessSummary:
-          "Demo profile loaded for customer workspace walkthrough.",
-        companyType: "llc",
-        employees: "21-49",
-        country: "South Africa",
-        city: "Johannesburg",
-        inventoryHandling: "in_house",
-        regions: ["domestic"],
-        regulated: false,
-        submittedAt: new Date().toISOString(),
-      },
+      onboardingSnapshot: null,
       suiteRequests: DEFAULT_LOGIN_SUITE_REQUESTS,
       viewedSuiteRequestIds: [],
       notifications: DEFAULT_LOGIN_NOTIFICATIONS,
-      partnerNotifications: [
-        newNotification(
-          "system",
-          "Partner inbox seeded with five active suite queues for demo mode.",
-        ),
-      ],
+      partnerNotifications: [],
 
       selectPackage: (tier) =>
         set(() => ({

@@ -7,6 +7,8 @@ import {
   resolvePartnerUserIds,
   withOrderLifecycleDefaults,
 } from "@/lib/workflow/order-lifecycle";
+import { resolveServicePartnerForStream } from "@/lib/workflow/service-partner-routing";
+import { assertValidTransition } from "@/lib/workflow/transition-validator";
 import type {
   QueueWorkflowEvent,
   SalesWorkflowEventType,
@@ -16,9 +18,48 @@ import type {
 
 const SALES_PARTNER_STREAM = "Sales Ops";
 const LOGISTICS_PARTNER_STREAM = "Logistics";
+const DEFAULT_LOGISTICS_PARTNER_NAME_HINT = "blubook logistics";
+const LOGISTICS_OWNED_STATUSES = new Set([
+  "Logistics Handoff Created",
+  "Service Provider Confirmed Order",
+  "Logistics Fulfillment In Progress",
+  "Order Received",
+  "Order Transmitted to Warehouse",
+  "Notify Customer",
+  "Pack Items for Shipment",
+  "Generate Shipping Label & Documentation",
+  "Track Shipment In Transit",
+  "Reroute Delivery",
+  "Order Arrives at Destination",
+  "Customer Receives & Signs POD",
+  "BluBook System Updated",
+]);
 
 function readPreferredPartnerEmail(metadata: unknown, key: string) {
   return readStringMetadata(metadata, key);
+}
+
+async function assertSalesCompletionUnlocked(orderId: string) {
+  const admin = createAdminClient();
+  const { data: order, error } = await admin
+    .from("sales_orders")
+    .select("status")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error || !order) {
+    throw new Error(`Order ${orderId} not found.`);
+  }
+
+  if (order.status === "Delivered") {
+    return;
+  }
+
+  if (LOGISTICS_OWNED_STATUSES.has(order.status)) {
+    throw new Error(
+      `Sales completion is blocked while logistics owns delivery execution (current status: ${order.status}). Wait until logistics sets Delivered.`,
+    );
+  }
 }
 
 export function isSalesWorkflowEvent(
@@ -60,29 +101,33 @@ export async function processSalesWorkflowEvent(
       const nextMetadata = appendOrderTimeline(
         withOrderLifecycleDefaults(order.metadata, { startedAt: nowIso }),
         {
-          step: "sales_validated",
+          step: "order_created",
           actor: "sales",
           at: nowIso,
-          message: `Sales validated ${order.po_reference ?? orderId}.`,
+          message: `Order ${order.po_reference ?? orderId} received and awaiting sales validation.`,
         },
       );
 
+      // Set to initial received state. Sales must explicitly validate via the UI
+      // checkpoint to trigger order.validated — prevents double-processing.
       await admin
         .from("sales_orders")
         .update({
-          status: "Order Validated",
+          status: "Purchase Order Received",
           metadata: nextMetadata,
           updated_at: nowIso,
         })
         .eq("id", orderId);
 
-      await queueWorkflowEvent("order.validated", { orderId });
       return;
     }
 
     case "order.validated": {
-      const { orderId } = payload;
+      const orderId =
+        typeof payload.orderId === "string" ? payload.orderId : null;
       if (!orderId) throw new Error("Missing orderId in payload");
+
+      await assertValidTransition(orderId, eventType);
 
       const { data: order, error: orderError } = await admin
         .from("sales_orders")
@@ -106,38 +151,15 @@ export async function processSalesWorkflowEvent(
       let hasPick = false;
       let hasProduce = false;
       let hasLogisticsHandoff = false;
-      const preferredLogisticsPartnerEmail = readPreferredPartnerEmail(
-        order.metadata,
-        "preferred_logistics_partner_email",
-      );
-      const preferredSalesPartnerEmail = readPreferredPartnerEmail(
-        order.metadata,
-        "preferred_sales_partner_email",
-      );
 
-      const { data: preferredSalesPartner } = preferredSalesPartnerEmail
-        ? await admin
-            .from("service_partners")
-            .select("id, package_stream, name")
-            .eq("metadata->mock_account->>email", preferredSalesPartnerEmail)
-            .eq("is_active", true)
-            .maybeSingle()
-        : { data: null };
-
-      const { data: partner } = preferredSalesPartner?.id
-        ? { data: preferredSalesPartner }
-        : await admin
-            .from("service_partners")
-            .select("id, package_stream, name")
-            .eq("package_stream", SALES_PARTNER_STREAM)
-            .eq("is_active", true)
-            .order("name", { ascending: true })
-            .limit(1)
-            .maybeSingle();
+      const partner = await resolveServicePartnerForStream({
+        admin,
+        stream: SALES_PARTNER_STREAM,
+      });
 
       let assignedLogisticsProvider: {
         id: string;
-        package_stream: string;
+        packageStream: string;
         name: string;
       } | null = null;
 
@@ -164,29 +186,11 @@ export async function processSalesWorkflowEvent(
             );
           }
 
-          const { data: preferredLogisticsProvider } =
-            preferredLogisticsPartnerEmail
-              ? await admin
-                  .from("service_partners")
-                  .select("id, package_stream, name")
-                  .eq(
-                    "metadata->mock_account->>email",
-                    preferredLogisticsPartnerEmail,
-                  )
-                  .eq("is_active", true)
-                  .maybeSingle()
-              : { data: null };
-
-          const { data: logisticsProvider } = preferredLogisticsProvider?.id
-            ? { data: preferredLogisticsProvider }
-            : await admin
-                .from("service_partners")
-                .select("id, package_stream, name")
-                .eq("package_stream", LOGISTICS_PARTNER_STREAM)
-                .eq("is_active", true)
-                .order("name", { ascending: true })
-                .limit(1)
-                .maybeSingle();
+          const logisticsProvider = await resolveServicePartnerForStream({
+            admin,
+            stream: LOGISTICS_PARTNER_STREAM,
+            preferredNameHint: DEFAULT_LOGISTICS_PARTNER_NAME_HINT,
+          });
 
           if (!logisticsProvider?.id) {
             throw new Error("No active logistics service partner available");
@@ -213,7 +217,7 @@ export async function processSalesWorkflowEvent(
             from_provider_id: partner.id,
             to_provider_id: logisticsProvider.id,
             handoff_type: "sales_to_logistics",
-            package_stream: logisticsProvider.package_stream,
+            package_stream: logisticsProvider.packageStream,
             status: "pending",
             required_documents: requiredDocuments,
             metadata: {
@@ -434,6 +438,8 @@ export async function processSalesWorkflowEvent(
       if (!item) throw new Error("Order item not associated with any order");
       orderId = item.order_id;
 
+      await assertSalesCompletionUnlocked(orderId);
+
       const { data: orderItems } = await admin
         .from("sales_order_items")
         .select("id, quantity")
@@ -477,8 +483,12 @@ export async function processSalesWorkflowEvent(
     }
 
     case "order.packaged": {
-      const { orderId } = payload;
+      const orderId =
+        typeof payload.orderId === "string" ? payload.orderId : null;
       if (!orderId) throw new Error("Missing orderId in payload");
+
+      await assertValidTransition(orderId, eventType);
+      await assertSalesCompletionUnlocked(orderId);
 
       const { data: order, error: orderError } = await admin
         .from("sales_orders")
@@ -530,7 +540,9 @@ export async function processSalesWorkflowEvent(
         })
         .eq("id", orderId);
 
-      await queueWorkflowEvent("logistics.order_received", { orderId });
+      // Do NOT auto-queue logistics.order_received here. Logistics must
+      // explicitly acknowledge intake via their own action. Removing this
+      // was required to prevent logistics-owned steps from auto-completing.
       return;
     }
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { processWorkflowEvents } from "@/lib/workflow/engine";
+import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
 import {
   appendOrderTimeline,
   insertNotifications,
@@ -9,27 +9,8 @@ import {
   resolvePartnerUserIds,
   withOrderLifecycleDefaults,
 } from "@/lib/workflow/order-lifecycle";
-
-function readServicePartnerId(value: unknown) {
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-
-  const servicePartnerId = (value as { service_partner_id?: unknown })
-    .service_partner_id;
-  return typeof servicePartnerId === "string" && servicePartnerId.length > 0
-    ? servicePartnerId
-    : null;
-}
-
-function firstNonEmpty(values: Array<string | null | undefined>) {
-  for (const value of values) {
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-  return null;
-}
+import { DELIVERED_PROOF_REQUIREMENTS } from "@/lib/workflow/workflow-step-contract";
+import { getCompletedStepKeysForOrder } from "@/services/workflow-step-events.service";
 
 function getRequiredDocumentKeys(requiredDocuments: unknown) {
   if (!Array.isArray(requiredDocuments)) {
@@ -51,113 +32,17 @@ function getRequiredDocumentKeys(requiredDocuments: unknown) {
 async function resolveServicePartnerId(input: {
   admin: ReturnType<typeof createAdminClient>;
   userId: string;
-  userEmail: string | null;
   profileMetadata: unknown;
   profileOrganizationId: string | null;
   userMetadata: unknown;
 }) {
-  const directId = firstNonEmpty([
-    readServicePartnerId(input.profileMetadata),
-    readServicePartnerId(input.userMetadata),
-  ]);
-
-  if (directId) {
-    return directId;
-  }
-
-  const { data: memberships } = await input.admin
-    .from("organization_memberships")
-    .select("organization_id, metadata")
-    .eq("user_id", input.userId)
-    .eq("status", "active");
-
-  const membershipId = firstNonEmpty(
-    (memberships ?? []).map((row) => readServicePartnerId(row.metadata)),
-  );
-  if (membershipId) {
-    return membershipId;
-  }
-
-  const organizationIds = Array.from(
-    new Set(
-      [
-        input.profileOrganizationId,
-        ...(memberships ?? []).map((row) => row.organization_id),
-      ].filter((value): value is string => Boolean(value)),
-    ),
-  );
-
-  if (organizationIds.length > 0) {
-    const { data: organizations } = await input.admin
-      .from("organizations")
-      .select("id, metadata")
-      .in("id", organizationIds);
-
-    const organizationId = firstNonEmpty(
-      (organizations ?? []).map((row) => readServicePartnerId(row.metadata)),
-    );
-    if (organizationId) {
-      return organizationId;
-    }
-  }
-
-  const { data: byMockAccountUser } = await input.admin
-    .from("service_partners")
-    .select("id")
-    .eq("metadata->mock_account->>user_id", input.userId)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (byMockAccountUser?.id) {
-    return byMockAccountUser.id;
-  }
-
-  for (const organizationId of organizationIds) {
-    const { data: byMockAccountOrg } = await input.admin
-      .from("service_partners")
-      .select("id")
-      .eq("metadata->mock_account->>organization_id", organizationId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (byMockAccountOrg?.id) {
-      return byMockAccountOrg.id;
-    }
-  }
-
-  if (input.userEmail) {
-    const { data: byMockAccountEmail } = await input.admin
-      .from("service_partners")
-      .select("id")
-      .eq("metadata->mock_account->>email", input.userEmail)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (byMockAccountEmail?.id) {
-      return byMockAccountEmail.id;
-    }
-  }
-
-  return null;
-}
-
-async function drainWorkflowQueue(maxRuns = 5) {
-  let processed = 0;
-  let succeeded = 0;
-  let failed = 0;
-
-  for (let run = 0; run < maxRuns; run += 1) {
-    const batch = await processWorkflowEvents(20);
-    processed += batch.processed;
-    succeeded += batch.succeeded;
-    failed += batch.failed;
-
-    if (batch.processed === 0) {
-      break;
-    }
-  }
-
-  return { processed, succeeded, failed };
+  return resolveServicePartnerIdForPartnerUser({
+    admin: input.admin,
+    userId: input.userId,
+    profileMetadata: input.profileMetadata,
+    profileOrganizationId: input.profileOrganizationId,
+    userMetadata: input.userMetadata,
+  });
 }
 
 async function requirePartnerContext() {
@@ -188,7 +73,6 @@ async function requirePartnerContext() {
   const servicePartnerId = await resolveServicePartnerId({
     admin,
     userId: user.id,
-    userEmail: user.email ?? null,
     profileMetadata: profile.metadata,
     profileOrganizationId: profile.organization_id ?? null,
     userMetadata: user.user_metadata,
@@ -204,6 +88,41 @@ async function requirePartnerContext() {
   }
 
   return { admin, userId: user.id, servicePartnerId };
+}
+
+async function updateOrderWithStatusFallback(input: {
+  admin: ReturnType<typeof createAdminClient>;
+  orderId: string;
+  nextStatus: string;
+  metadata: Record<string, unknown>;
+}) {
+  const updatedAt = new Date().toISOString();
+  const { error: updateError } = await input.admin
+    .from("sales_orders")
+    .update({
+      status: input.nextStatus,
+      metadata: input.metadata,
+      updated_at: updatedAt,
+    })
+    .eq("id", input.orderId);
+
+  if (!updateError) {
+    return null;
+  }
+
+  if (!updateError.message.includes("sales_orders_status_check")) {
+    return updateError;
+  }
+
+  const { error: fallbackUpdateError } = await input.admin
+    .from("sales_orders")
+    .update({
+      metadata: input.metadata,
+      updated_at: updatedAt,
+    })
+    .eq("id", input.orderId);
+
+  return fallbackUpdateError ?? null;
 }
 
 export async function GET() {
@@ -229,8 +148,10 @@ export async function GET() {
         sku,
         quantity,
         sales_orders (
+          id,
           po_reference,
-          status
+          status,
+          metadata
         )
       )
     `,
@@ -241,6 +162,34 @@ export async function GET() {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  console.info("[partner/work-orders] inbound handoffs query", {
+    servicePartnerId,
+    rowCount: (inboundProviderHandoffs ?? []).length,
+    rows: (inboundProviderHandoffs ?? []).map((row) => {
+      const items = Array.isArray(row.sales_order_items)
+        ? row.sales_order_items
+        : row.sales_order_items
+          ? [row.sales_order_items]
+          : [];
+      const order = items[0]?.sales_orders ?? null;
+      const orderId =
+        typeof order === "object" && order !== null && "id" in order
+          ? (order as { id?: string }).id
+          : null;
+      const poRef =
+        typeof order === "object" && order !== null && "po_reference" in order
+          ? (order as { po_reference?: string | null }).po_reference
+          : null;
+      return {
+        id: row.id,
+        status: row.status,
+        salesOrderId: orderId,
+        poReference: poRef,
+        assignedAt: row.assigned_at,
+      };
+    }),
+  });
 
   return NextResponse.json({
     inboundProviderHandoffs: inboundProviderHandoffs ?? [],
@@ -334,6 +283,31 @@ export async function POST(request: Request) {
   }
 
   if (action === "accept") {
+    if (order) {
+      const metadata = appendOrderTimeline(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          step: "logistics_handoff_accepted",
+          actor: "logistics",
+          message: `${order.po_reference ?? order.id} was accepted by logistics.`,
+        },
+      );
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: "Service Provider Confirmed Order",
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+    }
+
     const { error } = await admin
       .from("provider_workflow_handoffs")
       .update({
@@ -345,22 +319,6 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    if (order) {
-      const metadata = appendOrderTimeline(
-        withOrderLifecycleDefaults(order.metadata),
-        {
-          step: "logistics_handoff_accepted",
-          actor: "logistics",
-          message: `${order.po_reference ?? order.id} was accepted by logistics.`,
-        },
-      );
-
-      await admin
-        .from("sales_orders")
-        .update({ metadata, updated_at: new Date().toISOString() })
-        .eq("id", order.id);
     }
 
     await notifyLifecycleUpdate(
@@ -388,6 +346,31 @@ export async function POST(request: Request) {
   }
 
   if (action === "start") {
+    if (order) {
+      const metadata = appendOrderTimeline(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          step: "logistics_fulfillment_started",
+          actor: "logistics",
+          message: `${order.po_reference ?? order.id} is now in logistics fulfillment.`,
+        },
+      );
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: "Logistics Fulfillment In Progress",
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+    }
+
     const { error } = await admin
       .from("provider_workflow_handoffs")
       .update({
@@ -400,26 +383,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    if (order) {
-      const metadata = appendOrderTimeline(
-        withOrderLifecycleDefaults(order.metadata),
-        {
-          step: "logistics_fulfillment_started",
-          actor: "logistics",
-          message: `${order.po_reference ?? order.id} is now in logistics fulfillment.`,
-        },
-      );
-
-      await admin
-        .from("sales_orders")
-        .update({
-          status: "Logistics Fulfillment In Progress",
-          metadata,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
-    }
-
     await notifyLifecycleUpdate(
       `${order?.po_reference ?? providerHandoff.sales_order_id} is now in logistics fulfillment.`,
       "partner_work_order_started",
@@ -429,9 +392,46 @@ export async function POST(request: Request) {
   }
 
   if (action === "complete") {
-    const requiredDocumentKeys = getRequiredDocumentKeys(
-      providerHandoff.required_documents,
+    const requiredCompletionSteps = [
+      "customer_receives_signs_pod",
+      "blubook_system_updated",
+    ];
+
+    const completedStepKeys = await getCompletedStepKeysForOrder(
+      validatedProviderHandoff.sales_order_id,
     );
+    const completedSet = new Set(completedStepKeys);
+    const missingCompletionSteps = requiredCompletionSteps.filter(
+      (stepKey) => !completedSet.has(stepKey),
+    );
+
+    if (missingCompletionSteps.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Missing required workflow steps: ${missingCompletionSteps.join(
+            ", ",
+          )}`,
+          code: "MISSING_REQUIRED_STEP_EVENTS",
+          missingStepKeys: missingCompletionSteps,
+          requiredStepKeys: requiredCompletionSteps,
+        },
+        { status: 409 },
+      );
+    }
+
+    const requiredDocumentKeys = Array.from(
+      new Set([
+        ...getRequiredDocumentKeys(providerHandoff.required_documents),
+        ...DELIVERED_PROOF_REQUIREMENTS,
+      ]),
+    );
+
+    // Ensure minimum requirements are always enforced
+    if (requiredDocumentKeys.length === 0) {
+      // If there are somehow no required documents defined, require at least
+      // proof-of-delivery as a fallback for any delivery completion
+      requiredDocumentKeys.push("proof-of-delivery");
+    }
 
     if (requiredDocumentKeys.length > 0) {
       const { data: uploadedDocuments, error: documentsError } = await admin
@@ -466,6 +466,9 @@ export async function POST(request: Request) {
             error: `Missing required documents: ${missingDocumentKeys.join(
               ", ",
             )}`,
+            code: "MISSING_REQUIRED_DOCUMENTS",
+            missingDocumentKeys,
+            uploadPath: "/partner/documents",
           },
           { status: 400 },
         );
@@ -497,8 +500,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: queueError.message }, { status: 400 });
     }
 
-    const dispatch = await drainWorkflowQueue(3);
-    return NextResponse.json({ ok: true, dispatch });
+    // Queue only — order.delivered advances to "Delivered" via explicit
+    // dispatch (/api/system/workflow/dispatch), not auto-drain here.
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });

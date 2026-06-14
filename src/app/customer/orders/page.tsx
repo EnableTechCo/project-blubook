@@ -1,9 +1,45 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  WorkflowStepMatrix,
+  WorkflowProgress,
+} from "@/components/ui/workflow-progress";
 import { useCustomerContext } from "@/hooks/use-customer-context";
+import { subscribeToCustomerOrderProgress } from "@/services/workflow-realtime.service";
+
+function OrderStepMatrix({ orderId }: { orderId: string }) {
+  const stepEventsQuery = useQuery({
+    queryKey: ["step-events", orderId],
+    queryFn: async (): Promise<string[]> => {
+      const response = await fetch(
+        `/api/orders/${orderId}/step-events?audience=customer`,
+        { credentials: "include" },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) return [];
+      return (body?.completedStepKeys ?? []) as string[];
+    },
+  });
+
+  return (
+    <>
+      <WorkflowProgress completedStepKeys={stepEventsQuery.data ?? []} />
+      <div className="mt-3">
+        <WorkflowStepMatrix
+          completedStepKeys={stepEventsQuery.data ?? []}
+          audience="customer"
+          title="Your Order Progress"
+        />
+      </div>
+    </>
+  );
+}
 
 type CustomerOrder = {
   id: string;
@@ -44,6 +80,14 @@ function formatStatusLabel(value: string) {
 
 export default function CustomerOrdersPage() {
   const customerContext = useCustomerContext();
+  const queryClient = useQueryClient();
+  const [retractingOrderId, setRetractingOrderId] = useState<string | null>(
+    null,
+  );
+  const [retractConfirmOrder, setRetractConfirmOrder] = useState<{
+    id: string;
+    poReference: string | null;
+  } | null>(null);
 
   const ordersQuery = useQuery({
     queryKey: ["customer-orders", customerContext.data?.organizationId],
@@ -62,6 +106,71 @@ export default function CustomerOrdersPage() {
       return (body?.orders ?? []) as CustomerOrder[];
     },
   });
+
+  useEffect(() => {
+    const organizationId = customerContext.data?.organizationId;
+    if (!organizationId) {
+      return;
+    }
+
+    const unsubscribe = subscribeToCustomerOrderProgress(organizationId, () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-orders", organizationId],
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [customerContext.data?.organizationId, queryClient]);
+
+  const retractOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await fetch(`/api/customer/orders/${orderId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Could not retract order.");
+      }
+
+      return body;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["customer-orders", customerContext.data?.organizationId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "customer-requirements",
+          customerContext.data?.organizationId,
+        ],
+      });
+    },
+  });
+
+  function onRetractOrderRequest(orderId: string, poReference: string | null) {
+    setRetractConfirmOrder({ id: orderId, poReference });
+  }
+
+  async function onRetractOrderConfirmed() {
+    if (!retractConfirmOrder) {
+      return;
+    }
+
+    const { id } = retractConfirmOrder;
+    setRetractingOrderId(id);
+    try {
+      await retractOrderMutation.mutateAsync(id);
+    } catch {
+      // handled in UI
+    } finally {
+      setRetractingOrderId(null);
+      setRetractConfirmOrder(null);
+    }
+  }
 
   if (customerContext.isLoading || ordersQuery.isLoading) {
     return <p className="text-sm text-slate-300">Loading orders...</p>;
@@ -86,6 +195,13 @@ export default function CustomerOrdersPage() {
         <p className="mt-1 text-sm text-slate-200/85">
           Final delivery history, SLA outcomes, and order timeline.
         </p>
+        {retractOrderMutation.isError ? (
+          <p className="mt-2 text-sm text-red-300">
+            {retractOrderMutation.error instanceof Error
+              ? retractOrderMutation.error.message
+              : "Could not retract order."}
+          </p>
+        ) : null}
       </div>
 
       {orders.length === 0 ? (
@@ -112,7 +228,27 @@ export default function CustomerOrdersPage() {
                     SLA {order.slaStatus === "met" ? "Met" : "Missed"}
                   </Badge>
                 ) : null}
-                <Badge>{formatMoney(order.totalCents, order.currencyCode)}</Badge>
+                <Badge>
+                  {formatMoney(order.totalCents, order.currencyCode)}
+                </Badge>
+                <div className="ml-auto">
+                  <Button
+                    variant="danger"
+                    className="h-8 px-3 text-xs"
+                    disabled={
+                      retractOrderMutation.isPending &&
+                      retractingOrderId === order.id
+                    }
+                    onClick={() =>
+                      onRetractOrderRequest(order.id, order.poReference)
+                    }
+                  >
+                    {retractOrderMutation.isPending &&
+                    retractingOrderId === order.id
+                      ? "Retracting..."
+                      : "Retract Order"}
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -146,6 +282,13 @@ export default function CustomerOrdersPage() {
                 </div>
               </div>
 
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                  Workflow Progress
+                </p>
+                <OrderStepMatrix orderId={order.id} />
+              </div>
+
               <div className="mt-5 space-y-3">
                 <h3 className="text-sm font-semibold text-white">History</h3>
                 {order.timeline.length === 0 ? (
@@ -156,7 +299,11 @@ export default function CustomerOrdersPage() {
                   <div className="space-y-2">
                     {order.timeline.map((event, index) => (
                       <div
-                        key={typeof event.id === "string" ? event.id : `${order.id}-${index}`}
+                        key={
+                          typeof event.id === "string"
+                            ? event.id
+                            : `${order.id}-${index}`
+                        }
                         className="rounded-xl border border-white/10 bg-white/5 p-3"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -185,6 +332,20 @@ export default function CustomerOrdersPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(retractConfirmOrder)}
+        ariaLabel="Retract purchase order"
+        title={`Retract ${retractConfirmOrder?.poReference ?? retractConfirmOrder?.id ?? "order"}?`}
+        description="This removes the order and related workflow records."
+        warning="Intended for testing and workflow reset scenarios."
+        confirmLabel="Confirm Retract"
+        busy={retractOrderMutation.isPending}
+        onClose={() => setRetractConfirmOrder(null)}
+        onConfirm={() => {
+          void onRetractOrderConfirmed();
+        }}
+      />
     </div>
   );
 }

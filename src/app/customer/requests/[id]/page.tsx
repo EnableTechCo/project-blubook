@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileUploader } from "@/components/ui/file-uploader";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
+import { getStreamDisplayName } from "@/constants/stream-display";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import {
@@ -91,7 +92,25 @@ function getCustomerFacingTitle(input: {
     return "Service onboarding request";
   }
 
-  return `${providerContext.packageStream} onboarding request`;
+  return `${getStreamDisplayName(providerContext.packageStream)} onboarding request`;
+}
+
+function getRequirementStatusMicrocopy(status: string, reason: string | null) {
+  if (status === "submitted") {
+    return "Waiting for partner review";
+  }
+
+  if (status === "approved") {
+    return "Accepted by partner";
+  }
+
+  if (status === "rejected") {
+    return reason?.trim()
+      ? `Changes requested - see reason: ${reason}`
+      : "Changes requested - see reason";
+  }
+
+  return "Upload required document to continue";
 }
 
 function getDisplayStatusLabel(input: {
@@ -380,9 +399,12 @@ export default function CustomerRequestDetailPage() {
 
   const isBootstrappingRequirements =
     Boolean(organizationId && request) &&
-    (requirementsQuery.isLoading || requirementsQuery.isFetching);
+    (requirementsQuery.isLoading ||
+      (!isInitialBootstrapped && requirementsQuery.isFetching));
   const isBootstrappingMessages =
-    Boolean(requestId) && (messagesQuery.isLoading || messagesQuery.isFetching);
+    Boolean(requestId) &&
+    (messagesQuery.isLoading ||
+      (!isInitialBootstrapped && messagesQuery.isFetching));
 
   useEffect(() => {
     if (isInitialBootstrapped) {
@@ -525,6 +547,33 @@ export default function CustomerRequestDetailPage() {
                 </p>
               </div>
             ) : null}
+
+            {matchingRequirements.length > 0 ? (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                  Requirement Status
+                </p>
+                <div className="mt-2 space-y-2">
+                  {matchingRequirements.map((item) => (
+                    <div
+                      key={`status-${item.id}`}
+                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2"
+                    >
+                      <p className="text-xs font-semibold text-white">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        {getRequirementStatusMicrocopy(
+                          item.status,
+                          item.statusReason,
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-3">
               {pendingPurchaseOrderRequirements.length > 0 ? (
                 <div className="rounded-lg border border-cyan-300/25 bg-cyan-400/10 p-3">
@@ -541,8 +590,8 @@ export default function CustomerRequestDetailPage() {
                         <FileUploader
                           buttonLabel={
                             uploadingRequirementId === item.id
-                              ? `Uploading ${item.title}...`
-                              : `Upload ${item.title}`
+                              ? `Uploading...`
+                              : `Upload`
                           }
                           disabled={uploadingRequirementId === item.id}
                           onFilesSelected={(files) =>
@@ -566,8 +615,8 @@ export default function CustomerRequestDetailPage() {
                         <FileUploader
                           buttonLabel={
                             uploadingRequirementId === item.id
-                              ? `Uploading ${item.title}...`
-                              : `Upload ${item.title}`
+                              ? `Uploading...`
+                              : `Upload`
                           }
                           disabled={uploadingRequirementId === item.id}
                           onFilesSelected={(files) =>

@@ -80,6 +80,7 @@ export default function CustomerMessagesPage() {
             {notifications.map((item) => (
               <button
                 key={item.id}
+                type="button"
                 className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
                   item.read_at
                     ? "border-white/10 bg-white/5 text-slate-200"

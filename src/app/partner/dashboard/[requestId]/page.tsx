@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, File, FileText, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getStreamDisplayName } from "@/constants/stream-display";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 
 type PartnerDashboardRequest = {
@@ -37,6 +38,7 @@ type PartnerDashboardRequest = {
     title: string;
     evidenceType: string;
     status: string;
+    statusReason: string | null;
     updatedAt: string;
     uploadedFiles: Array<{
       id: string;
@@ -175,9 +177,30 @@ function FileEvidenceRow({
   );
 }
 
+function getRequirementStatusMicrocopy(status: string, reason: string | null) {
+  if (status === "submitted") {
+    return "Waiting for partner review";
+  }
+
+  if (status === "approved") {
+    return "Accepted by partner";
+  }
+
+  if (status === "rejected") {
+    return reason?.trim()
+      ? `Changes requested - see reason: ${reason}`
+      : "Changes requested - see reason";
+  }
+
+  return "Upload required evidence to continue";
+}
+
 export default function PartnerRequestDetailPage() {
   const params = useParams<{ requestId: string }>();
   const requestId = params?.requestId ?? "";
+  const queryClient = useQueryClient();
+  const [resubmissionReasonByRequirement, setResubmissionReasonByRequirement] =
+    useState<Record<string, string>>({});
 
   const dashboardQuery = useQuery({
     queryKey: ["partner-dashboard", requestId],
@@ -214,6 +237,33 @@ export default function PartnerRequestDetailPage() {
       ) ?? null,
     [dashboardQuery.data?.requests, requestId],
   );
+
+  const reviewMutation = useMutation({
+    mutationFn: async (input: {
+      requirementItemId: string;
+      action: "approve" | "request_resubmission";
+      reason?: string;
+    }) => {
+      const response = await fetch("/api/partner/requirements/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Could not review requirement.");
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["partner-dashboard", requestId],
+      });
+    },
+  });
 
   if (dashboardQuery.isLoading) {
     return <DashboardLoadingSkeleton metricCount={3} listCount={2} />;
@@ -287,6 +337,20 @@ export default function PartnerRequestDetailPage() {
         ? "from-amber-300 to-cyan-300"
         : "from-red-300 to-amber-300";
 
+  const isRequirementActionPending = reviewMutation.isPending;
+  const statusTone = (status: string) => {
+    if (status === "approved") {
+      return "border-emerald-300/35 bg-emerald-300/12 text-emerald-100";
+    }
+    if (status === "submitted") {
+      return "border-amber-300/45 bg-amber-300/15 text-amber-100";
+    }
+    if (status === "rejected") {
+      return "border-red-300/45 bg-red-300/15 text-red-100";
+    }
+    return "border-white/20 bg-white/5 text-slate-200";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -334,7 +398,7 @@ export default function PartnerRequestDetailPage() {
                     Service Required
                   </p>
                   <p className="mt-1 text-base font-semibold text-white">
-                    {request.packageStream}
+                    {getStreamDisplayName(request.packageStream)}
                   </p>
                 </div>
               </div>
@@ -453,6 +517,20 @@ export default function PartnerRequestDetailPage() {
         title="Document Progress"
         description="Current required document completion status."
       >
+        {reviewMutation.isError ? (
+          <p className="mb-3 rounded-lg border border-red-300/35 bg-red-300/10 px-3 py-2 text-xs text-red-100">
+            {reviewMutation.error instanceof Error
+              ? reviewMutation.error.message
+              : "Could not update requirement review status."}
+          </p>
+        ) : null}
+
+        {reviewMutation.isSuccess ? (
+          <p className="mb-3 rounded-lg border border-emerald-300/35 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
+            Requirement review updated.
+          </p>
+        ) : null}
+
         <div className="space-y-2 text-sm text-slate-200">
           <p>Completion: {request.aiReadiness.docsCompleteness}%</p>
           <p>
@@ -484,6 +562,30 @@ export default function PartnerRequestDetailPage() {
                   </div>
 
                   <div className="space-y-2 px-3 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span
+                        className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusTone(item.status)}`}
+                      >
+                        {item.status}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Updated {new Date(item.updatedAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {item.statusReason ? (
+                      <p className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2 text-xs text-slate-200">
+                        Reason: {item.statusReason}
+                      </p>
+                    ) : null}
+
+                    <p className="text-xs text-slate-300">
+                      {getRequirementStatusMicrocopy(
+                        item.status,
+                        item.statusReason,
+                      )}
+                    </p>
+
                     {item.uploadedFiles.length > 0 ? (
                       <div className="space-y-1.5 pt-2 mb-2">
                         <p className="text-[10px] uppercase tracking-wide text-cyan-200/80">
@@ -503,6 +605,72 @@ export default function PartnerRequestDetailPage() {
                         Pending upload.
                       </div>
                     )}
+
+                    {item.uploadedFiles.length > 0 &&
+                    (item.status === "submitted" ||
+                      item.status === "rejected") ? (
+                      <div className="mt-2 space-y-2 rounded-lg border border-cyan-200/25 bg-cyan-200/5 p-2.5">
+                        <p className="text-[11px] font-medium text-cyan-100">
+                          Partner review actions
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            disabled={isRequirementActionPending}
+                            onClick={() => {
+                              reviewMutation.mutate({
+                                requirementItemId: item.id,
+                                action: "approve",
+                                reason: "Approved by partner review.",
+                              });
+                            }}
+                          >
+                            Approve Submission
+                          </Button>
+                        </div>
+
+                        <label className="block text-[11px] text-slate-300">
+                          Request resubmission reason
+                          <textarea
+                            className="mt-1 min-h-[76px] w-full rounded-lg border border-white/15 bg-slate-950/50 px-2.5 py-2 text-xs text-white"
+                            value={
+                              resubmissionReasonByRequirement[item.id] ?? ""
+                            }
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setResubmissionReasonByRequirement((current) => ({
+                                ...current,
+                                [item.id]: value,
+                              }));
+                            }}
+                            placeholder="Explain what must be corrected or added."
+                          />
+                        </label>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="border-red-300/35 text-red-200 hover:bg-red-300/10 hover:text-red-100"
+                          disabled={
+                            isRequirementActionPending ||
+                            (
+                              resubmissionReasonByRequirement[item.id] ?? ""
+                            ).trim().length < 6
+                          }
+                          onClick={() => {
+                            reviewMutation.mutate({
+                              requirementItemId: item.id,
+                              action: "request_resubmission",
+                              reason:
+                                resubmissionReasonByRequirement[item.id] ?? "",
+                            });
+                          }}
+                        >
+                          Request Resubmission
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))

@@ -1,14 +1,16 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { MOCK_SALES_INVENTORY_WORKSPACE } from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
 
 export default function SalesInventoryPage() {
+  const workspace = WORKSPACE_CONTENT.salesInventory;
+
   return (
     <PhaseWorkspace
-      phase={MOCK_SALES_INVENTORY_WORKSPACE.phase}
-      title={MOCK_SALES_INVENTORY_WORKSPACE.title}
-      subtitle={MOCK_SALES_INVENTORY_WORKSPACE.subtitle}
-      metrics={MOCK_SALES_INVENTORY_WORKSPACE.metrics}
-      streams={MOCK_SALES_INVENTORY_WORKSPACE.streams}
+      phase={workspace.phase}
+      title={workspace.title}
+      subtitle={workspace.subtitle}
+      metrics={workspace.metrics}
+      streams={workspace.streams}
     />
   );
 }

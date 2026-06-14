@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,13 @@ import {
   removeDocument,
   uploadDocument,
 } from "@/services/documents.service";
-import type { MockDocument } from "@/features/mock/dashboard-data";
+
+type LocalDocumentSeed = {
+  path: string;
+  name: string;
+  size?: number;
+  updatedAt?: string;
+};
 
 interface DocumentTypeOption {
   value: string;
@@ -21,7 +27,7 @@ interface DocumentTypeOption {
   group?: string;
 }
 
-type LocalMockDocument = MockDocument & {
+type LocalMockDocument = LocalDocumentSeed & {
   documentType?: string;
   documentTypeLabel?: string;
 };
@@ -49,13 +55,17 @@ export function DocumentManager({
   prefix,
   mockDocuments,
   documentTypeOptions,
+  acceptedFileTypes = "application/pdf,image/*",
+  uploadHint = "Accepted formats: PDF and images (JPG, PNG, HEIC, WebP).",
 }: {
   title: string;
   description: string;
   bucket: string;
   prefix: string;
-  mockDocuments?: MockDocument[];
+  mockDocuments?: LocalDocumentSeed[];
   documentTypeOptions?: DocumentTypeOption[];
+  acceptedFileTypes?: string;
+  uploadHint?: string;
 }) {
   const useMockData = Boolean(mockDocuments?.length);
   const queryClient = useQueryClient();
@@ -89,6 +99,23 @@ export function DocumentManager({
       }))
       .sort((a, b) => a.group.localeCompare(b.group));
   }, [documentTypeOptions]);
+
+  useEffect(() => {
+    if (!documentTypeOptions?.length) {
+      if (selectedDocumentType) {
+        setSelectedDocumentType("");
+      }
+      return;
+    }
+
+    const selectedStillValid = documentTypeOptions.some(
+      (option) => option.value === selectedDocumentType,
+    );
+
+    if (!selectedStillValid) {
+      setSelectedDocumentType(documentTypeOptions[0]?.value ?? "");
+    }
+  }, [documentTypeOptions, selectedDocumentType]);
 
   const documentsQuery = useQuery({
     queryKey,
@@ -272,10 +299,12 @@ export function DocumentManager({
             uploadMutation.isPending ? "Uploading..." : "Choose file"
           }
           onFilesSelected={onFilesSelected}
+          accept={acceptedFileTypes}
           disabled={uploadMutation.isPending}
           variant="ghost"
           className="border border-white/20 bg-white/5 hover:bg-white/10"
         />
+        <p className="mt-2 text-xs text-slate-300">{uploadHint}</p>
         {uploadError ? (
           <p className="mt-2 text-sm text-red-300">{uploadError}</p>
         ) : null}
