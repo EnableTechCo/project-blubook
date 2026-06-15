@@ -34,10 +34,6 @@ function stripWorkflowKickoffMetadata(metadata: unknown) {
 
 export async function POST() {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Not available." }, { status: 404 });
-    }
-
     const server = await createServerClient();
     const {
       data: { user },
