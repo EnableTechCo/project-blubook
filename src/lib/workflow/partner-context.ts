@@ -43,11 +43,36 @@ export async function resolveServicePartnerIdForPartnerUser(input: {
     .eq("user_id", input.userId)
     .eq("status", "active");
 
-  const membershipId = firstNonEmpty(
-    (memberships ?? []).map((row) => readServicePartnerId(row.metadata)),
+  const membershipRows = memberships ?? [];
+
+  // Prefer the current profile organization when multiple active memberships exist.
+  if (input.profileOrganizationId) {
+    const preferredMembershipId = firstNonEmpty(
+      membershipRows
+        .filter((row) => row.organization_id === input.profileOrganizationId)
+        .map((row) => readServicePartnerId(row.metadata)),
+    );
+
+    if (preferredMembershipId) {
+      return preferredMembershipId;
+    }
+  }
+
+  const uniqueMembershipIds = Array.from(
+    new Set(
+      membershipRows
+        .map((row) => readServicePartnerId(row.metadata))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
-  if (membershipId) {
-    return membershipId;
+
+  if (uniqueMembershipIds.length === 1) {
+    return uniqueMembershipIds[0];
+  }
+
+  if (uniqueMembershipIds.length > 1) {
+    // Deterministic fallback to avoid random partner switching between requests.
+    return uniqueMembershipIds.slice().sort((a, b) => a.localeCompare(b))[0];
   }
 
   const organizationIds = Array.from(
@@ -68,7 +93,23 @@ export async function resolveServicePartnerIdForPartnerUser(input: {
     .select("id, metadata")
     .in("id", organizationIds);
 
+  const organizationRows = organizations ?? [];
+  if (input.profileOrganizationId) {
+    const preferredOrganizationId = firstNonEmpty(
+      organizationRows
+        .filter((row) => row.id === input.profileOrganizationId)
+        .map((row) => readServicePartnerId(row.metadata)),
+    );
+
+    if (preferredOrganizationId) {
+      return preferredOrganizationId;
+    }
+  }
+
   return firstNonEmpty(
-    (organizations ?? []).map((row) => readServicePartnerId(row.metadata)),
+    organizationRows
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((row) => readServicePartnerId(row.metadata)),
   );
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { processWorkflowEvents } from "@/lib/workflow/engine";
 import {
   appendOrderTimeline,
   withOrderLifecycleDefaults,
@@ -61,25 +60,6 @@ function readPartnerEmail(value: unknown): string | null {
     (entry): entry is string => typeof entry === "string" && entry.length > 0,
   );
   return found ?? null;
-}
-
-async function drainWorkflowQueue(maxRuns = 5) {
-  let processed = 0;
-  let succeeded = 0;
-  let failed = 0;
-
-  for (let run = 0; run < maxRuns; run += 1) {
-    const batch = await processWorkflowEvents(20);
-    processed += batch.processed;
-    succeeded += batch.succeeded;
-    failed += batch.failed;
-
-    if (batch.processed === 0) {
-      break;
-    }
-  }
-
-  return { processed, succeeded, failed };
 }
 
 export async function POST(request: Request) {
@@ -166,17 +146,6 @@ export async function POST(request: Request) {
     let salesOrderId: string | null = null;
     let poReference: string | null = null;
     let orderMetadata: Record<string, unknown> | null = null;
-
-    if (requirement.provider_id) {
-      const { data: requirementProvider } = await admin
-        .from("service_partners")
-        .select("metadata")
-        .eq("id", requirement.provider_id)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      // provider_id resolved — no action needed; routing uses stream-based selection.
-    }
 
     if (existingOrderId) {
       const { data: existingOrder } = await admin

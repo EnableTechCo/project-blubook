@@ -5,7 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { WorkflowStepMatrix } from "@/components/ui/workflow-progress";
+import {
+  WorkflowProgress,
+  WorkflowStepMatrix,
+  getWorkflowStageIndexFromSalesOrder,
+} from "@/components/ui/workflow-progress";
 import { WorkflowStepInputModal } from "@/components/ui/workflow-step-input-modal";
 import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
 import { SALES_WORKFLOW_STATES } from "@/constants/sales-workflow-states";
@@ -78,19 +82,6 @@ export function SalesOrdersClient() {
     label: string;
     stepKey: string;
   } | null>(null);
-  const [validationDecisionByOrder, setValidationDecisionByOrder] = useState<
-    Record<string, "validated" | "hold">
-  >({});
-  const [docChecklistByOrder, setDocChecklistByOrder] = useState<
-    Record<
-      string,
-      {
-        validationPack: boolean;
-        invoicePack: boolean;
-        dispatchPack: boolean;
-      }
-    >
-  >({});
 
   useEffect(() => {
     if (!selectedOrder) {
@@ -331,7 +322,7 @@ export function SalesOrdersClient() {
     }
 
     void loadData();
-  }, [fetchOrders, supabase]);
+  }, [fetchOrders, log, supabase]);
 
   // Trigger dispatch queue processing via API
   async function triggerQueueDispatch(options?: { silent?: boolean }) {
@@ -384,69 +375,6 @@ export function SalesOrdersClient() {
       log("dispatch:complete");
       setProcessing(false);
     }
-  }
-
-  async function queueWorkflowEventAndDispatch(
-    eventType: string,
-    payload: Record<string, unknown>,
-    successMessage: string,
-  ) {
-    if (!orgId || !selectedOrder) {
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const { error: queueError } = await supabase
-        .from("workflow_events_queue")
-        .insert({
-          event_type: eventType,
-          payload,
-          status: "queued",
-        });
-
-      if (queueError) {
-        throw new Error(queueError.message);
-      }
-
-      const dispatchResult = await triggerQueueDispatch({ silent: true });
-      await fetchOrders(orgId);
-      showMsg(
-        "success",
-        `${successMessage} (Processed: ${dispatchResult.processed}, Succeeded: ${dispatchResult.succeeded})`,
-      );
-    } catch (error) {
-      showMsg(
-        "error",
-        error instanceof Error
-          ? error.message
-          : "Could not continue the workflow.",
-      );
-    } finally {
-      setProcessing(false);
-    }
-  }
-
-  async function handleApplyValidationCheckpoint() {
-    if (!selectedOrder) {
-      return;
-    }
-
-    const decision = validationDecisionByOrder[selectedOrder.id] ?? "validated";
-
-    if (decision === "hold") {
-      showMsg(
-        "error",
-        "Validation marked as hold. Resolve order issues before moving workflow forward.",
-      );
-      return;
-    }
-
-    await queueWorkflowEventAndDispatch(
-      "order.validated",
-      { orderId: selectedOrder.id },
-      "Validation checkpoint submitted. Workflow is continuing.",
-    );
   }
 
   const SALES_ACTION_STEP_KEYS: Record<string, string> = {
@@ -560,22 +488,6 @@ export function SalesOrdersClient() {
     }
   }
 
-  function toggleOrderDoc(
-    orderId: string,
-    key: "validationPack" | "invoicePack" | "dispatchPack",
-    checked: boolean,
-  ) {
-    setDocChecklistByOrder((current) => ({
-      ...current,
-      [orderId]: {
-        validationPack: current[orderId]?.validationPack ?? false,
-        invoicePack: current[orderId]?.invoicePack ?? false,
-        dispatchPack: current[orderId]?.dispatchPack ?? false,
-        [key]: checked,
-      },
-    }));
-  }
-
   function showMsg(type: "success" | "error", text: string) {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 5000);
@@ -584,6 +496,18 @@ export function SalesOrdersClient() {
   const formatPrice = (cents: number) => {
     return `R${(cents / 100).toFixed(2)}`;
   };
+
+  const ongoingOrders = useMemo(() => {
+    return [...orders]
+      .filter((order) => {
+        const normalized = order.status.trim().toLowerCase();
+        return normalized !== "delivered" && normalized !== "cancelled";
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+  }, [orders]);
 
   if (loading) {
     return (
@@ -691,6 +615,56 @@ export function SalesOrdersClient() {
               {message.text}
             </div>
           )}
+
+          <Card
+            title="Ongoing Orders"
+            description="Track all active orders and jump into one to continue workflow control points."
+          >
+            {ongoingOrders.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                No ongoing orders right now.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {ongoingOrders.map((order) => (
+                  <button
+                    key={`ongoing-${order.id}`}
+                    type="button"
+                    onClick={() => selectOrderDetails(order)}
+                    className={`w-full rounded-xl border p-3 text-left transition ${
+                      selectedOrder?.id === order.id
+                        ? "border-coral bg-white/10"
+                        : "border-white/10 bg-white/5 hover:bg-white/8"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-white">
+                        {order.po_reference ?? order.id}
+                      </p>
+                      <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] uppercase text-cyan-200">
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                      <span>{new Date(order.created_at).toLocaleString()}</span>
+                      <span>{formatPrice(order.total_cents)}</span>
+                    </div>
+
+                    <div className="mt-2 max-w-[360px]">
+                      <WorkflowProgress
+                        variant="sales"
+                        compact
+                        currentIndex={getWorkflowStageIndexFromSalesOrder({
+                          status: order.status,
+                          timeline: order.metadata?.workflow_timeline,
+                        })}
+                      />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
 
           {selectedOrder ? (
             <div className="space-y-6">
@@ -954,7 +928,7 @@ export function SalesOrdersClient() {
                                       ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-200"
                                       : handoff.status === "rejected"
                                         ? "border-red-400/30 bg-red-500/10 text-red-200"
-                                        : "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                                        : "border-amber-400/30 bg-amber-500/10 text-slate-200"
                               }`}
                             >
                               {handoff.status.replaceAll("_", " ")}

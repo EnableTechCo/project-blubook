@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -18,11 +19,14 @@
     "seed:providers:mock": "node --env-file=.env.local scripts/seed-mock-provider-accounts.mjs"
   },
   "dependencies": {
+    "@highcharts/react": "^5.1.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.8",
     "@tanstack/react-query": "^5.75.5",
     "clsx": "^2.1.1",
+    "highcharts": "^13.0.0",
     "lucide-react": "^0.511.0",
+    "motion": "^12.40.0",
     "next": "^15.3.3",
     "nodemailer": "^8.0.10",
     "pdf-lib": "^1.17.1",

@@ -491,7 +491,9 @@ export default function CustomerRequestDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-3xl font-semibold text-white">Request Detail</h2>
+        <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+          Request Detail
+        </h2>
         {request ? (
           <Badge className="capitalize">
             {getDisplayStatusLabel({
@@ -504,14 +506,14 @@ export default function CustomerRequestDetailPage() {
 
       {request ? (
         <Card title="Request Overview">
-          <div className="space-y-3 text-sm text-slate-100">
-            <p className="text-lg font-semibold text-white">
+          <div className="space-y-3 text-sm text-slate-700 dark:text-slate-100">
+            <p className="text-lg font-semibold text-slate-900 dark:text-white">
               {getCustomerFacingTitle({
                 title: request.title,
                 description: request.description,
               })}
             </p>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+            <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
               <Badge className="capitalize">
                 {getDisplayStatusLabel({
                   ...request,
@@ -526,14 +528,14 @@ export default function CustomerRequestDetailPage() {
                 description: request.description,
               })}
             </p>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Created: {new Date(request.created_at).toLocaleString()}
             </p>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Submitted documents are stored in the Documents workspace.
             </p>
             {totalRequiredFiles > 0 ? (
-              <div className="rounded-lg border border-emerald-300/20 bg-emerald-400/10 p-3 text-xs text-emerald-100">
+              <div className="rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3 text-xs text-emerald-800 dark:border-emerald-300/20 dark:text-emerald-100">
                 <p>
                   {submittedRequiredFiles} file
                   {submittedRequiredFiles === 1 ? "" : "s"} uploaded.
@@ -549,20 +551,20 @@ export default function CustomerRequestDetailPage() {
             ) : null}
 
             {matchingRequirements.length > 0 ? (
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+              <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
                   Requirement Status
                 </p>
                 <div className="mt-2 space-y-2">
                   {matchingRequirements.map((item) => (
                     <div
                       key={`status-${item.id}`}
-                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2"
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5"
                     >
-                      <p className="text-xs font-semibold text-white">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">
                         {item.title}
                       </p>
-                      <p className="mt-1 text-xs text-slate-300">
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                         {getRequirementStatusMicrocopy(
                           item.status,
                           item.statusReason,
@@ -577,10 +579,10 @@ export default function CustomerRequestDetailPage() {
             <div className="space-y-3">
               {pendingPurchaseOrderRequirements.length > 0 ? (
                 <div className="rounded-lg border border-cyan-300/25 bg-cyan-400/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-100">
                     Purchase Order Upload
                   </p>
-                  <p className="mt-1 text-xs text-cyan-100/85">
+                  <p className="mt-1 text-xs text-cyan-700 dark:text-cyan-100/85">
                     Upload your PO file here. This is handled separately from
                     other required documents.
                   </p>
@@ -605,8 +607,8 @@ export default function CustomerRequestDetailPage() {
               ) : null}
 
               {pendingDocumentRequirements.length > 0 ? (
-                <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
                     Requested Documents
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -652,7 +654,7 @@ export default function CustomerRequestDetailPage() {
         </Card>
       ) : (
         <Card title="Request not found">
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             This request could not be loaded.
           </p>
         </Card>
@@ -661,7 +663,7 @@ export default function CustomerRequestDetailPage() {
       <Card title="Messages">
         <form className="space-y-3" onSubmit={onSubmitMessage}>
           <textarea
-            className="min-h-24 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-300/60 focus:outline-none focus:ring-2 focus:ring-coral"
+            className="min-h-24 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-coral dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-300/60"
             placeholder="Ask a question or add an update"
             value={messageBody}
             onChange={(event) => setMessageBody(event.target.value)}
@@ -682,7 +684,9 @@ export default function CustomerRequestDetailPage() {
 
         <div className="mt-4 space-y-3">
           {messagesQuery.isLoading ? (
-            <p className="text-sm text-slate-300">Loading messages...</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Loading messages...
+            </p>
           ) : messagesQuery.isError ? (
             <p className="text-sm text-red-300">
               Could not load request messages.
@@ -691,16 +695,18 @@ export default function CustomerRequestDetailPage() {
             messagesQuery.data.map((message) => (
               <div
                 key={message.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
+                className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/15 dark:bg-white/5"
               >
-                <p className="text-sm text-white">{message.body}</p>
-                <p className="mt-1 text-xs text-slate-300">
+                <p className="text-sm text-slate-900 dark:text-white">
+                  {message.body}
+                </p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                   {new Date(message.created_at).toLocaleString()}
                 </p>
               </div>
             ))
           ) : (
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               No messages on this request yet.
             </p>
           )}

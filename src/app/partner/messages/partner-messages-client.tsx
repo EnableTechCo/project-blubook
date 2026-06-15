@@ -158,10 +158,10 @@ export function PartnerMessagesClient() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-semibold text-white">
+          <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
             Partner Messages
           </h2>
-          <p className="mt-1 text-sm text-slate-200/85">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-200/85">
             Message priorities update automatically from your assigned work
             orders.
           </p>
@@ -171,22 +171,22 @@ export function PartnerMessagesClient() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card title="Needs Response" description="Pending decisions">
-          <p className="text-3xl font-semibold text-white">
+          <p className="text-3xl font-semibold text-slate-900 dark:text-white">
             {grouped.pending.length}
           </p>
         </Card>
         <Card title="Active Threads" description="Accepted or in progress">
-          <p className="text-3xl font-semibold text-white">
+          <p className="text-3xl font-semibold text-slate-900 dark:text-white">
             {grouped.active.length}
           </p>
         </Card>
         <Card title="Recent Updates" description="Assigned in last 24h">
-          <p className="text-3xl font-semibold text-white">
+          <p className="text-3xl font-semibold text-slate-900 dark:text-white">
             {grouped.last24h.length}
           </p>
         </Card>
         <Card title="Completed" description="Closed work orders">
-          <p className="text-3xl font-semibold text-white">
+          <p className="text-3xl font-semibold text-slate-900 dark:text-white">
             {grouped.completed.length}
           </p>
         </Card>
@@ -198,7 +198,7 @@ export function PartnerMessagesClient() {
           description="Items that need a quick reply or decision"
         >
           {grouped.pending.length === 0 ? (
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               No pending provider handoffs right now.
             </p>
           ) : (
@@ -216,11 +216,13 @@ export function PartnerMessagesClient() {
                     key={item.id}
                     className="rounded-xl border border-amber-300/30 bg-amber-300/8 p-3"
                   >
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
                       PO {poRef}
                     </p>
-                    <p className="mt-1 text-xs text-slate-300">{product}</p>
-                    <p className="mt-1 text-xs text-amber-100/90">
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      {product}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-100/90">
                       Needs initial response from the Logistics team.
                     </p>
                   </article>
@@ -235,7 +237,7 @@ export function PartnerMessagesClient() {
           description="Live work being coordinated"
         >
           {grouped.active.length === 0 ? (
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               No active provider handoffs yet.
             </p>
           ) : (
@@ -253,17 +255,17 @@ export function PartnerMessagesClient() {
                     className="rounded-xl border border-cyan-300/30 bg-cyan-300/8 p-3"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-white">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
                         PO {poRef}
                       </p>
-                      <span className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-100">
+                      <span className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-700 dark:text-cyan-100">
                         {statusLabel}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-300">
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                       Service: {item.package_stream}
                     </p>
-                    <p className="mt-1 text-xs text-cyan-100/90">
+                    <p className="mt-1 text-xs text-cyan-700 dark:text-cyan-100/90">
                       Last update: {new Date(item.assigned_at).toLocaleString()}
                     </p>
                   </article>

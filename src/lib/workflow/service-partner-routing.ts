@@ -1,3 +1,5 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+
 type ServicePartnerRow = {
   id: string;
   package_stream: string;
@@ -16,7 +18,7 @@ type ServicePartnerMetadata = {
 };
 
 type ResolveServicePartnerInput = {
-  admin: any;
+  admin: ReturnType<typeof createAdminClient>;
   stream: string;
   preferredEmail?: string | null;
   preferredNameHint?: string | null;

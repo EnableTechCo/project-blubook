@@ -2,7 +2,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   appendOrderTimeline,
   insertNotifications,
-  readStringMetadata,
   resolveCustomerUserIds,
   resolvePartnerUserIds,
   withOrderLifecycleDefaults,
@@ -34,10 +33,6 @@ const LOGISTICS_OWNED_STATUSES = new Set([
   "Customer Receives & Signs POD",
   "BluBook System Updated",
 ]);
-
-function readPreferredPartnerEmail(metadata: unknown, key: string) {
-  return readStringMetadata(metadata, key);
-}
 
 async function assertSalesCompletionUnlocked(orderId: string) {
   const admin = createAdminClient();

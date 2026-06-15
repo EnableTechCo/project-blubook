@@ -58,6 +58,6 @@ export const SALES_WORKFLOW_STAGE_LABELS: Record<
 export const WORKFLOW_ACTION_LABELS = {
   salesConfirmReceipt: SALES_WORKFLOW_STAGE_LABELS.sales_validated,
   logisticsConfirmHandoff: SALES_WORKFLOW_STAGE_LABELS.handoff_confirmed,
-  logisticsActivate: SALES_WORKFLOW_STAGE_LABELS.logistics_active,
+  logisticsActivate: "Start Warehouse Processing",
   logisticsDeliver: "Complete Delivery Step",
 } as const;

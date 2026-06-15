@@ -33,7 +33,7 @@ const getStatusConfig = (status: string) => {
       label: "In Progress",
     },
     pending: {
-      color: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+      color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
       icon: <Clock className="w-3 h-3" />,
       label: "Pending",
     },
@@ -48,7 +48,7 @@ const getStatusConfig = (status: string) => {
       label: "Triaged",
     },
     submitted: {
-      color: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+      color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
       icon: <Circle className="w-3 h-3" />,
       label: "Submitted",
     },
@@ -125,14 +125,14 @@ export default function RequestsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto p-6 space-y-6">
-          <div className="h-8 w-32 bg-white/10 rounded animate-pulse"></div>
+          <div className="h-8 w-32 bg-slate-200 rounded animate-pulse dark:bg-white/10"></div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-white/5 rounded-xl p-4 h-24 animate-pulse"
+                className="bg-slate-100 rounded-xl p-4 h-24 animate-pulse dark:bg-white/5"
               ></div>
             ))}
           </div>
@@ -142,33 +142,39 @@ export default function RequestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => router.back()}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-200 rounded-lg transition-colors dark:hover:bg-white/10"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-300" />
+            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
           <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
+            <p className="text-sm uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-200/80">
               Customer Analytics
             </p>
-            <h2 className="text-3xl font-semibold text-white">{pageTitle}</h2>
+            <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+              {pageTitle}
+            </h2>
           </div>
           <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 ml-auto">
             {requests.length} Requests
           </Badge>
         </div>
 
-        <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/20">
+        <div className="bg-cyan-50 rounded-xl p-4 border border-blue-500/20 dark:bg-blue-500/10">
           <div className="flex items-start gap-3">
             <div className="text-2xl"></div>
             <div>
-              <p className="text-sm font-medium text-white">Summary</p>
-              <p className="text-sm text-slate-300">{getInsightText()}</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">
+                Summary
+              </p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                {getInsightText()}
+              </p>
             </div>
           </div>
         </div>
@@ -183,7 +189,7 @@ export default function RequestsPage() {
               return (
                 <Card
                   key={request.id}
-                  className="p-4 bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all group"
+                  className="p-4 bg-white border-slate-300 hover:bg-slate-100 transition-all group dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10"
                   title={""}
                 >
                   <div
@@ -207,14 +213,14 @@ export default function RequestsPage() {
                             {statusConfig.label}
                           </span>
                         </Badge>
-                        <Badge className="border-white/20 text-slate-300">
+                        <Badge className="border-slate-300 text-slate-600 dark:border-white/20 dark:text-slate-300">
                           {request.category.replace(/_/g, " ")}
                         </Badge>
                         <span className="text-xs text-slate-400">
                           ID: {request.id}
                         </span>
                       </div>
-                      <h3 className="text-white font-medium mb-1">
+                      <h3 className="text-slate-900 dark:text-white font-medium mb-1">
                         {request.title ||
                           `${request.category.replace(/_/g, " ")} request`}
                       </h3>
@@ -242,14 +248,14 @@ export default function RequestsPage() {
           </div>
         ) : (
           <Card
-            className="p-12 bg-white/5 backdrop-blur-sm border-white/10 text-center"
+            className="p-12 bg-white border-slate-300 text-center dark:bg-white/5 dark:border-white/10"
             title={""}
           >
             <div className="text-4xl mb-4"></div>
-            <h3 className="text-xl font-semibold text-white mb-2">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
               No requests found
             </h3>
-            <p className="text-slate-400">
+            <p className="text-slate-600 dark:text-slate-400">
               There are no requests matching the current filter.
             </p>
             <button

@@ -302,7 +302,7 @@ export function LogisticsShipmentsClient() {
                   </Button>
                   {!stepEnabled("Shipment Created") &&
                   selectedOrder?.status !== "Order Received" ? (
-                    <p className="mt-1 text-[11px] text-amber-300">
+                    <p className="mt-1 text-[11px] text-slate-300">
                       Requires: Shipment Created by Sales
                     </p>
                   ) : null}
@@ -432,7 +432,7 @@ export function LogisticsShipmentsClient() {
 
                 {/* Stage 6b — Reroute (exception path) */}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
                     Stage 6b — Reroute Delivery (Exception)
                   </p>
                   <p className="mt-1 text-[11px] text-slate-400">
@@ -443,7 +443,7 @@ export function LogisticsShipmentsClient() {
                   <div className="mt-3 flex gap-2">
                     <Button
                       variant="ghost"
-                      className="h-8 border-amber-400/30 text-xs hover:bg-amber-500/10 hover:text-amber-200"
+                      className="h-8 border-amber-400/30 text-xs hover:bg-amber-500/10 hover:text-slate-200"
                       disabled={
                         processing || !stepEnabled("Track Shipment In Transit")
                       }

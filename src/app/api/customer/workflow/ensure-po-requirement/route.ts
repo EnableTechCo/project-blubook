@@ -32,7 +32,7 @@ function stripWorkflowKickoffMetadata(metadata: unknown) {
   return cleaned;
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "Not available." }, { status: 404 });

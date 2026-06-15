@@ -107,7 +107,7 @@ export default function LoginPage() {
         Use your assigned credentials to continue.
       </p>
       {isSessionExpired ? (
-        <p className="mt-3 rounded-lg border border-amber-300/35 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <p className="mt-3 rounded-lg border border-amber-300/35 bg-amber-400/10 px-3 py-2 text-sm text-slate-100">
           Your session expired. Please log in again.
         </p>
       ) : null}

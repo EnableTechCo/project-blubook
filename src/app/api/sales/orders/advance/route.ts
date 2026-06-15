@@ -52,6 +52,16 @@ function resolveEffectiveSalesOrderStatus(input: {
   metadata: unknown;
 }) {
   const steps = new Set(readOrderTimelineSteps(input.metadata));
+  const normalizedRawStatus = input.rawStatus.trim().toLowerCase();
+
+  // If logistics explicitly returned the handoff to sales, keep the order
+  // at inventory-reserved stage so sales can recreate handoff.
+  if (
+    steps.has("logistics_handoff_returned_to_sales") ||
+    normalizedRawStatus === "inventory reserved"
+  ) {
+    return "Inventory Reserved";
+  }
 
   if (steps.has("logistics_handoff_created")) {
     return "Logistics Handoff Created";
@@ -282,14 +292,15 @@ export async function POST(request: Request) {
   }
 
   if (action === "create_handoff") {
-    const { data: existingHandoff } = await admin
+    const { data: existingActiveHandoff } = await admin
       .from("provider_workflow_handoffs")
       .select("id")
       .eq("sales_order_id", order.id)
+      .in("status", ["pending", "accepted", "in_progress"])
       .limit(1)
       .maybeSingle();
 
-    if (!existingHandoff?.id) {
+    if (!existingActiveHandoff?.id) {
       const salesPartner = await resolveServicePartnerForStream({
         admin,
         stream: SALES_PARTNER_STREAM,
@@ -442,12 +453,12 @@ export async function POST(request: Request) {
       };
     } else {
       reusedExistingHandoff = true;
-      createdHandoffIds = [existingHandoff.id];
+      createdHandoffIds = [existingActiveHandoff.id];
 
       const { data: existingHandoffDetail } = await admin
         .from("provider_workflow_handoffs")
         .select("metadata, from_provider_id, to_provider_id")
-        .eq("id", existingHandoff.id)
+        .eq("id", existingActiveHandoff.id)
         .maybeSingle();
 
       salesPartnerId = existingHandoffDetail?.from_provider_id ?? null;

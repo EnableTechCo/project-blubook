@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 export default function UnauthorizedPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 text-center">
-      <p className="text-sm uppercase tracking-[0.2em] text-amber-200/85">
+      <p className="text-sm uppercase tracking-[0.2em] text-slate-200/85">
         403
       </p>
       <h1 className="mt-3 text-4xl font-semibold text-white">Access denied</h1>

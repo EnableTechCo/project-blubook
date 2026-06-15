@@ -45,7 +45,11 @@ export default function CustomerMessagesPage() {
   });
 
   if (customerContext.isLoading) {
-    return <p className="text-sm text-slate-300">Loading messages...</p>;
+    return (
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Loading messages...
+      </p>
+    );
   }
 
   if (customerContext.isError || !customerContext.data) {
@@ -65,7 +69,7 @@ export default function CustomerMessagesPage() {
     <div className="space-y-6">
       <div>
         <div>
-          <h2 className="text-3xl font-semibold text-white">
+          <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
             Customer Messages
           </h2>
         </div>
@@ -83,8 +87,8 @@ export default function CustomerMessagesPage() {
                 type="button"
                 className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
                   item.read_at
-                    ? "border-white/10 bg-white/5 text-slate-200"
-                    : "border-coral/50 bg-coral/15 text-white"
+                    ? "border-slate-300 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                    : "border-coral/50 bg-coral/15 text-slate-900 dark:text-white"
                 }`}
                 onClick={() => {
                   void markNotificationRead({
@@ -96,13 +100,15 @@ export default function CustomerMessagesPage() {
                 }}
               >
                 <p>{formatNotificationMessage(item.message)}</p>
-                <p className="mt-1 text-[11px] text-slate-300">
+                <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
                   {new Date(item.created_at).toLocaleString()}
                 </p>
               </button>
             ))}
             {notifications.length === 0 ? (
-              <p className="text-sm text-slate-300">No notifications yet.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                No notifications yet.
+              </p>
             ) : null}
           </div>
         </Card>
@@ -115,13 +121,15 @@ export default function CustomerMessagesPage() {
             {openRequests.map((item) => (
               <div
                 key={item.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
+                className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/15 dark:bg-white/5"
               >
-                <p className="text-sm font-semibold text-white">{item.title}</p>
-                <p className="mt-1 text-xs text-slate-300">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {item.title}
+                </p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                   Status: {formatStatusLabel(item.status)}
                 </p>
-                <p className="mt-1 text-xs text-slate-300">
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                   Updated: {new Date(item.updated_at).toLocaleString()}
                 </p>
                 <div className="mt-2">
@@ -132,7 +140,9 @@ export default function CustomerMessagesPage() {
               </div>
             ))}
             {openRequests.length === 0 ? (
-              <p className="text-sm text-slate-300">No active requests yet.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                No active requests yet.
+              </p>
             ) : null}
           </div>
         </Card>

@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
+import {
+  readServicePartnerId,
+  resolveServicePartnerIdForPartnerUser,
+} from "@/lib/workflow/partner-context";
 import {
   appendOrderTimeline,
+  computeDeliveredOrderMetadata,
   insertNotifications,
   resolveCustomerUserIds,
   resolvePartnerUserIds,
   withOrderLifecycleDefaults,
 } from "@/lib/workflow/order-lifecycle";
 import { DELIVERED_PROOF_REQUIREMENTS } from "@/lib/workflow/workflow-step-contract";
-import { getCompletedStepKeysForOrder } from "@/services/workflow-step-events.service";
+import {
+  getCompletedStepKeysForOrder,
+  recordStepEvent,
+} from "@/services/workflow-step-events.service";
 
 function getRequiredDocumentKeys(requiredDocuments: unknown) {
   if (!Array.isArray(requiredDocuments)) {
@@ -87,7 +94,27 @@ async function requirePartnerContext() {
     };
   }
 
-  return { admin, userId: user.id, servicePartnerId };
+  const { data: memberships } = await admin
+    .from("organization_memberships")
+    .select("metadata")
+    .eq("user_id", user.id)
+    .eq("status", "active");
+
+  const servicePartnerIds = Array.from(
+    new Set([
+      servicePartnerId,
+      ...(memberships ?? [])
+        .map((membership) => readServicePartnerId(membership.metadata))
+        .filter((value): value is string => Boolean(value)),
+    ]),
+  );
+
+  return {
+    admin,
+    userId: user.id,
+    servicePartnerId,
+    servicePartnerIds,
+  };
 }
 
 async function updateOrderWithStatusFallback(input: {
@@ -131,68 +158,106 @@ export async function GET() {
     return auth.error;
   }
 
-  const { admin, servicePartnerId } = auth;
+  const { admin, servicePartnerId, servicePartnerIds } = auth;
+
+  const handoffSelectClauseInbound = `
+    id,
+    handoff_type,
+    status,
+    package_stream,
+    notes,
+    assigned_at,
+    metadata,
+    sales_order_items (
+      product_name,
+      sku,
+      quantity,
+      sales_orders (
+        id,
+        po_reference,
+        status,
+        metadata
+      )
+    )
+  `;
   const { data: inboundProviderHandoffs, error } = await admin
     .from("provider_workflow_handoffs")
-    .select(
-      `
-      id,
-      handoff_type,
-      status,
-      package_stream,
-      notes,
-      assigned_at,
-      metadata,
-      sales_order_items (
-        product_name,
-        sku,
-        quantity,
-        sales_orders (
-          id,
-          po_reference,
-          status,
-          metadata
-        )
-      )
-    `,
-    )
-    .eq("to_provider_id", servicePartnerId)
+    .select(handoffSelectClauseInbound)
+    .in("to_provider_id", servicePartnerIds)
     .order("assigned_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  console.info("[partner/work-orders] inbound handoffs query", {
+  // Also fetch outbound handoffs this partner dispatched to other providers
+  const handoffSelectClause = `
+    id,
+    handoff_type,
+    status,
+    package_stream,
+    notes,
+    assigned_at,
+    metadata,
+    sales_order_items (
+      product_name,
+      sku,
+      quantity,
+      sales_orders (
+        id,
+        po_reference,
+        status,
+        metadata
+      )
+    )
+  `;
+  const { data: outboundProviderHandoffs, error: outboundError } = await admin
+    .from("provider_workflow_handoffs")
+    .select(handoffSelectClause)
+    .in("from_provider_id", servicePartnerIds)
+    .not("to_provider_id", "in", `(${servicePartnerIds.join(",")})`)
+    .order("assigned_at", { ascending: false });
+
+  if (outboundError) {
+    return NextResponse.json({ error: outboundError.message }, { status: 400 });
+  }
+
+  const logRow = (row: (typeof inboundProviderHandoffs)[number]) => {
+    const items = Array.isArray(row.sales_order_items)
+      ? row.sales_order_items
+      : row.sales_order_items
+        ? [row.sales_order_items]
+        : [];
+    const order = items[0]?.sales_orders ?? null;
+    const orderId =
+      typeof order === "object" && order !== null && "id" in order
+        ? (order as { id?: string }).id
+        : null;
+    const poRef =
+      typeof order === "object" && order !== null && "po_reference" in order
+        ? (order as { po_reference?: string | null }).po_reference
+        : null;
+    return {
+      id: row.id,
+      status: row.status,
+      salesOrderId: orderId,
+      poReference: poRef,
+      assignedAt: row.assigned_at,
+    };
+  };
+
+  console.info("[partner/work-orders] handoffs query", {
     servicePartnerId,
-    rowCount: (inboundProviderHandoffs ?? []).length,
-    rows: (inboundProviderHandoffs ?? []).map((row) => {
-      const items = Array.isArray(row.sales_order_items)
-        ? row.sales_order_items
-        : row.sales_order_items
-          ? [row.sales_order_items]
-          : [];
-      const order = items[0]?.sales_orders ?? null;
-      const orderId =
-        typeof order === "object" && order !== null && "id" in order
-          ? (order as { id?: string }).id
-          : null;
-      const poRef =
-        typeof order === "object" && order !== null && "po_reference" in order
-          ? (order as { po_reference?: string | null }).po_reference
-          : null;
-      return {
-        id: row.id,
-        status: row.status,
-        salesOrderId: orderId,
-        poReference: poRef,
-        assignedAt: row.assigned_at,
-      };
-    }),
+    servicePartnerIds,
+    inboundCount: (inboundProviderHandoffs ?? []).length,
+    outboundCount: (outboundProviderHandoffs ?? []).length,
+    inbound: (inboundProviderHandoffs ?? []).map(logRow),
+    outbound: (outboundProviderHandoffs ?? []).map(logRow),
   });
 
   return NextResponse.json({
     inboundProviderHandoffs: inboundProviderHandoffs ?? [],
+    outboundProviderHandoffs: outboundProviderHandoffs ?? [],
   });
 }
 
@@ -202,17 +267,27 @@ export async function POST(request: Request) {
     return auth.error;
   }
 
-  const { admin, servicePartnerId } = auth;
+  const { admin, servicePartnerId, servicePartnerIds, userId } = auth;
   const body = await request.json().catch(() => null);
   const providerHandoffId =
     typeof body?.providerHandoffId === "string" ? body.providerHandoffId : null;
   const action = typeof body?.action === "string" ? body.action : null;
-  const notes = typeof body?.notes === "string" ? body.notes : null;
+  const notes = typeof body?.notes === "string" ? body.notes.trim() : null;
 
   if (!providerHandoffId || !action) {
     return NextResponse.json(
       {
         error: "action and providerHandoffId are required.",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (action === "reject" && (!notes || notes.length === 0)) {
+    return NextResponse.json(
+      {
+        error:
+          "Rejection reason is required when returning a handoff to sales.",
       },
       { status: 400 },
     );
@@ -229,7 +304,7 @@ export async function POST(request: Request) {
   if (
     providerHandoffError ||
     !providerHandoff ||
-    providerHandoff.to_provider_id !== servicePartnerId
+    !servicePartnerIds.includes(providerHandoff.to_provider_id)
   ) {
     return NextResponse.json(
       { error: "Inbound provider handoff not found." },
@@ -330,6 +405,31 @@ export async function POST(request: Request) {
   }
 
   if (action === "reject") {
+    if (order) {
+      const metadata = appendOrderTimeline(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          step: "logistics_handoff_returned_to_sales",
+          actor: "logistics",
+          message: `${order.po_reference ?? order.id} was returned to sales by logistics. Reason: ${notes}`,
+        },
+      );
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: "Inventory Reserved",
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+    }
+
     const { error } = await admin
       .from("provider_workflow_handoffs")
       .update({
@@ -341,6 +441,11 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    await notifyLifecycleUpdate(
+      `${order?.po_reference ?? providerHandoff.sales_order_id} was returned to sales for reassignment. Reason: ${notes}`,
+      "partner_work_order_rejected",
+    );
 
     return NextResponse.json({ ok: true });
   }
@@ -386,6 +491,166 @@ export async function POST(request: Request) {
     await notifyLifecycleUpdate(
       `${order?.po_reference ?? providerHandoff.sales_order_id} is now in logistics fulfillment.`,
       "partner_work_order_started",
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "rollback_start") {
+    if (order) {
+      const metadata = appendOrderTimeline(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          step: "logistics_fulfillment_rolled_back",
+          actor: "logistics",
+          message: `${order.po_reference ?? order.id} was moved back to warehouse processing started.`,
+        },
+      );
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: "Service Provider Confirmed Order",
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+    }
+
+    const { error } = await admin
+      .from("provider_workflow_handoffs")
+      .update({
+        status: "accepted",
+        notes,
+      })
+      .eq("id", providerHandoffId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    await notifyLifecycleUpdate(
+      `${order?.po_reference ?? providerHandoff.sales_order_id} was moved back to warehouse processing started.`,
+      "partner_work_order_rolled_back",
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
+  const logisticsMilestoneConfig: Record<
+    string,
+    {
+      stepKey: string;
+      nextStatus: string;
+      source: string;
+      message: (orderRef: string) => string;
+      notificationMessage: (orderRef: string) => string;
+    }
+  > = {
+    notify_customer: {
+      stepKey: "notify_customer",
+      nextStatus: "Notify Customer",
+      source: "partner_work_order_customer_notified",
+      message: (orderRef) =>
+        `${orderRef} customer notification sent by logistics.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} customer has been notified by logistics.`,
+    },
+    pack_items: {
+      stepKey: "pack_items_for_shipment",
+      nextStatus: "Pack Items for Shipment",
+      source: "partner_work_order_items_packed",
+      message: (orderRef) =>
+        `${orderRef} items packed and verified by logistics.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} items have been packed for shipment.`,
+    },
+    in_transit: {
+      stepKey: "track_shipment_in_transit",
+      nextStatus: "Track Shipment In Transit",
+      source: "partner_work_order_in_transit",
+      message: (orderRef) => `${orderRef} shipment is now in transit.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} shipment is now in transit.`,
+    },
+    arrived: {
+      stepKey: "order_arrives_at_destination",
+      nextStatus: "Order Arrives at Destination",
+      source: "partner_work_order_arrived_destination",
+      message: (orderRef) => `${orderRef} arrived at destination.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} has arrived at destination.`,
+    },
+    pod_signed: {
+      stepKey: "customer_receives_signs_pod",
+      nextStatus: "Customer Receives & Signs POD",
+      source: "partner_work_order_pod_signed",
+      message: (orderRef) =>
+        `${orderRef} proof of delivery captured by logistics.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} proof of delivery has been captured.`,
+    },
+    system_updated: {
+      stepKey: "blubook_system_updated",
+      nextStatus: "BluBook System Updated",
+      source: "partner_work_order_system_updated",
+      message: (orderRef) =>
+        `${orderRef} logistics closeout synced in BluBook.`,
+      notificationMessage: (orderRef) =>
+        `${orderRef} logistics system closeout is complete.`,
+    },
+  };
+
+  const milestone = logisticsMilestoneConfig[action];
+  if (milestone) {
+    if (order) {
+      const orderRef = order.po_reference ?? order.id;
+      const metadata = appendOrderTimeline(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          step: milestone.stepKey,
+          actor: "logistics",
+          message: milestone.message(orderRef),
+        },
+      );
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: milestone.nextStatus,
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+    }
+
+    const { error } = await admin
+      .from("provider_workflow_handoffs")
+      .update({
+        status: "in_progress",
+        notes,
+      })
+      .eq("id", providerHandoffId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    await notifyLifecycleUpdate(
+      milestone.notificationMessage(
+        order?.po_reference ?? providerHandoff.sales_order_id,
+      ),
+      milestone.source,
     );
 
     return NextResponse.json({ ok: true });
@@ -475,17 +740,94 @@ export async function POST(request: Request) {
       }
     }
 
+    const completedAt = new Date().toISOString();
+
     const { error } = await admin
       .from("provider_workflow_handoffs")
       .update({
         status: "completed",
-        completed_at: new Date().toISOString(),
+        completed_at: completedAt,
         notes,
       })
       .eq("id", providerHandoffId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    let completionSlaStatus: string | null = null;
+
+    if (order) {
+      const orderRef = order.po_reference ?? order.id;
+      const deliveredMetadata = computeDeliveredOrderMetadata(
+        withOrderLifecycleDefaults(order.metadata),
+        {
+          deliveredAt: completedAt,
+          deliveredTo: "customer",
+        },
+      );
+      completionSlaStatus =
+        typeof deliveredMetadata.sla_status === "string"
+          ? deliveredMetadata.sla_status
+          : null;
+
+      const metadata = appendOrderTimeline(deliveredMetadata, {
+        step: "order_delivered",
+        actor: "logistics",
+        at: completedAt,
+        message: `${orderRef} was delivered. SLA ${completionSlaStatus ?? "met"}.`,
+        details: {
+          deliveredAt: completedAt,
+          deliveredTo: "customer",
+          slaStatus: completionSlaStatus,
+        },
+      });
+
+      const orderUpdateError = await updateOrderWithStatusFallback({
+        admin,
+        orderId: order.id,
+        nextStatus: "Delivered",
+        metadata,
+      });
+
+      if (orderUpdateError) {
+        return NextResponse.json(
+          { error: orderUpdateError.message },
+          { status: 400 },
+        );
+      }
+
+      try {
+        await recordStepEvent({
+          orderId: order.id,
+          stepKey: "delivered",
+          actorType: "logistics",
+          actorId: userId,
+          source: "partner/work-orders:complete",
+          metadata: {
+            providerHandoffId,
+            deliveredAt: completedAt,
+            slaStatus: completionSlaStatus,
+          },
+        });
+      } catch (stepEventError) {
+        const message =
+          stepEventError instanceof Error
+            ? stepEventError.message
+            : String(stepEventError);
+
+        if (!message.includes("already been recorded")) {
+          return NextResponse.json(
+            { error: `Work order completed but step event failed: ${message}` },
+            { status: 500 },
+          );
+        }
+      }
+
+      await notifyLifecycleUpdate(
+        `${orderRef} marked as delivered. SLA ${completionSlaStatus ?? "met"}.`,
+        "partner_work_order_completed",
+      );
     }
 
     const { error: queueError } = await admin

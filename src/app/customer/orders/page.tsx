@@ -173,7 +173,11 @@ export default function CustomerOrdersPage() {
   }
 
   if (customerContext.isLoading || ordersQuery.isLoading) {
-    return <p className="text-sm text-slate-300">Loading orders...</p>;
+    return (
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Loading orders...
+      </p>
+    );
   }
 
   if (customerContext.isError || ordersQuery.isError) {
@@ -191,8 +195,10 @@ export default function CustomerOrdersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-semibold text-white">Customer Orders</h2>
-        <p className="mt-1 text-sm text-slate-200/85">
+        <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+          Customer Orders
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-200/85">
           Final delivery history, SLA outcomes, and order timeline.
         </p>
         {retractOrderMutation.isError ? (
@@ -209,7 +215,7 @@ export default function CustomerOrdersPage() {
           title="No orders yet"
           description="Upload a purchase order to start the delivery workflow."
         >
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Orders will appear here once sales and logistics process your PO.
           </p>
         </Card>
@@ -252,29 +258,29 @@ export default function CustomerOrdersPage() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
                     Delivered To
                   </p>
-                  <p className="mt-1 text-sm text-slate-100">
+                  <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">
                     {order.deliveredTo ?? "In progress"}
                   </p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
                     Delivered At
                   </p>
-                  <p className="mt-1 text-sm text-slate-100">
+                  <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">
                     {order.deliveredAt
                       ? new Date(order.deliveredAt).toLocaleString()
                       : "Awaiting delivery"}
                   </p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
                     SLA Due
                   </p>
-                  <p className="mt-1 text-sm text-slate-100">
+                  <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">
                     {order.slaDueAt
                       ? new Date(order.slaDueAt).toLocaleString()
                       : "Not started"}
@@ -283,16 +289,18 @@ export default function CustomerOrdersPage() {
               </div>
 
               <div className="mt-4">
-                <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
                   Workflow Progress
                 </p>
                 <OrderStepMatrix orderId={order.id} />
               </div>
 
               <div className="mt-5 space-y-3">
-                <h3 className="text-sm font-semibold text-white">History</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  History
+                </h3>
                 {order.timeline.length === 0 ? (
-                  <p className="text-sm text-slate-300">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     No timeline events recorded yet.
                   </p>
                 ) : (
@@ -304,15 +312,15 @@ export default function CustomerOrdersPage() {
                             ? event.id
                             : `${order.id}-${index}`
                         }
-                        className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-white">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">
                             {typeof event.message === "string"
                               ? event.message
                               : "Workflow update"}
                           </p>
-                          <p className="text-[11px] text-slate-300">
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">
                             {typeof event.at === "string"
                               ? new Date(event.at).toLocaleString()
                               : "Unknown time"}

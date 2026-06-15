@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectMenu } from "@/components/ui/select-menu";
 import {
   getWorkflowStep,
   type WorkflowStepInputField,
@@ -57,19 +58,16 @@ function FieldInput({
 
   if (field.type === "select" && field.options) {
     return (
-      <select
+      <SelectMenu
         id={id}
         value={typeof value === "string" ? value : ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-      >
-        <option value="">— select —</option>
-        {field.options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+        placeholder="Select an option"
+        onChange={(nextValue) => onChange(nextValue)}
+        options={field.options.map((opt) => ({
+          value: opt.value,
+          label: opt.label,
+        }))}
+      />
     );
   }
 
@@ -92,8 +90,8 @@ function FieldInput({
               }}
               className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                 checked
-                  ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-100"
-                  : "border-white/15 bg-white/5 text-slate-300 hover:border-white/30"
+                  ? "border-cyan-300 bg-cyan-100 text-cyan-800"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
               }`}
             >
               {opt.label}
@@ -111,7 +109,7 @@ function FieldInput({
         type="date"
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
-        className="[color-scheme:dark]"
+        className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-cyan-500"
       />
     );
   }
@@ -125,6 +123,7 @@ function FieldInput({
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.description ?? ""}
+        className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-cyan-500"
       />
     );
   }
@@ -137,6 +136,7 @@ function FieldInput({
       value={typeof value === "string" ? value : ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.description ?? ""}
+      className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-cyan-500"
     />
   );
 }
@@ -305,14 +305,17 @@ export function WorkflowStepInputModal({
       }}
     >
       <div
-        className="surface w-full max-w-lg rounded-2xl border border-white/20 p-5"
+        className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 text-slate-900"
+        style={{ backgroundColor: "#ffffff", color: "#0f172a" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-300/80">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-700/80">
           {resolvedStep.label}
         </p>
-        <h3 className="mt-1 text-xl font-semibold text-white">{actionLabel}</h3>
-        <p className="mt-1 text-xs text-slate-300">
+        <h3 className="mt-1 text-xl font-semibold text-slate-900">
+          {actionLabel}
+        </h3>
+        <p className="mt-1 text-xs text-slate-600">
           {resolvedStep.description}
         </p>
 
@@ -322,17 +325,17 @@ export function WorkflowStepInputModal({
               <div key={field.key}>
                 <label
                   htmlFor={`wsim-${field.key}`}
-                  className="mb-1 block text-xs font-medium text-slate-200"
+                  className="mb-1 block text-xs font-medium text-slate-800"
                 >
                   {field.label}
                   {field.required ? (
-                    <span className="ml-0.5 text-red-400">*</span>
+                    <span className="ml-0.5 text-red-600">*</span>
                   ) : (
                     <span className="ml-1 text-slate-500">(optional)</span>
                   )}
                 </label>
                 {field.description ? (
-                  <p className="mb-1 text-[11px] text-slate-400">
+                  <p className="mb-1 text-[11px] text-slate-600">
                     {field.description}
                   </p>
                 ) : null}
@@ -340,13 +343,13 @@ export function WorkflowStepInputModal({
                 field.key === "logistics_partner_id" ? (
                   <div className="space-y-2">
                     {loadingLogisticsProviders ? (
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-600">
                         Loading logistics providers...
                       </p>
                     ) : null}
 
                     {logisticsProvidersError ? (
-                      <p className="text-[11px] text-red-300">
+                      <p className="text-[11px] text-red-600">
                         {logisticsProvidersError}
                       </p>
                     ) : null}
@@ -372,8 +375,8 @@ export function WorkflowStepInputModal({
                                 }}
                                 className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                                   selected
-                                    ? "border-cyan-300/60 bg-cyan-400/15 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]"
-                                    : "border-white/15 bg-white/5 hover:border-white/35"
+                                    ? "border-cyan-300 bg-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]"
+                                    : "border-slate-200 bg-white hover:border-slate-300"
                                 } ${
                                   selectable
                                     ? ""
@@ -382,25 +385,25 @@ export function WorkflowStepInputModal({
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div>
-                                    <p className="text-sm font-semibold text-white">
+                                    <p className="text-sm font-semibold text-slate-900">
                                       {provider.name}
                                     </p>
                                   </div>
-                                  <span className="rounded-full border border-cyan-300/40 bg-cyan-400/20 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
+                                  <span className="rounded-full border border-cyan-300 bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-800">
                                     Score {provider.score}
                                   </span>
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-300">
+                                <p className="mt-1 text-[11px] text-slate-600">
                                   {provider.site} • {provider.packageStream}
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-1.5">
-                                  <span className="rounded-full border border-white/15 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-200">
+                                  <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700">
                                     Active {provider.stats.active}
                                   </span>
-                                  <span className="rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-200">
+                                  <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700">
                                     Completed {provider.stats.completed}
                                   </span>
-                                  <span className="rounded-full border border-rose-300/25 bg-rose-400/10 px-2 py-0.5 text-[10px] text-rose-200">
+                                  <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] text-rose-700">
                                     Rejected {provider.stats.rejected}
                                   </span>
                                 </div>
@@ -410,7 +413,7 @@ export function WorkflowStepInputModal({
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {displayLogisticsProviders.map((provider, index) => {
+                          {displayLogisticsProviders.map((provider) => {
                             const selected = values[field.key] === provider.id;
                             const selectable = true;
                             const expanded = expandedProviderId === provider.id;
@@ -420,8 +423,8 @@ export function WorkflowStepInputModal({
                                 key={provider.id}
                                 className={`rounded-xl border ${
                                   selected
-                                    ? "border-cyan-300/60 bg-cyan-400/15"
-                                    : "border-white/15 bg-white/5"
+                                    ? "border-cyan-300 bg-cyan-50"
+                                    : "border-slate-200 bg-white"
                                 }`}
                               >
                                 <button
@@ -436,33 +439,33 @@ export function WorkflowStepInputModal({
                                   className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
                                 >
                                   <div>
-                                    <p className="text-sm font-semibold text-white">
+                                    <p className="text-sm font-semibold text-slate-900">
                                       {provider.name}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="rounded-full border border-cyan-300/40 bg-cyan-400/20 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
+                                    <span className="rounded-full border border-cyan-300 bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-800">
                                       Score {provider.score}
                                     </span>
-                                    <span className="text-xs text-slate-300">
+                                    <span className="text-xs text-slate-600">
                                       {expanded ? "Hide" : "Show"}
                                     </span>
                                   </div>
                                 </button>
 
                                 {expanded ? (
-                                  <div className="border-t border-white/10 px-3 py-2">
-                                    <p className="text-[11px] text-slate-300">
+                                  <div className="border-t border-slate-200 px-3 py-2">
+                                    <p className="text-[11px] text-slate-600">
                                       {provider.site} • {provider.packageStream}
                                     </p>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                      <span className="rounded-full border border-white/15 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-200">
+                                      <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700">
                                         Active {provider.stats.active}
                                       </span>
-                                      <span className="rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-200">
+                                      <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700">
                                         Completed {provider.stats.completed}
                                       </span>
-                                      <span className="rounded-full border border-rose-300/25 bg-rose-400/10 px-2 py-0.5 text-[10px] text-rose-200">
+                                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] text-rose-700">
                                         Rejected {provider.stats.rejected}
                                       </span>
                                     </div>
@@ -470,7 +473,7 @@ export function WorkflowStepInputModal({
                                     <div className="mt-2">
                                       <Button
                                         type="button"
-                                        className="h-7 rounded-md bg-cyan-500/90 px-2.5 text-[11px] font-semibold text-slate-950 hover:bg-cyan-400"
+                                        className="h-7 rounded-md bg-cyan-600 px-2.5 text-[11px] font-semibold text-white hover:bg-cyan-500"
                                         disabled={!selectable}
                                         onClick={() =>
                                           setValues((prev) => ({
@@ -493,7 +496,7 @@ export function WorkflowStepInputModal({
                       )
                     ) : !loadingLogisticsProviders &&
                       !logisticsProvidersError ? (
-                      <p className="text-[11px] text-amber-200">
+                      <p className="text-[11px] text-slate-600">
                         No active logistics providers are available right now.
                       </p>
                     ) : null}
@@ -511,7 +514,7 @@ export function WorkflowStepInputModal({
                   />
                 )}
                 {errors[field.key] ? (
-                  <p className="mt-0.5 text-[11px] text-red-400">
+                  <p className="mt-0.5 text-[11px] text-red-600">
                     {errors[field.key]}
                   </p>
                 ) : null}
@@ -521,7 +524,7 @@ export function WorkflowStepInputModal({
             <div>
               <label
                 htmlFor="wsim-actor-notes"
-                className="mb-1 block text-xs font-medium text-slate-400"
+                className="mb-1 block text-xs font-medium text-slate-700"
               >
                 Notes <span className="text-slate-500">(optional)</span>
               </label>
@@ -531,18 +534,18 @@ export function WorkflowStepInputModal({
                 onChange={(e) => setActorNotes(e.target.value)}
                 rows={2}
                 placeholder="Any relevant context for this step…"
-                className="w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
               />
             </div>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-300">
+          <p className="mt-4 text-sm text-slate-600">
             No structured inputs required for this step. Confirm to proceed.
           </p>
         )}
 
         {apiError ? (
-          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
             {apiError}
           </p>
         ) : null}
@@ -552,7 +555,7 @@ export function WorkflowStepInputModal({
             Cancel
           </Button>
           <Button
-            className="bg-cyan-500/90 text-slate-950 hover:bg-cyan-400"
+            className="bg-cyan-600 text-white hover:bg-cyan-500"
             disabled={submitting}
             onClick={() => void handleSubmit()}
           >

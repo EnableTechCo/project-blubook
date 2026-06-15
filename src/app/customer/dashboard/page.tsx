@@ -1,42 +1,44 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
+import { HoverAnimatedIcon } from "@/components/ui/hover-animated-icon";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DashboardPageHeader } from "@/components/ui/dashboard-page-header";
+import { EmptyStateNoticeCard } from "@/components/ui/empty-state-notice-card";
 import { FileUploader } from "@/components/ui/file-uploader";
-import {
-  WorkflowStepMatrix,
-  WorkflowProgress,
-} from "@/components/ui/workflow-progress";
+import { InlineErrorMessage } from "@/components/ui/inline-error-message";
+import { MetricsCardGrid } from "@/components/ui/metrics-card-grid";
+import { QuickLinksActionBar } from "@/components/ui/quick-links-action-bar";
+import { RealtimeStatusDot } from "@/components/ui/realtime-status-dot";
+import { WorkflowProgressPanel } from "@/components/ui/workflow-progress-panel";
+import { WorkflowStepMatrix } from "@/components/ui/workflow-progress";
 import { buildAudienceStepView } from "@/lib/workflow/workflow-step-contract";
+import { getOwnerForStatus } from "@/lib/workflow/status-to-owner-map";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
+import { useCustomerDashboardData } from "@/hooks/dashboard/use-customer-dashboard-data";
+import { usePurchaseOrderUploadFlow } from "@/hooks/dashboard/use-purchase-order-upload-flow";
+import { ActiveOrderTrackingCard } from "@/components/dashboard/customer/active-order-tracking-card";
+import { CurrentOwnerPill } from "@/components/dashboard/customer/current-owner-pill";
+import { CustomerWorkflowPanelContainer } from "@/components/dashboard/customer/customer-workflow-panel-container";
+import { NoActiveOrderCtaPanel } from "@/components/dashboard/customer/no-active-order-cta-panel";
+import { RetractOrderDialog } from "@/components/dashboard/customer/retract-order-dialog";
+import { UploadFlowProgressRail } from "@/components/dashboard/customer/upload-flow-progress-rail";
+import { UploadFlowStepCards } from "@/components/dashboard/customer/upload-flow-step-cards";
+import { UploadFlowStepDetailsCard } from "@/components/dashboard/customer/upload-flow-step-details-card";
 import { useRealtimeEventStatus } from "@/hooks/use-realtime-event-status";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import { listCustomerRequirements } from "@/services/requirements.service";
 import requirementsService from "@/services/requirements.service";
 import { subscribeToCustomerOrderProgress } from "@/services/workflow-realtime.service";
-
-function isPendingRequirement(status: string) {
-  return status === "missing" || status === "rejected";
-}
-
-function isPurchaseOrderRequirement(input: {
-  title: string;
-  evidenceType: string;
-}) {
-  const title = input.title.toLowerCase();
-  const evidenceType = input.evidenceType.toLowerCase();
-  return (
-    title.includes("purchase order") ||
-    title.includes("purchase-order") ||
-    evidenceType.includes("purchase_order") ||
-    (evidenceType.includes("purchase") && evidenceType.includes("order"))
-  );
-}
+import { ChartBarIncreasingIcon } from "@/components/icons/chart-bar-increasing";
+import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
+import { FilePenLineIcon } from "@/components/icons/file-pen-line";
+import { MessageSquareMoreIcon } from "@/components/icons/message-square-more";
+import { ReceiptTextIcon } from "@/components/icons/receipt-text";
+import { UploadIcon } from "@/components/icons/upload";
+import { WorkflowIcon } from "@/components/icons/workflow";
+import { XIcon } from "@/components/icons/x";
 
 type CustomerOrderSummary = {
   id: string;
@@ -54,6 +56,16 @@ type UploadFlowStage =
   | "waiting_for_order"
   | "complete"
   | "error";
+
+const UPLOAD_FLOW_STAGE_TO_INDEX: Record<UploadFlowStage, number> = {
+  idle: 0,
+  ensuring_requirement: 0,
+  uploading_file: 1,
+  starting_workflow: 2,
+  waiting_for_order: 3,
+  complete: 4,
+  error: 1,
+};
 
 export default function CustomerDashboardPage() {
   const queryClient = useQueryClient();
@@ -82,6 +94,9 @@ export default function CustomerDashboardPage() {
     Record<number, number>
   >({});
   const [uploadTimerTick, setUploadTimerTick] = useState(Date.now());
+  const [isPurchaseOrderWorkflowVisible, setIsPurchaseOrderWorkflowVisible] =
+    useState(false);
+  const [isCloseButtonHovered, setIsCloseButtonHovered] = useState(false);
   const uploadFlowPreviousStageRef = useRef<UploadFlowStage>("idle");
   const uploadFlowCurrentStageStartedAtRef = useRef<number | null>(null);
   const {
@@ -122,16 +137,15 @@ export default function CustomerDashboardPage() {
     },
   });
 
-  const activeOrders = (ordersQuery.data ?? []).filter(
-    (order) => order.status !== "Delivered" && order.status !== "Cancelled",
-  );
-  const completedOrders = (ordersQuery.data ?? []).filter(
-    (order) => order.status === "Delivered",
-  );
-  // Use the same order that the UI is rendering (active first) to avoid
-  // showing step completion from a different order.
-  const displayedOrderId =
-    activeOrders[0]?.id ?? (ordersQuery.data ?? [])[0]?.id ?? null;
+  const {
+    activeOrders,
+    completedOrders,
+    pendingPurchaseOrders,
+    displayedOrderId,
+  } = useCustomerDashboardData({
+    orders: ordersQuery.data ?? [],
+    requirements: requirementsQuery.data ?? [],
+  });
 
   const stepEventsQuery = useQuery({
     queryKey: ["step-events", displayedOrderId],
@@ -244,16 +258,6 @@ export default function CustomerDashboardPage() {
       });
     },
   });
-
-  const pendingPurchaseOrders = (requirementsQuery.data ?? []).filter(
-    (item) =>
-      item.isRequired &&
-      isPendingRequirement(item.status) &&
-      isPurchaseOrderRequirement({
-        title: item.title,
-        evidenceType: item.evidenceType,
-      }),
-  );
 
   useEffect(() => {
     const order = (ordersQuery.data ?? [])[0];
@@ -448,11 +452,24 @@ export default function CustomerDashboardPage() {
     ensurePoRequirementMutation.isPending ||
     submitEvidenceMutation.isPending;
   const hasActiveOrder = activeOrders.length > 0;
+  const isInitialDashboardLoading =
+    customerContext.isLoading ||
+    (ordersQuery.isLoading && !ordersQuery.data) ||
+    (requirementsQuery.isLoading && !requirementsQuery.data) ||
+    (providerReadinessQuery.isLoading && !providerReadinessQuery.data);
+  const isDashboardRefreshing =
+    ordersQuery.isFetching ||
+    requirementsQuery.isFetching ||
+    providerReadinessQuery.isFetching;
   const activeOrder = activeOrders[0] ?? null;
   // Show kickoff animation when upload just completed but the order hasn't
   // appeared yet (orders query still re-fetching after invalidation).
   const showKickoff = uploadSuccess !== null && !hasActiveOrder;
   const showUploadFlowProgress = isUploading || showKickoff;
+
+  const openPurchaseOrderWorkflowPanel = () => {
+    setIsPurchaseOrderWorkflowVisible(true);
+  };
 
   const uploadFlowSteps: Array<{ label: string; description: string }> = [
     {
@@ -478,17 +495,8 @@ export default function CustomerDashboardPage() {
     },
   ];
 
-  const uploadFlowStageToIndex: Record<UploadFlowStage, number> = {
-    idle: 0,
-    ensuring_requirement: 0,
-    uploading_file: 1,
-    starting_workflow: 2,
-    waiting_for_order: 3,
-    complete: 4,
-    error: 1,
-  };
-
-  const uploadCurrentIndex = uploadFlowStageToIndex[uploadFlowStage];
+  const { currentIndex: uploadCurrentIndex } =
+    usePurchaseOrderUploadFlow(uploadFlowStage);
   const uploadProgressPercent = Math.max(
     8,
     (uploadCurrentIndex / (uploadFlowSteps.length - 1)) * 100,
@@ -528,12 +536,14 @@ export default function CustomerDashboardPage() {
   useEffect(() => {
     const now = Date.now();
     const previousStage = uploadFlowPreviousStageRef.current;
-    const previousStageIndex = uploadFlowStageToIndex[previousStage];
+    const previousStageIndex = UPLOAD_FLOW_STAGE_TO_INDEX[previousStage];
 
     if (uploadFlowStage === "idle") {
       uploadFlowPreviousStageRef.current = "idle";
       uploadFlowCurrentStageStartedAtRef.current = null;
-      setUploadStageDurationsMs({});
+      setUploadStageDurationsMs((current) =>
+        Object.keys(current).length === 0 ? current : {},
+      );
       return;
     }
 
@@ -557,7 +567,7 @@ export default function CustomerDashboardPage() {
       uploadFlowCurrentStageStartedAtRef.current = now;
       uploadFlowPreviousStageRef.current = uploadFlowStage;
     }
-  }, [uploadFlowStage, uploadFlowStageToIndex]);
+  }, [uploadFlowStage]);
 
   useEffect(() => {
     if (!showUploadFlowProgress) {
@@ -597,470 +607,446 @@ export default function CustomerDashboardPage() {
     }
   }, [hasActiveOrder, uploadSuccess]);
 
-  const OWNER_LABELS: Record<string, { owner: string; next: string }> = {
-    "Purchase Order Received": {
-      owner: "Sales",
-      next: "Sales to validate your PO.",
-    },
-    "Order Validated": { owner: "Sales", next: "Sales reserving inventory." },
-    "Inventory Reserved": {
-      owner: "Sales",
-      next: "Sales creating logistics handoff.",
-    },
-    "Logistics Handoff Created": {
-      owner: "Sales",
-      next: "Sales generating invoice.",
-    },
-    "Invoice Generated": { owner: "Sales", next: "Sales confirming shipment." },
-    "Shipment Created": {
-      owner: "Logistics",
-      next: "Logistics acknowledging intake.",
-    },
-    "Order Received": {
-      owner: "Logistics",
-      next: "Logistics transmitting to warehouse.",
-    },
-    "Order Transmitted to Warehouse": {
-      owner: "Logistics",
-      next: "Logistics notifying you.",
-    },
-    "Notify Customer": {
-      owner: "Logistics",
-      next: "Logistics packing your items.",
-    },
-    "Pack Items for Shipment": {
-      owner: "Logistics",
-      next: "Logistics generating shipping label.",
-    },
-    "Generate Shipping Label & Documentation": {
-      owner: "Logistics",
-      next: "Logistics dispatching shipment.",
-    },
-    "Track Shipment In Transit": {
-      owner: "Logistics",
-      next: "Shipment in transit — awaiting arrival.",
-    },
-    "Reroute Delivery": {
-      owner: "Logistics",
-      next: "Delivery issue being resolved.",
-    },
-    "Order Arrives at Destination": {
-      owner: "Logistics",
-      next: "Awaiting your POD signature.",
-    },
-    "Customer Receives & Signs POD": {
-      owner: "You + Logistics",
-      next: "POD signed — logistics updating system.",
-    },
-    "BluBook System Updated": {
-      owner: "Logistics",
-      next: "Final delivery confirmation pending.",
-    },
-    Delivered: { owner: "Complete", next: "Order delivered." },
-  };
-
-  if (customerContext.isLoading) {
+  if (isInitialDashboardLoading) {
     return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
   }
 
   if (customerContext.isError || !customerContext.data) {
-    return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
+    return (
+      <div className="space-y-4">
+        <DashboardPageHeader
+          title="Customer Dashboard"
+          subtitle="Submit Purchase Orders and track execution from one place."
+        />
+        <EmptyStateNoticeCard
+          title="Dashboard unavailable"
+          description="Could not load your customer workspace right now. Please refresh and try again."
+        />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-3xl font-semibold text-white">
-            Customer Dashboard
-          </h2>
-          <p className="mt-1 text-sm text-slate-200/85">
-            Submit Purchase Orders and track execution from one place.
-          </p>
-        </div>
-        <Badge>{pendingPurchaseOrders.length} PO Pending</Badge>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card
-          title="Purchase Orders Active"
-          description="Orders currently moving through workflow."
-        >
-          <p className="text-3xl font-semibold text-cyan-200">
-            {ordersQuery.isLoading ? "-" : activeOrders.length}
-          </p>
-        </Card>
-        <Card title="SLA Metrics" description="Active SLAs against total SLAs.">
-          <p className="text-3xl font-semibold text-emerald-300">
-            {providerReadinessQuery.isLoading
-              ? "-"
-              : `${providerReadinessQuery.data?.slas.active ?? 0}/${providerReadinessQuery.data?.slas.total ?? 0}`}
-          </p>
-        </Card>
-        <Card
-          title="Service Requests Active"
-          description="Requests generated and actively tracked."
-        >
-          <p className="text-3xl font-semibold text-fuchsia-200">
-            {providerReadinessQuery.isLoading
-              ? "-"
-              : (providerReadinessQuery.data?.generatedCustomerRequests ?? 0)}
-          </p>
-        </Card>
-        <Card title="Total Orders" description="All purchase orders submitted.">
-          <p className="text-3xl font-semibold text-white">
-            {ordersQuery.isLoading ? "-" : (ordersQuery.data?.length ?? 0)}
-          </p>
-        </Card>
-        <Card title="Completed Orders" description="Successfully delivered.">
-          <p className="text-3xl font-semibold text-emerald-300">
-            {ordersQuery.isLoading ? "-" : completedOrders.length}
-          </p>
-        </Card>
-        <Card
-          title="PO Pending Upload"
-          description="Awaiting PO file submission."
-        >
-          <p className="text-3xl font-semibold text-amber-200">
-            {requirementsQuery.isLoading ? "-" : pendingPurchaseOrders.length}
-          </p>
-        </Card>
-      </div>
-
-      {/* ── Unified Purchase Order Workflow Panel ─────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] shadow-panel">
-        {/* Header — always visible */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-          <div>
-            <p className="text-base font-semibold text-white">
-              Purchase Order Workflow
-            </p>
-            <p className="mt-0.5 text-xs text-slate-400">
-              Upload a PO to start fulfilment. Progress updates live.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Realtime connection dot */}
-            <div
-              className="flex items-center gap-1.5"
-              title={realtimeStatusLabel}
+      <DashboardPageHeader
+        title="Customer Dashboard"
+        subtitle="Submit Purchase Orders and track execution from one place."
+        badge={
+          isPurchaseOrderWorkflowVisible ? (
+            <button
+              type="button"
+              className="inline-flex h-8 items-center justify-center rounded-xl border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 active:scale-[0.99]"
+              onMouseEnter={() => setIsCloseButtonHovered(true)}
+              onMouseLeave={() => setIsCloseButtonHovered(false)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsPurchaseOrderWorkflowVisible(false);
+              }}
             >
-              <span
-                className={`h-2 w-2 rounded-full transition-colors ${
-                  lastRealtimeEventAt
-                    ? realtimeStatusClassName.includes("emerald")
-                      ? "bg-emerald-400 shadow-[0_0_5px_#34d399]"
-                      : "bg-amber-400"
-                    : "bg-slate-600"
-                }`}
+              <HoverAnimatedIcon
+                icon={XIcon}
+                active={isCloseButtonHovered}
+                className="h-4 w-4"
+                size={16}
               />
-              <span className="text-[11px] text-slate-400">
-                {lastRealtimeEventAt
-                  ? realtimeStatusClassName.includes("emerald")
-                    ? "Live"
-                    : "Stale"
-                  : "Waiting"}
-              </span>
-            </div>
-            {/* Secondary upload button when an order is already tracked */}
-            {hasActiveOrder && !isUploading ? (
-              <FileUploader
-                buttonLabel="Upload New PO"
-                disabled={isUploading}
-                onFilesSelected={(files) =>
-                  void onPurchaseOrderFileChangeWithEnsure(files)
-                }
+              Close
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="inline-flex h-8 items-center justify-center rounded-xl bg-coral px-3 text-xs font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={
+                ensurePoRequirementMutation.isPending ||
+                submitEvidenceMutation.isPending
+              }
+              onClick={openPurchaseOrderWorkflowPanel}
+            >
+              <HoverAnimatedIcon
+                icon={hasActiveOrder ? WorkflowIcon : UploadIcon}
+                active={false}
+                className="h-4 w-4 mr-1.5"
+                size={16}
               />
-            ) : null}
-          </div>
-        </div>
+              {ensurePoRequirementMutation.isPending
+                ? "Preparing upload..."
+                : hasActiveOrder
+                  ? "View Workflow Steps"
+                  : "Upload Purchase Order"}
+            </button>
+          )
+        }
+      />
 
-        {/* Body — state machine */}
-        <div className="px-5 py-5">
-          {/* ── LOADING ── */}
-          {ordersQuery.isLoading || requirementsQuery.isLoading ? (
-            <div className="animate-pulse space-y-3 py-2">
-              <div className="h-3 w-1/3 rounded bg-white/10" />
-              <div className="h-3 w-2/3 rounded bg-white/10" />
-              <div className="h-3 w-1/2 rounded bg-white/10" />
-            </div>
-          ) : uploadError ? (
-            /* ── ERROR ── */
-            <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-4">
-              <p className="text-sm font-semibold text-red-300">
-                Upload failed
+      {isPurchaseOrderWorkflowVisible ? (
+        <CustomerWorkflowPanelContainer>
+          {/* Header — always visible */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 px-5 py-4 dark:border-white/10">
+            <div>
+              <p className="text-base font-semibold text-slate-900">
+                Purchase Order Workflow
               </p>
-              <p className="mt-1 text-xs text-red-200/90">{uploadError}</p>
-              <button
-                type="button"
-                className="mt-3 text-[11px] font-medium text-red-300 underline underline-offset-2"
-                onClick={() => setUploadError(null)}
-              >
-                Dismiss and try again
-              </button>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Upload a PO to start fulfilment. Progress updates live.
+              </p>
             </div>
-          ) : showUploadFlowProgress ? (
-            /* ── UNIFIED UPLOAD FLOW ── */
-            <div className="space-y-4 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    Uploading your purchase order
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    One continuous flow from upload to live workflow tracking.
+            <div className="flex items-center gap-3">
+              {isDashboardRefreshing && !isUploading ? (
+                <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[11px] text-cyan-700">
+                  Syncing updates...
+                </span>
+              ) : null}
+              {/* Realtime connection dot */}
+              <RealtimeStatusDot
+                label={realtimeStatusLabel}
+                isLive={Boolean(
+                  lastRealtimeEventAt &&
+                  realtimeStatusClassName.includes("emerald"),
+                )}
+                isStale={Boolean(
+                  lastRealtimeEventAt &&
+                  !realtimeStatusClassName.includes("emerald"),
+                )}
+              />
+              {/* Secondary upload button when an order is already tracked */}
+              {hasActiveOrder && !isUploading ? (
+                <FileUploader
+                  buttonLabel="Upload New PO"
+                  icon={UploadIcon}
+                  disabled={isUploading}
+                  onFilesSelected={(files) =>
+                    void onPurchaseOrderFileChangeWithEnsure(files)
+                  }
+                />
+              ) : null}
+            </div>
+          </div>
+
+          {/* Body — state machine */}
+          <div className="px-5 py-5">
+            {uploadError ? (
+              /* ── ERROR ── */
+              <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-4">
+                <p className="text-sm font-semibold text-red-300">
+                  Upload failed
+                </p>
+                <p className="mt-1 text-xs text-red-200/90">{uploadError}</p>
+                <button
+                  type="button"
+                  className="mt-3 text-[11px] font-medium text-red-300 underline underline-offset-2"
+                  onClick={() => setUploadError(null)}
+                >
+                  Dismiss and try again
+                </button>
+              </div>
+            ) : showUploadFlowProgress ? (
+              /* ── UNIFIED UPLOAD FLOW ── */
+              <div className="space-y-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Uploading your purchase order
+                    </p>
+                  </div>
+                  <p className="text-xs font-medium text-cyan-700">
+                    {Math.round(uploadProgressPercent)}% complete
                   </p>
                 </div>
-                <p className="text-xs font-medium text-cyan-200">
-                  {Math.round(uploadProgressPercent)}% complete
-                </p>
-              </div>
 
-              <div className="relative pt-6">
-                <div className="h-2 rounded-full bg-white/10" />
-                <div
-                  className="absolute left-0 top-6 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-500"
-                  style={{ width: `${uploadProgressPercent}%` }}
-                />
-
-                <div className="pointer-events-none absolute left-0 right-0 top-3.5 flex justify-between px-0.5">
+                <div className="relative">
+                  <UploadFlowProgressRail percent={uploadProgressPercent} />
+                  <div className="pointer-events-none absolute left-0 right-0 top-3.5 flex justify-between px-0.5">
+                    {uploadFlowSteps.map((step, index) => {
+                      const isDone = index < uploadCurrentIndex;
+                      const isActive = index === uploadCurrentIndex;
+                      return (
+                        <span
+                          key={step.label}
+                          className={`h-6 w-6 rounded-full border text-center text-[11px] leading-6 transition-colors ${
+                            isDone
+                              ? "border-emerald-300/70 bg-emerald-300/20 text-emerald-800"
+                              : isActive
+                                ? "border-cyan-300/80 bg-cyan-300/20 text-cyan-800"
+                                : "border-slate-500/60 bg-slate-900 text-slate-400"
+                          }`}
+                        >
+                          {isDone ? "✓" : index + 1}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <UploadFlowStepCards>
                   {uploadFlowSteps.map((step, index) => {
                     const isDone = index < uploadCurrentIndex;
                     const isActive = index === uploadCurrentIndex;
+                    const elapsedMs = getStepElapsedMs(index);
                     return (
-                      <span
+                      <button
                         key={step.label}
-                        className={`h-6 w-6 rounded-full border text-center text-[11px] leading-6 transition-colors ${
-                          isDone
-                            ? "border-emerald-300/70 bg-emerald-300/20 text-emerald-200"
-                            : isActive
-                              ? "border-cyan-300/80 bg-cyan-300/20 text-cyan-100"
-                              : "border-slate-500/60 bg-slate-900 text-slate-400"
+                        type="button"
+                        onClick={() => setSelectedUploadStepIndex(index)}
+                        className={`rounded-lg border px-2 py-2 text-left text-[11px] transition-colors ${
+                          selectedUploadStepIndex === index
+                            ? "border-cyan-300/70 bg-cyan-500/10 text-cyan-800"
+                            : isDone
+                              ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-800"
+                              : isActive
+                                ? "border-cyan-300/40 bg-cyan-500/5 text-cyan-800"
+                                : "border-slate-300 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300"
                         }`}
                       >
-                        {isDone ? "✓" : index + 1}
-                      </span>
+                        <span className="block font-semibold">
+                          {step.label}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] text-slate-400">
+                          {isDone
+                            ? "Completed"
+                            : isActive
+                              ? "In progress"
+                              : "Pending"}
+                        </span>
+                        {elapsedMs > 0 ? (
+                          <span className="mt-1 inline-flex rounded-full border border-cyan-300/35 bg-cyan-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800">
+                            {formatElapsedMs(elapsedMs)}
+                          </span>
+                        ) : null}
+                      </button>
                     );
                   })}
-                </div>
-              </div>
+                </UploadFlowStepCards>
 
-              <div className="grid gap-2 sm:grid-cols-5">
-                {uploadFlowSteps.map((step, index) => {
-                  const isDone = index < uploadCurrentIndex;
-                  const isActive = index === uploadCurrentIndex;
-                  const elapsedMs = getStepElapsedMs(index);
-                  return (
-                    <button
-                      key={step.label}
-                      type="button"
-                      onClick={() => setSelectedUploadStepIndex(index)}
-                      className={`rounded-lg border px-2 py-2 text-left text-[11px] transition-colors ${
-                        selectedUploadStepIndex === index
-                          ? "border-cyan-300/70 bg-cyan-500/10 text-cyan-100"
-                          : isDone
-                            ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-100"
-                            : isActive
-                              ? "border-cyan-300/40 bg-cyan-500/5 text-cyan-100"
-                              : "border-white/10 bg-white/[0.03] text-slate-300"
-                      }`}
-                    >
-                      <span className="block font-semibold">{step.label}</span>
-                      <span className="mt-0.5 block text-[10px] text-slate-400">
-                        {isDone
-                          ? "Completed"
-                          : isActive
-                            ? "In progress"
-                            : "Pending"}
-                      </span>
-                      {elapsedMs > 0 ? (
-                        <span className="mt-1 inline-flex rounded-full border border-cyan-300/35 bg-cyan-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-100">
-                          {formatElapsedMs(elapsedMs)}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                <p className="text-xs font-semibold text-white">
-                  {selectedUploadStep.label}
-                </p>
-                <p className="mt-1 text-xs text-slate-300">
-                  {selectedUploadStep.description}
-                </p>
-                {uploadSuccess?.fileName ? (
-                  <p className="mt-1 text-[11px] text-cyan-200/90">
-                    File: {uploadSuccess.fileName}
+                <UploadFlowStepDetailsCard>
+                  <p className="text-xs font-semibold text-slate-900">
+                    {selectedUploadStep.label}
                   </p>
-                ) : null}
-                {uploadSuccess?.poReference ? (
-                  <p className="mt-1 text-[11px] text-emerald-200/90">
-                    PO: {uploadSuccess.poReference}
+                  <p className="mt-1 text-xs text-slate-600">
+                    {selectedUploadStep.description}
                   </p>
-                ) : null}
+                  {uploadSuccess?.fileName ? (
+                    <p className="mt-1 text-[11px] text-cyan-700">
+                      File: {uploadSuccess.fileName}
+                    </p>
+                  ) : null}
+                  {uploadSuccess?.poReference ? (
+                    <p className="mt-1 text-[11px] text-emerald-700">
+                      PO: {uploadSuccess.poReference}
+                    </p>
+                  ) : null}
+                </UploadFlowStepDetailsCard>
               </div>
-            </div>
-          ) : hasActiveOrder ? (
-            /* ── TRACKING ── */
-            <div className="space-y-4">
-              {retractOrderMutation.isError ? (
-                <p className="text-sm text-red-300">
-                  {retractOrderMutation.error instanceof Error
-                    ? retractOrderMutation.error.message
-                    : "Could not retract order."}
-                </p>
-              ) : null}
-              {(() => {
-                const order = activeOrder!;
-                const ownerInfo = OWNER_LABELS[order.status] ?? {
-                  owner: "Processing",
-                  next: "Workflow is advancing.",
-                };
-                return (
-                  <div>
-                    {/* Order header row */}
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-base font-semibold text-white">
-                          {order.poReference ?? order.id}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-slate-400">
-                          Updated {new Date(order.updatedAt).toLocaleString()}
-                        </p>
-                      </div>
-                      <Button
-                        variant="danger"
-                        className="h-7 px-2.5 text-[11px]"
-                        disabled={
-                          retractOrderMutation.isPending &&
-                          retractingOrderId === order.id
-                        }
-                        onClick={() =>
-                          onRetractOrderRequest(order.id, order.poReference)
-                        }
-                      >
-                        {retractOrderMutation.isPending &&
-                        retractingOrderId === order.id
-                          ? "Retracting..."
-                          : "Retract"}
-                      </Button>
-                    </div>
-
-                    {/* Current owner pill */}
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
-                      <span className="text-xs font-medium text-cyan-100">
-                        {ownerInfo.owner}
-                      </span>
-                      <span className="text-[11px] text-cyan-300/70">
-                        — {ownerInfo.next}
-                      </span>
-                    </div>
-
-                    {/* Progress bar */}
-                    <WorkflowProgress
-                      completedStepKeys={stepEventsQuery.data ?? []}
-                    />
-
-                    {/* Step matrix */}
-                    <div className="mt-4">
-                      <WorkflowStepMatrix
-                        completedStepKeys={stepEventsQuery.data ?? []}
-                        audience="customer"
-                        title="Order Progress"
-                      />
-                    </div>
-
-                    {(ordersQuery.data ?? []).length > 1 ? (
-                      <p className="mt-3 text-[11px] text-slate-500">
-                        Showing most recent.{" "}
-                        <a
-                          href="/customer/orders"
-                          className="text-cyan-300 underline underline-offset-2"
-                        >
-                          View all {(ordersQuery.data ?? []).length} orders
-                        </a>
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })()}
-            </div>
-          ) : (
-            /* ── IDLE — no orders yet ── */
-            <div className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                <svg
-                  className="h-6 w-6 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            ) : hasActiveOrder ? (
+              /* ── TRACKING ── */
+              <ActiveOrderTrackingCard>
+                {retractOrderMutation.isError ? (
+                  <InlineErrorMessage
+                    className="text-sm"
+                    message={
+                      retractOrderMutation.error instanceof Error
+                        ? retractOrderMutation.error.message
+                        : "Could not retract order."
+                    }
                   />
-                </svg>
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-white">
-                  No active purchase orders
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Upload a PO file to kick off your order workflow
-                </p>
-              </div>
-              <FileUploader
-                buttonLabel={
-                  ensurePoRequirementMutation.isPending
-                    ? "Preparing upload..."
-                    : pendingPurchaseOrders.length > 0
-                      ? `Upload ${pendingPurchaseOrders[0]!.title}`
-                      : "Upload Purchase Order"
+                ) : null}
+                {(() => {
+                  const order = activeOrder as CustomerOrderSummary;
+                  const ownerInfo = getOwnerForStatus(order.status);
+                  return (
+                    <div>
+                      {/* Order header row */}
+                      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="text-base font-semibold text-slate-900">
+                            {order.poReference ?? order.id}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-600">
+                            Updated{" "}
+                            {new Date(
+                              order.updatedAt ?? Date.now(),
+                            ).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button
+                          variant="danger"
+                          className="h-7 px-2.5 text-[11px]"
+                          disabled={
+                            retractOrderMutation.isPending &&
+                            retractingOrderId === order.id
+                          }
+                          onClick={() =>
+                            onRetractOrderRequest(
+                              order.id,
+                              order.poReference ?? null,
+                            )
+                          }
+                        >
+                          {retractOrderMutation.isPending &&
+                          retractingOrderId === order.id
+                            ? "Retracting..."
+                            : "Retract"}
+                        </Button>
+                      </div>
+
+                      {/* Current owner pill */}
+                      <CurrentOwnerPill
+                        owner={ownerInfo.owner}
+                        next={ownerInfo.next}
+                      />
+
+                      {/* Progress bar */}
+                      <WorkflowProgressPanel
+                        completedStepKeys={stepEventsQuery.data ?? []}
+                      />
+
+                      {/* Step matrix */}
+                      <div className="mt-4">
+                        <WorkflowStepMatrix
+                          completedStepKeys={stepEventsQuery.data ?? []}
+                          audience="customer"
+                          title="Order Progress"
+                        />
+                      </div>
+
+                      {(ordersQuery.data ?? []).length > 1 ? (
+                        <p className="mt-3 text-[11px] text-slate-500">
+                          Showing most recent.{" "}
+                          <a
+                            href="/customer/orders"
+                            className="text-cyan-300 underline underline-offset-2"
+                          >
+                            View all {(ordersQuery.data ?? []).length} orders
+                          </a>
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })()}
+              </ActiveOrderTrackingCard>
+            ) : (
+              /* ── IDLE — no orders yet ── */
+              <NoActiveOrderCtaPanel
+                title="No active purchase orders"
+                description="Upload a PO file to kick off your order workflow"
+                icon={
+                  <div className="flex h-14 w-14 items-center justify-center border border-slate-300 bg-slate-50 dark:border-white/10 dark:bg-white/5">
+                    <FilePenLineIcon
+                      className="h-6 w-6 text-slate-400"
+                      size={24}
+                    />
+                  </div>
                 }
-                disabled={
-                  ensurePoRequirementMutation.isPending ||
-                  submitEvidenceMutation.isPending
-                }
-                onFilesSelected={(files) =>
-                  pendingPurchaseOrders.length > 0
-                    ? void onPurchaseOrderFileChange(
-                        pendingPurchaseOrders[0]!.id,
-                        files,
-                      )
-                    : void onPurchaseOrderFileChangeWithEnsure(files)
+                action={
+                  <FileUploader
+                    buttonLabel={
+                      ensurePoRequirementMutation.isPending
+                        ? "Preparing upload..."
+                        : pendingPurchaseOrders.length > 0
+                          ? `Upload ${pendingPurchaseOrders[0]!.title}`
+                          : "Upload Purchase Order"
+                    }
+                    icon={UploadIcon}
+                    disabled={
+                      ensurePoRequirementMutation.isPending ||
+                      submitEvidenceMutation.isPending
+                    }
+                    onFilesSelected={(files) =>
+                      pendingPurchaseOrders.length > 0
+                        ? void onPurchaseOrderFileChange(
+                            pendingPurchaseOrders[0]!.id,
+                            files,
+                          )
+                        : void onPurchaseOrderFileChangeWithEnsure(files)
+                    }
+                  />
                 }
               />
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+          </div>
+        </CustomerWorkflowPanelContainer>
+      ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Link href="/customer/requests" className="inline-flex">
-          <Button variant="ghost">Open Requests</Button>
-        </Link>
-        <Link href="/customer/documents" className="inline-flex">
-          <Button variant="ghost">Open Documents</Button>
-        </Link>
-      </div>
+      <MetricsCardGrid
+        items={[
+          {
+            key: "po-active",
+            title: "Purchase Orders Active",
+            description: "Orders currently moving through workflow.",
+            value: activeOrders.length,
+            icon: WorkflowIcon,
+            valueClassName: "text-cyan-700",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+          {
+            key: "sla-metrics",
+            title: "SLA Metrics",
+            description: "Active SLAs against total SLAs.",
+            value: `${providerReadinessQuery.data?.slas.active ?? 0}/${providerReadinessQuery.data?.slas.total ?? 0}`,
+            icon: ChartBarIncreasingIcon,
+            valueClassName: "text-emerald-300",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+          {
+            key: "service-requests-active",
+            title: "Service Requests Active",
+            description: "Requests generated and actively tracked.",
+            value: providerReadinessQuery.data?.generatedCustomerRequests ?? 0,
+            icon: MessageSquareMoreIcon,
+            valueClassName: "text-cyan-700",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+          {
+            key: "total-orders",
+            title: "Total Orders",
+            description: "All purchase orders submitted.",
+            value: ordersQuery.data?.length ?? 0,
+            icon: ReceiptTextIcon,
+            valueClassName: "text-slate-900",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+          {
+            key: "completed-orders",
+            title: "Completed Orders",
+            description: "Successfully delivered.",
+            value: completedOrders.length,
+            icon: ClipboardCheckIcon,
+            valueClassName: "text-emerald-300",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+          {
+            key: "po-pending-upload",
+            title: "PO Pending Upload",
+            description: "Awaiting PO file submission.",
+            value: pendingPurchaseOrders.length,
+            icon: UploadIcon,
+            valueClassName: "text-cyan-700",
+            titleClampLines: 2,
+            descriptionClampLines: 2,
+          },
+        ]}
+      />
 
-      <ConfirmDialog
+      <QuickLinksActionBar
+        links={[
+          { href: "/customer/requests", label: "Open Requests" },
+          { href: "/customer/documents", label: "Open Documents" },
+        ]}
+      />
+
+      <RetractOrderDialog
         open={Boolean(retractConfirmOrder)}
-        ariaLabel="Retract purchase order"
         title={`Retract ${retractConfirmOrder?.poReference ?? retractConfirmOrder?.id ?? "order"}?`}
-        description="This removes the order and related workflow records."
-        warning="Intended for testing and workflow reset scenarios."
-        confirmLabel="Confirm Retract"
         busy={retractOrderMutation.isPending}
         onClose={() => setRetractConfirmOrder(null)}
-        onConfirm={() => {
-          void onRetractOrderConfirmed();
-        }}
+        onConfirm={() => void onRetractOrderConfirmed()}
       />
     </div>
   );

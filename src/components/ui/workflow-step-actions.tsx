@@ -14,7 +14,7 @@ export type WorkflowStepActionItem = {
 
 function toneClassName(tone: WorkflowStepActionTone) {
   if (tone === "backward") {
-    return "border border-amber-300/35 bg-transparent text-amber-100 hover:bg-amber-500/10";
+    return "border border-cyan-300/35 bg-transparent text-cyan-700 hover:bg-cyan-500/10";
   }
 
   if (tone === "neutral") {

@@ -65,13 +65,10 @@ export function ConfirmDialog({
         className="surface w-full max-w-lg rounded-2xl border border-white/20 p-5"
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-xs uppercase tracking-[0.16em] text-red-200/90">
-          Confirm Action
-        </p>
         <h3 className="mt-1 text-2xl font-semibold text-white">{title}</h3>
         <p className="mt-3 text-sm text-slate-200">{description}</p>
         {warning ? (
-          <p className="mt-1 text-xs text-amber-200">{warning}</p>
+          <p className="mt-1 text-xs text-slate-200">{warning}</p>
         ) : null}
 
         <div className="mt-5 flex justify-end gap-2">

@@ -6,15 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDashed,
-  ClipboardCheck,
-  ClipboardList,
-  FileText,
-  FileCheck2,
-  Handshake,
   MapPin,
-  PackageCheck,
-  Truck,
   type LucideIcon,
 } from "lucide-react";
 import { LOGISTICS_WORKFLOW_STATES } from "@/constants/logistics-workflow-states";
@@ -22,12 +14,11 @@ import { SALES_WORKFLOW_STATES } from "@/constants/sales-workflow-states";
 import {
   SALES_WORKFLOW_STAGE_LABELS,
   WORKFLOW_STAGE_LABELS,
-  type SalesWorkflowStageKey,
   type WorkflowStageKey,
+  type SalesWorkflowStageKey,
 } from "@/constants/workflow-stage-labels";
 import { cn } from "@/lib/utils";
 import {
-  WORKFLOW_STEP_CONTRACT,
   getWorkflowStepsForAudience,
   type WorkflowAudienceRole,
 } from "@/lib/workflow/workflow-step-contract";
@@ -38,41 +29,9 @@ const SALES_WORKFLOW_STAGE_ORDER: SalesWorkflowStageKey[] = [
   "inventory_reserved",
   "handoff_created",
   "handoff_confirmed",
-  "logistics_active",
-  "in_transit",
-  "order_arrived",
-  "pod_signed",
   "system_updated",
   "delivered",
 ];
-
-const SALES_WORKFLOW_STAGE_ICONS: Record<SalesWorkflowStageKey, LucideIcon> = {
-  po_submitted: ClipboardList,
-  sales_validated: ClipboardCheck,
-  inventory_reserved: PackageCheck,
-  handoff_created: Handshake,
-  handoff_confirmed: Handshake,
-  logistics_active: ClipboardCheck,
-  in_transit: Truck,
-  order_arrived: MapPin,
-  pod_signed: FileCheck2,
-  system_updated: CheckCircle2,
-  delivered: PackageCheck,
-};
-
-const WORKFLOW_STAGE_ICONS: Record<WorkflowStageKey, LucideIcon> = {
-  po_submitted: FileCheck2,
-  sales_validated: ClipboardCheck,
-  inventory_reserved: PackageCheck,
-  handoff_created: Handshake,
-  handoff_confirmed: ClipboardCheck,
-  logistics_active: ClipboardCheck,
-  in_transit: Truck,
-  order_arrived: MapPin,
-  pod_signed: FileCheck2,
-  system_updated: CheckCircle2,
-  delivered: PackageCheck,
-};
 
 const WORKFLOW_STAGE_ORDER: WorkflowStageKey[] = [
   "po_submitted",
@@ -88,6 +47,23 @@ const WORKFLOW_STAGE_ORDER: WorkflowStageKey[] = [
   "delivered",
 ];
 
+const WORKFLOW_STAGE_ICONS: Record<WorkflowStageKey, LucideIcon> = {
+  po_submitted: MapPin,
+  sales_validated: MapPin,
+  inventory_reserved: MapPin,
+  handoff_created: MapPin,
+  handoff_confirmed: MapPin,
+  logistics_active: MapPin,
+  in_transit: MapPin,
+  order_arrived: MapPin,
+  pod_signed: MapPin,
+  system_updated: MapPin,
+  delivered: MapPin,
+};
+
+const SALES_WORKFLOW_STAGE_ICONS: Record<SalesWorkflowStageKey, LucideIcon> =
+  WORKFLOW_STAGE_ICONS;
+
 /**
  * Maps each workflow step_key (from order_workflow_step_events) to the
  * stage index it advances the tracker to. Index represents the NEXT active
@@ -99,23 +75,53 @@ const WORKFLOW_STAGE_ORDER: WorkflowStageKey[] = [
  */
 const STEP_KEY_TO_STAGE_INDEX: Readonly<Record<string, number>> = {
   purchase_order_received: 1, // po_submitted → done; sales_validated is current
+  sales_validated: 2, // alias seen in historical timeline events
   order_validated: 2, // → inventory_reserved is current
   inventory_reserved: 3, // → handoff_created is current
   logistics_handoff_created: 4, // → handoff_confirmed is current
+  logistics_handoff_accepted: 5, // alias for handoff confirmed transition
   invoice_generated: 4, // sales financial checkpoint — same stage
   shipment_created: 5, // → logistics_active is current
   order_received: 5,
   order_transmitted_to_warehouse: 5,
   notify_customer: 5,
   pack_items_for_shipment: 5,
+  logistics_fulfillment_started: 5,
   generate_shipping_label_documentation: 5,
   track_shipment_in_transit: 6, // → in_transit is current
+  shipment_in_transit: 6,
   reroute_delivery: 6,
   order_arrives_at_destination: 7, // → order_arrived is current
   customer_receives_signs_pod: 8, // → pod_signed is current
   blubook_system_updated: 9, // → system_updated is current
   order_delivered: 10, // → delivered
+  logistics_order_delivered: 10,
+  delivered: 10,
 };
+
+export function normalizeWorkflowCompletedStepKeys(keys: string[]): string[] {
+  const normalized = new Set(keys);
+
+  // Timeline/events historically use these aliases; map them to canonical
+  // workflow contract keys so matrix/checkpoint completion stays accurate.
+  if (normalized.has("logistics_handoff_accepted")) {
+    normalized.add("order_received");
+  }
+
+  if (normalized.has("logistics_fulfillment_started")) {
+    normalized.add("order_transmitted_to_warehouse");
+  }
+
+  if (normalized.has("shipment_in_transit")) {
+    normalized.add("track_shipment_in_transit");
+  }
+
+  if (normalized.has("logistics_order_delivered")) {
+    normalized.add("customer_receives_signs_pod");
+  }
+
+  return Array.from(normalized);
+}
 
 /**
  * Derives the WorkflowProgress stage index purely from recorded step events.
@@ -135,45 +141,6 @@ export function deriveStageIndexFromStepKeys(
 }
 
 export type WorkflowAudience = "customer" | "sales" | "logistics";
-
-type WorkflowLane = "sales" | "logistics";
-
-const WORKFLOW_ACTION_POINTS: Record<
-  WorkflowLane,
-  | Partial<Record<(typeof SALES_WORKFLOW_STATES)[number], string>>
-  | Partial<Record<(typeof LOGISTICS_WORKFLOW_STATES)[number], string>>
-> = {
-  sales: {
-    "Purchase Order Received":
-      "Sales must select a validation outcome to move workflow forward.",
-    "Order Validated":
-      "Sales uploads validation docs (pricing confirmation and approved scope).",
-    "Logistics Handoff Created":
-      "Sales confirms handoff pack and assigned logistics partner.",
-    "Invoice Generated":
-      "Sales uploads invoice and dispatch docs before handoff to logistics.",
-  },
-  logistics: {
-    "Order Received":
-      "Logistics acknowledges intake from sales to start fulfillment.",
-    "Order Transmitted to Warehouse":
-      "Logistics transmits the order details to the warehouse for picking.",
-    "Notify Customer":
-      "Logistics sends customer notification of incoming shipment.",
-    "Pack Items for Shipment":
-      "Logistics confirms all items are packed and ready for dispatch.",
-    "Generate Shipping Label & Documentation":
-      "Logistics uploads shipping label and compliance paperwork.",
-    "Track Shipment In Transit":
-      "Logistics has dispatched the shipment and tracking is active.",
-    "Order Arrives at Destination":
-      "Logistics confirms the shipment has arrived at the delivery destination.",
-    "Customer Receives & Signs POD":
-      "Logistics uploads POD to allow final delivery close-out.",
-    "BluBook System Updated":
-      "Finalize status update and publish customer notification.",
-  },
-};
 
 function normalizeStatus(value: string) {
   return value.trim().toLowerCase();
@@ -386,53 +353,6 @@ export function getWorkflowStepMatrixIndexes(input: {
   };
 }
 
-function getAudienceActionForStep(input: {
-  audience: WorkflowAudience;
-  lane: WorkflowLane;
-  step: string;
-}) {
-  const action =
-    WORKFLOW_ACTION_POINTS[input.lane][
-      input.step as keyof (typeof WORKFLOW_ACTION_POINTS)[typeof input.lane]
-    ];
-
-  if (!action) {
-    return null;
-  }
-
-  if (input.audience === "customer") {
-    if (input.lane === "sales") {
-      if (input.step === "Purchase Order Received") {
-        return "Customer uploads PO to trigger sales validation.";
-      }
-
-      if (input.step === "Invoice Generated") {
-        return "Customer receives billing notification before shipment starts.";
-      }
-    }
-
-    if (input.lane === "logistics") {
-      if (input.step === "Customer Receives & Signs POD") {
-        return "Customer signs delivery POD so logistics can close the workflow.";
-      }
-    }
-  }
-
-  if (input.audience === "sales" && input.lane === "logistics") {
-    return input.step === "Order Received"
-      ? "Sales monitors handoff acceptance and exception alerts."
-      : null;
-  }
-
-  if (input.audience === "logistics" && input.lane === "sales") {
-    return input.step === "Logistics Handoff Created"
-      ? "Logistics waits for sales handoff package and assignment details."
-      : null;
-  }
-
-  return action;
-}
-
 // ─── Event-driven audience-filtered step row ────────────────────────────────
 
 type StepRowItem = {
@@ -539,7 +459,7 @@ function WorkflowStepEventRow({
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">
         {title}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -552,21 +472,21 @@ function WorkflowStepEventRow({
                 ? "border-emerald-300/40 bg-emerald-500/10"
                 : item.current
                   ? "border-cyan-300/40 bg-cyan-500/10"
-                  : "border-white/10 bg-white/5",
+                  : "border-slate-300 bg-slate-50 dark:border-white/10 dark:bg-white/5",
             )}
           >
             <p
               className={cn(
                 "text-xs font-medium",
                 item.completed || item.current
-                  ? "text-slate-100"
-                  : "text-slate-300",
+                  ? "text-slate-900 dark:text-slate-100"
+                  : "text-slate-700 dark:text-slate-300",
               )}
             >
               {item.label}
             </p>
             {item.action ? (
-              <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-200/90">
+              <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-cyan-700 font-medium">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{item.action}</span>
               </p>
@@ -599,7 +519,9 @@ export function WorkflowStepMatrix({
   title?: string;
   description?: string;
 }) {
-  const completedSet = new Set(completedStepKeys);
+  const completedSet = new Set(
+    normalizeWorkflowCompletedStepKeys(completedStepKeys),
+  );
 
   // Get steps visible to this audience, preserving contract order.
   const visibleSteps = getWorkflowStepsForAudience(audience);
@@ -639,15 +561,17 @@ export function WorkflowStepMatrix({
           : "All workflow steps across sales and logistics.";
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+    <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-white">{title}</p>
-          <p className="text-[11px] text-slate-300">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {title}
+          </p>
+          <p className="text-[11px] text-slate-600 dark:text-slate-300">
             {description ?? defaultDescription}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-100">
+        <div className="flex items-center gap-2 rounded-full border border-cyan-300/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-700 dark:border-cyan-300/30 dark:text-cyan-100">
           <MapPin className="h-3.5 w-3.5" />
           Interaction-verified
         </div>
@@ -950,7 +874,9 @@ export function WorkflowProgress({
     <div
       className={cn(
         "w-full",
-        compact ? "" : "rounded-xl border border-white/10 bg-white/5 p-3",
+        compact
+          ? ""
+          : "rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5",
       )}
     >
       <div className="flex items-center gap-2">
@@ -962,8 +888,8 @@ export function WorkflowProgress({
           className={cn(
             "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition",
             canScrollLeft
-              ? "border-cyan-300/50 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20"
-              : "border-white/10 bg-white/5 text-slate-500",
+              ? "border-cyan-300/50 bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-100"
+              : "border-slate-300 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5",
           )}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -985,10 +911,10 @@ export function WorkflowProgress({
                     className={cn(
                       "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
                       complete
-                        ? "border-emerald-300/60 bg-emerald-400/15 text-emerald-200"
+                        ? "border-emerald-300/60 bg-emerald-400/15 text-emerald-700 dark:text-emerald-200"
                         : current
-                          ? "border-cyan-300/60 bg-cyan-400/15 text-cyan-100"
-                          : "border-white/15 bg-white/5 text-slate-400",
+                          ? "border-cyan-300/60 bg-cyan-400/15 text-cyan-700 dark:text-cyan-100"
+                          : "border-slate-300 bg-slate-50 text-slate-500 dark:border-white/15 dark:bg-white/5 dark:text-slate-400",
                     )}
                   >
                     {complete ? (
@@ -1004,8 +930,8 @@ export function WorkflowProgress({
                       className={cn(
                         "text-xs leading-4 whitespace-nowrap",
                         current || complete
-                          ? "text-slate-200"
-                          : "text-slate-400",
+                          ? "text-slate-700 dark:text-slate-200"
+                          : "text-slate-500 dark:text-slate-400",
                       )}
                     >
                       {stageLabels[stage as keyof typeof stageLabels]}
@@ -1018,7 +944,7 @@ export function WorkflowProgress({
                         "h-px w-10 shrink-0",
                         index < clampedIndex
                           ? "bg-emerald-300/50"
-                          : "bg-white/10",
+                          : "bg-slate-300 dark:bg-white/10",
                       )}
                     />
                   ) : null}
@@ -1036,8 +962,8 @@ export function WorkflowProgress({
           className={cn(
             "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition",
             canScrollRight
-              ? "border-cyan-300/50 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20"
-              : "border-white/10 bg-white/5 text-slate-500",
+              ? "border-cyan-300/50 bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-100"
+              : "border-slate-300 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5",
           )}
         >
           <ChevronRight className="h-4 w-4" />

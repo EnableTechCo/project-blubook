@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 
 type PartnerRow = {
@@ -72,7 +73,7 @@ const ANOMALY_TYPE_LABELS: Record<string, string> = {
 
 const SEVERITY_CLASSES: Record<"low" | "medium" | "high", string> = {
   high: "border-coral/40 bg-coral/10 text-coral",
-  medium: "border-amber-400/30 bg-amber-400/10 text-amber-300",
+  medium: "border-amber-400/30 bg-amber-400/10 text-slate-300",
   low: "border-yellow-400/20 bg-yellow-400/5 text-yellow-300",
 };
 
@@ -469,18 +470,16 @@ export default function AdminDashboardPage() {
           <div className="grid gap-3 md:grid-cols-4">
             <label className="text-xs text-slate-300">
               Stream
-              <select
-                className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-slate-900 px-3 text-sm text-white"
+              <SelectMenu
+                className="mt-1"
                 value={newStream}
-                onChange={(event) => setNewStream(event.target.value)}
+                onChange={(nextValue) => setNewStream(nextValue)}
                 disabled={isLoading || isSaving || streamOptions.length === 0}
-              >
-                {streamOptions.map((stream) => (
-                  <option key={stream} value={stream}>
-                    {stream}
-                  </option>
-                ))}
-              </select>
+                options={streamOptions.map((stream) => ({
+                  value: stream,
+                  label: stream,
+                }))}
+              />
             </label>
 
             <label className="text-xs text-slate-300 md:col-span-1">
@@ -677,7 +676,7 @@ export default function AdminDashboardPage() {
                                 setOverrideReason("");
                               }}
                               disabled={Boolean(routingActioning)}
-                              className="text-amber-300 hover:text-amber-200"
+                              className="text-slate-300 hover:text-slate-200"
                             >
                               Override
                             </Button>
@@ -699,7 +698,7 @@ export default function AdminDashboardPage() {
                       {overrideTarget === rec.id ? (
                         <tr className="border-b border-amber-400/20 bg-amber-500/5">
                           <td colSpan={8} className="px-3 py-3">
-                            <p className="mb-2 text-xs font-semibold text-amber-200">
+                            <p className="mb-2 text-xs font-semibold text-slate-200">
                               Override routing for{" "}
                               <span className="text-white">
                                 {rec.organizationName}
@@ -709,25 +708,31 @@ export default function AdminDashboardPage() {
                             <div className="flex flex-wrap items-end gap-3">
                               <label className="text-xs text-slate-300">
                                 New Partner
-                                <select
-                                  className="mt-1 h-9 w-52 rounded-lg border border-white/20 bg-slate-900 px-2 text-sm text-white"
+                                <SelectMenu
+                                  className="mt-1 w-52"
                                   value={overridePartnerId}
-                                  onChange={(e) =>
-                                    setOverridePartnerId(e.target.value)
+                                  onChange={(nextValue) =>
+                                    setOverridePartnerId(nextValue)
                                   }
-                                >
-                                  {rec.alternativePartners.length === 0 ? (
-                                    <option value="" disabled>
-                                      No alternatives in this stream
-                                    </option>
-                                  ) : (
-                                    rec.alternativePartners.map((p) => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.name}
-                                      </option>
-                                    ))
-                                  )}
-                                </select>
+                                  options={
+                                    rec.alternativePartners.length === 0
+                                      ? [
+                                          {
+                                            value: "",
+                                            label:
+                                              "No alternatives in this stream",
+                                            disabled: true,
+                                          },
+                                        ]
+                                      : rec.alternativePartners.map((p) => ({
+                                          value: p.id,
+                                          label: p.name,
+                                        }))
+                                  }
+                                  disabled={
+                                    rec.alternativePartners.length === 0
+                                  }
+                                />
                               </label>
                               <label className="flex-1 text-xs text-slate-300">
                                 Reason

@@ -40,8 +40,9 @@ export function isLogisticsWorkflowEvent(
 export async function processLogisticsWorkflowEvent(
   eventType: LogisticsWorkflowEventType,
   payload: WorkflowPayload,
-  queueWorkflowEvent: QueueWorkflowEvent,
+  _queueWorkflowEvent: QueueWorkflowEvent,
 ) {
+  void _queueWorkflowEvent;
   const admin = createAdminClient();
 
   const orderIdFromPayload =

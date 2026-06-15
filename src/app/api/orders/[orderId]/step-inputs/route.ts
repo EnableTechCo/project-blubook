@@ -78,7 +78,7 @@ async function resolveContext(orderId: string) {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("user_profiles")
-    .select("role, organization_id")
+    .select("role, organization_id, metadata")
     .eq("user_id", user.id)
     .maybeSingle();
 

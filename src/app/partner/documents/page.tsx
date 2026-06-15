@@ -245,7 +245,9 @@ export default function PartnerDocumentsPage() {
   return (
     <div className="space-y-6">
       {isLoading ? (
-        <p className="text-sm text-slate-300">Loading documents...</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Loading documents...
+        </p>
       ) : null}
 
       {isError || !user ? (
@@ -262,10 +264,10 @@ export default function PartnerDocumentsPage() {
           >
             {missingDocumentLabels.length > 0 ? (
               <div className="mb-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-100">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
                   Missing Required Documents
                 </p>
-                <p className="mt-1 text-xs text-amber-50/95">
+                <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/95">
                   Upload these first to complete work order:{" "}
                   {missingDocumentLabels.join(", ")}.
                 </p>
@@ -287,7 +289,7 @@ export default function PartnerDocumentsPage() {
                     >
                       Return And Finalize Work Order
                     </Button>
-                    <p className="mt-1 text-[11px] text-amber-50/90">
+                    <p className="mt-1 text-[11px] text-slate-800 dark:text-slate-50/90">
                       After upload, click here to auto-complete and trigger
                       delivery/SLA updates.
                     </p>
@@ -297,7 +299,7 @@ export default function PartnerDocumentsPage() {
             ) : null}
 
             {customerDocsQuery.isLoading ? (
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 Loading customer documents...
               </p>
             ) : null}
@@ -313,7 +315,7 @@ export default function PartnerDocumentsPage() {
             {!customerDocsQuery.isLoading &&
             !customerDocsQuery.isError &&
             customerDocsByCustomer.length === 0 ? (
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 No customer-submitted documents available yet.
               </p>
             ) : null}
@@ -332,11 +334,11 @@ export default function PartnerDocumentsPage() {
                       <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-100/30 bg-cyan-100/15 text-xs font-semibold text-cyan-50">
                         {getCustomerInitials(group.customerName)}
                       </div>
-                      <p className="text-sm font-semibold text-white">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
                         {group.customerName}
                       </p>
                     </div>
-                    <p className="text-xs text-cyan-100/90">
+                    <p className="text-xs text-cyan-700 dark:text-cyan-100/90">
                       {group.documents.length} file
                       {group.documents.length === 1 ? "" : "s"}
                     </p>
@@ -346,17 +348,17 @@ export default function PartnerDocumentsPage() {
                     {group.documents.map((doc) => (
                       <article
                         key={doc.id}
-                        className="rounded-lg border border-white/10 bg-white/5 p-3"
+                        className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300/90" />
-                              <p className="text-sm font-semibold text-white">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                 {doc.fileName}
                               </p>
                             </div>
-                            <p className="mt-1 text-xs text-slate-300">
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                               Requirement: {doc.requirementTitle}
                             </p>
                             <p className="mt-1 text-xs text-slate-400">
@@ -392,28 +394,28 @@ export default function PartnerDocumentsPage() {
               description="Files your partner team uploads for delivery and reporting."
             >
               <div className="rounded-xl border border-amber-300/35 bg-amber-300/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-100">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
                   Upload Mapping Needed
                 </p>
-                <p className="mt-2 text-sm text-amber-50/95">
+                <p className="mt-2 text-sm text-slate-800 dark:text-slate-50/95">
                   Uploads are currently blocked because this stream has no
                   mapped partner document types.
                 </p>
-                <p className="mt-2 text-xs text-amber-50/90">
+                <p className="mt-2 text-xs text-slate-800 dark:text-slate-50/90">
                   Partner stream:{" "}
                   {getStreamDisplayName(
                     streamResolution.rawPartnerStream || "Unknown Stream",
                   )}
                 </p>
                 {streamResolution.rawRequestStreams.length > 0 ? (
-                  <p className="mt-1 text-xs text-amber-50/90">
+                  <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/90">
                     Request streams:{" "}
                     {streamResolution.rawRequestStreams
                       .map((stream) => getStreamDisplayName(stream))
                       .join(", ")}
                   </p>
                 ) : null}
-                <p className="mt-3 text-xs text-amber-50/90">
+                <p className="mt-3 text-xs text-slate-800 dark:text-slate-50/90">
                   Next action: add matching entries in PARTNER_UPLOAD_FILE_TYPES
                   so this workspace can accept uploads.
                 </p>
@@ -444,7 +446,7 @@ export default function PartnerDocumentsPage() {
               title="Partner Workspace Documents"
               description="Files your partner team uploads for delivery and reporting."
             >
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 Resolving partner workspace...
               </p>
             </Card>

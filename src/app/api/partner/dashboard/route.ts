@@ -488,7 +488,7 @@ export async function GET() {
     return auth.error;
   }
 
-  const { admin, servicePartnerId, partnerUserEmail } = auth;
+  const { admin, servicePartnerId } = auth;
   const { data: servicePartner } = await admin
     .from("service_partners")
     .select("id, name, package_stream, metadata")
@@ -1016,11 +1016,14 @@ export async function GET() {
         poReference:
           resolvePoReference(typed.sales_orders) ?? typed.sales_order_id,
         organizationName: resolveOrganizationName(typed.organizations),
-        orderStatus: resolveEffectiveOutboundOrderStatus({
-          handoffStatus: typed.status,
-          orderStatus,
-          orderTimeline: resolveOrderTimeline(typed.sales_orders),
-        }),
+        orderStatus:
+          typed.status === "rejected"
+            ? "Inventory Reserved"
+            : resolveEffectiveOutboundOrderStatus({
+                handoffStatus: typed.status,
+                orderStatus,
+                orderTimeline: resolveOrderTimeline(typed.sales_orders),
+              }),
         orderTimeline: resolveOrderTimeline(typed.sales_orders),
       };
     })
@@ -1063,9 +1066,19 @@ export async function GET() {
     return true;
   });
 
-  const purchaseOrderSalesOrderIds = new Set(
-    purchaseOrders.map((item) => item.salesOrderId),
+  const inboundSalesOrderIds = new Set(
+    (inboundHandoffsData ?? [])
+      .map((row) => {
+        const typed = row as unknown as RawPoHandoffRow;
+        return typed.sales_order_id;
+      })
+      .filter((value): value is string => Boolean(value)),
   );
+
+  const purchaseOrderSalesOrderIds = new Set([
+    ...purchaseOrders.map((item) => item.salesOrderId),
+    ...Array.from(inboundSalesOrderIds),
+  ]);
   const purchaseOrderRequirementBySalesOrderId = new Map<
     string,
     {
@@ -1150,11 +1163,10 @@ export async function GET() {
 
   const activePurchaseOrders = purchaseOrdersWithRequirementEvidence.filter(
     (item) =>
-      !["completed", "rejected"].includes(item.status) &&
-      isActiveOrderStatus(item.orderStatus),
+      item.status !== "completed" && isActiveOrderStatus(item.orderStatus),
   );
   const pendingPurchaseOrders = purchaseOrdersWithRequirementEvidence.filter(
-    (item) => item.status === "pending",
+    (item) => item.status === "pending" || item.status === "rejected",
   );
 
   const inboundSeenSalesOrderIds = new Set<string>();
@@ -1175,6 +1187,9 @@ export async function GET() {
           orderStatus,
         }),
         orderTimeline: resolveOrderTimeline(typed.sales_orders),
+        purchaseOrderRequirement:
+          purchaseOrderRequirementBySalesOrderId.get(typed.sales_order_id) ??
+          null,
       };
     })
     .filter((item) => {
@@ -1190,15 +1205,9 @@ export async function GET() {
     ["pending", "accepted", "in_progress"].includes(item.status),
   );
   const isLogisticsPartner =
-    [
-      servicePartner?.package_stream,
-      servicePartner?.name,
-      servicePartnerEmail,
-      partnerUserEmail,
-    ]
-      .filter((value): value is string => Boolean(value))
-      .some((value) => value.toLowerCase().includes("logistics")) ||
-    inboundWorkOrders.length > 0;
+    (servicePartner?.package_stream ?? "")
+      .toLowerCase()
+      .includes("logistics") || inboundWorkOrders.length > 0;
 
   return NextResponse.json({
     partner: {

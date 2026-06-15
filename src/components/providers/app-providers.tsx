@@ -110,35 +110,42 @@ export function AppProviders({ children }: PropsWithChildren) {
     const originalFetch = window.fetch.bind(window);
     let isHandlingExpiry = false;
 
-    window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
-
+    window.fetch = (...args) => {
       const pathname = window.location.pathname;
-      if (response.status !== 401 || !isProtectedPath(pathname)) {
-        return response;
+      if (!isProtectedPath(pathname)) {
+        return originalFetch(...args);
       }
 
       const requestPath = getRequestPath(args[0]);
-      const hasSessionRelevantPath = isSessionRelevantPath(requestPath);
-      const hasSessionExpirySignal = await isSessionExpiry401(response);
+      if (!isSessionRelevantPath(requestPath)) {
+        return originalFetch(...args);
+      }
 
-      if (!hasSessionRelevantPath && !hasSessionExpirySignal) {
+      return (async () => {
+        const response = await originalFetch(...args);
+        if (response.status !== 401) {
+          return response;
+        }
+
+        const hasSessionExpirySignal = await isSessionExpiry401(response);
+        if (!hasSessionExpirySignal) {
+          return response;
+        }
+
+        if (!isHandlingExpiry) {
+          isHandlingExpiry = true;
+
+          const supabase = createClient();
+          await supabase.auth.signOut();
+
+          const next = encodeURIComponent(
+            `${window.location.pathname}${window.location.search}`,
+          );
+          window.location.replace(`/login?next=${next}&reason=session_expired`);
+        }
+
         return response;
-      }
-
-      if (!isHandlingExpiry) {
-        isHandlingExpiry = true;
-
-        const supabase = createClient();
-        await supabase.auth.signOut();
-
-        const next = encodeURIComponent(
-          `${window.location.pathname}${window.location.search}`,
-        );
-        window.location.replace(`/login?next=${next}&reason=session_expired`);
-      }
-
-      return response;
+      })();
     };
 
     return () => {

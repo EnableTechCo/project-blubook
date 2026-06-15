@@ -16,9 +16,6 @@ export default function GlobalError({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 text-center">
-      <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/80">
-        Phase 5
-      </p>
       <h1 className="mt-3 text-4xl font-semibold text-white">
         Something went wrong
       </h1>

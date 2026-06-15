@@ -53,7 +53,7 @@ export function useRealtimeEventStatus(input?: UseRealtimeEventStatusInput) {
     }
 
     if (lastRealtimeAgeSeconds > staleAfterSeconds) {
-      return "text-amber-200";
+      return "text-slate-200";
     }
 
     return "text-emerald-200";
