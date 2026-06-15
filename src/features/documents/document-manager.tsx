@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileUploader } from "@/components/ui/file-uploader";
+import { SelectMenu } from "@/components/ui/select-menu";
 import {
   createSignedDocumentUrl,
   type DocumentRecord,
@@ -13,7 +14,13 @@ import {
   removeDocument,
   uploadDocument,
 } from "@/services/documents.service";
-import type { MockDocument } from "@/features/mock/dashboard-data";
+
+type LocalDocumentSeed = {
+  path: string;
+  name: string;
+  size?: number;
+  updatedAt?: string;
+};
 
 interface DocumentTypeOption {
   value: string;
@@ -21,7 +28,7 @@ interface DocumentTypeOption {
   group?: string;
 }
 
-type LocalMockDocument = MockDocument & {
+type LocalMockDocument = LocalDocumentSeed & {
   documentType?: string;
   documentTypeLabel?: string;
 };
@@ -49,13 +56,17 @@ export function DocumentManager({
   prefix,
   mockDocuments,
   documentTypeOptions,
+  acceptedFileTypes = "application/pdf,image/*",
+  uploadHint = "Accepted formats: PDF and images (JPG, PNG, HEIC, WebP).",
 }: {
   title: string;
   description: string;
   bucket: string;
   prefix: string;
-  mockDocuments?: MockDocument[];
+  mockDocuments?: LocalDocumentSeed[];
   documentTypeOptions?: DocumentTypeOption[];
+  acceptedFileTypes?: string;
+  uploadHint?: string;
 }) {
   const useMockData = Boolean(mockDocuments?.length);
   const queryClient = useQueryClient();
@@ -89,6 +100,23 @@ export function DocumentManager({
       }))
       .sort((a, b) => a.group.localeCompare(b.group));
   }, [documentTypeOptions]);
+
+  useEffect(() => {
+    if (!documentTypeOptions?.length) {
+      if (selectedDocumentType) {
+        setSelectedDocumentType("");
+      }
+      return;
+    }
+
+    const selectedStillValid = documentTypeOptions.some(
+      (option) => option.value === selectedDocumentType,
+    );
+
+    if (!selectedStillValid) {
+      setSelectedDocumentType(documentTypeOptions[0]?.value ?? "");
+    }
+  }, [documentTypeOptions, selectedDocumentType]);
 
   const documentsQuery = useQuery({
     queryKey,
@@ -232,38 +260,21 @@ export function DocumentManager({
               Document type
             </label>
 
-            <div className="relative">
-              <select
-                value={selectedDocumentType}
-                onChange={(event) =>
-                  setSelectedDocumentType(event.target.value)
-                }
-                disabled={uploadMutation.isPending}
-                className="w-full appearance-none rounded-lg border border-cyan-200/30 bg-slate-950/80 px-3 py-2 pr-10 text-sm text-slate-100 outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
-              >
-                {!selectedDocumentType ? (
-                  <option value="" className="bg-slate-950 text-slate-100">
-                    Select document type
-                  </option>
-                ) : null}
-                {groupedDocumentTypeOptions.map((group) => (
-                  <optgroup key={group.group} label={group.group}>
-                    {group.options.map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        className="bg-slate-950 text-slate-100"
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-cyan-100/90">
-                ▾
-              </span>
-            </div>
+            <SelectMenu
+              value={selectedDocumentType}
+              onChange={(nextValue) => setSelectedDocumentType(nextValue)}
+              disabled={uploadMutation.isPending}
+              placeholder="Select document type"
+              buttonClassName="border-cyan-200/30 bg-slate-950/80 text-slate-100 focus:ring-cyan-300/40"
+              className="w-full"
+              options={groupedDocumentTypeOptions.flatMap((group) =>
+                group.options.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  description: group.group,
+                })),
+              )}
+            />
           </div>
         ) : null}
 
@@ -272,10 +283,12 @@ export function DocumentManager({
             uploadMutation.isPending ? "Uploading..." : "Choose file"
           }
           onFilesSelected={onFilesSelected}
+          accept={acceptedFileTypes}
           disabled={uploadMutation.isPending}
           variant="ghost"
           className="border border-white/20 bg-white/5 hover:bg-white/10"
         />
+        <p className="mt-2 text-xs text-slate-300">{uploadHint}</p>
         {uploadError ? (
           <p className="mt-2 text-sm text-red-300">{uploadError}</p>
         ) : null}

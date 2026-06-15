@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const E2E_PREFERRED_LOGISTICS_EMAIL =
-  "call-force-outsourcing.partner@mock.blubook.local";
-const E2E_PREFERRED_SALES_EMAIL = "sales-ticks.partner@mock.blubook.local";
-
 function isPurchaseOrderShape(input: { title: string; evidenceType: string }) {
   const title = input.title.toLowerCase();
   const evidenceType = input.evidenceType.toLowerCase();
@@ -31,6 +27,8 @@ function stripWorkflowKickoffMetadata(metadata: unknown) {
   delete cleaned.sales_order_id;
   delete cleaned.po_reference;
   delete cleaned.workflow_kickoff_source;
+  delete cleaned.preferred_logistics_partner_email;
+  delete cleaned.preferred_sales_partner_email;
   return cleaned;
 }
 
@@ -94,8 +92,6 @@ export async function POST() {
       const metadata = {
         ...stripWorkflowKickoffMetadata(existingPoRequirement.metadata),
         source: "e2e-po-workflow-setup",
-        preferred_logistics_partner_email: E2E_PREFERRED_LOGISTICS_EMAIL,
-        preferred_sales_partner_email: E2E_PREFERRED_SALES_EMAIL,
       };
 
       if (
@@ -243,8 +239,6 @@ export async function POST() {
                 : {}),
           source: "e2e-po-workflow-setup",
           synthetic_purchase_order_requirement: !selectedTemplate,
-          preferred_logistics_partner_email: E2E_PREFERRED_LOGISTICS_EMAIL,
-          preferred_sales_partner_email: E2E_PREFERRED_SALES_EMAIL,
         },
       })
       .select("id")
@@ -275,8 +269,6 @@ export async function POST() {
           const metadata = {
             ...stripWorkflowKickoffMetadata(conflictByTemplate.metadata),
             source: "e2e-po-workflow-setup",
-            preferred_logistics_partner_email: E2E_PREFERRED_LOGISTICS_EMAIL,
-            preferred_sales_partner_email: E2E_PREFERRED_SALES_EMAIL,
           };
 
           const { error: resetError } = await admin
@@ -323,8 +315,6 @@ export async function POST() {
           const metadata = {
             ...stripWorkflowKickoffMetadata(conflictPoRequirement.metadata),
             source: "e2e-po-workflow-setup",
-            preferred_logistics_partner_email: E2E_PREFERRED_LOGISTICS_EMAIL,
-            preferred_sales_partner_email: E2E_PREFERRED_SALES_EMAIL,
           };
 
           if (

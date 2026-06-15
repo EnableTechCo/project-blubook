@@ -146,6 +146,7 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
               {packages.map((item, index) => (
                 <button
                   key={item.id}
+                  type="button"
                   aria-label={`View ${item.tier}`}
                   className={`h-2.5 w-9 rounded-full transition ${
                     index === activeIndex ? "bg-coral" : "bg-white/40"

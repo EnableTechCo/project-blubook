@@ -3,19 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --bg: #081222;
-  --bg-soft: #0f2138;
-  --panel: #10263d;
-  --text: #eaf5ff;
-  --muted: #9eb6c8;
+  --bg: #f8fafc;
+  --bg-soft: #eef2f7;
+  --panel: #ffffff;
+  --text: #0f172a;
+  --muted: #475569;
   --accent: #f97316;
   --ok: #22c55e;
   --warn: #facc15;
   --danger: #ef4444;
 }
 
+html.theme-dark {
+  --bg: #0b1220;
+  --bg-soft: #111827;
+  --panel: #0f172a;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+
 * {
   box-sizing: border-box;
+}
+
+/* User request: no rounded edges anywhere in the app */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
 }
 
 html,
@@ -27,9 +42,7 @@ body {
 body {
   min-height: 100vh;
   background: var(--bg);
-  background-image: radial-gradient(circle at 10% 10%, rgba(249, 115, 22, 0.2), transparent 42%),
-    radial-gradient(circle at 90% 20%, rgba(34, 197, 94, 0.18), transparent 36%),
-    linear-gradient(160deg, #081222 0%, #10263d 45%, #0f2138 100%);
+  background-image: none;
   color: var(--text);
   font-family: var(--font-body), sans-serif;
 }
@@ -50,7 +63,67 @@ a {
 }
 
 .surface {
-  border: 1px solid rgba(158, 182, 200, 0.2);
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(8px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--panel);
+  backdrop-filter: none;
+}
+
+html.theme-dark .surface {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* Global gradient kill-switch (user request: remove gradients app-wide) */
+[class*="bg-gradient"],
+[class*="from-"][class*="to-"],
+[class*="bg-[linear-gradient"],
+[class*="bg-[radial-gradient"],
+[style*="linear-gradient"],
+[style*="radial-gradient"],
+[style*="conic-gradient"] {
+  background-image: none !important;
+}
+
+/* Light-mode typography safety net for legacy dark-first utility usage */
+html.theme-light [class*="text-white"] {
+  color: #0f172a;
+}
+
+html.theme-light [class*="text-slate-100"],
+html.theme-light [class*="text-slate-200"],
+html.theme-light [class*="text-slate-300"] {
+  color: #334155;
+}
+
+html.theme-light [class*="text-slate-400"] {
+  color: #475569;
+}
+
+html.theme-light [class*="text-cyan-100"],
+html.theme-light [class*="text-cyan-200"] {
+  color: #0e7490;
+}
+
+html.theme-light [class*="bg-white/5"],
+html.theme-light [class*="bg-white/[0.03]"],
+html.theme-light [class*="bg-white/[0.02]"] {
+  background-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+html.theme-light [class*="bg-white/10"] {
+  background-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+html.theme-light [class*="border-white/10"],
+html.theme-light [class*="border-white/15"],
+html.theme-light [class*="border-white/20"] {
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+/* Keep explicit white-on-brand/alert controls readable */
+html.theme-light [class*="bg-coral"][class*="text-white"],
+html.theme-light [class*="bg-red-"][class*="text-white"],
+html.theme-light [class*="bg-green-"][class*="text-white"],
+html.theme-light [class*="bg-emerald-"][class*="text-white"] {
+  color: #ffffff;
 }

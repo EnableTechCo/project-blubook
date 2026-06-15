@@ -194,11 +194,36 @@ export async function submitRequirementEvidence(input: {
     salesOrderId?: string | null;
     poReference?: string | null;
     queuedEventId?: string | null;
+    dispatch?: {
+      processed: number;
+      succeeded: number;
+      failed: number;
+    } | null;
+    routing?: Array<{
+      handoffId?: string;
+      status?: string;
+      packageStream?: string;
+      toProviderId?: string;
+      toProviderName?: string;
+      toProviderStream?: string;
+      fromProviderId?: string;
+      fromProviderName?: string;
+    }>;
     error?: string;
   } | null = null;
 
   if (kickoffResponse?.ok) {
     kickoff = await kickoffResponse.json().catch(() => null);
+  }
+
+  if (kickoff) {
+    console.info("[requirements] PO upload kickoff result", {
+      requirementItemId: input.requirementItemId,
+      salesOrderId: kickoff.salesOrderId ?? null,
+      poReference: kickoff.poReference ?? null,
+      dispatch: kickoff.dispatch ?? null,
+      routing: kickoff.routing ?? [],
+    });
   }
 
   if (kickoffResponse && !kickoffResponse.ok) {

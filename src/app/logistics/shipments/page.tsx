@@ -1,22 +1,20 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
-import { LOGISTICS_WORKFLOW_STATES } from "@/constants/logistics-workflow-states";
-import { MOCK_LOGISTICS_SHIPMENTS_WORKSPACE } from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
+import { LogisticsShipmentsClient } from "./logistics-shipments-client";
 
 export default function LogisticsShipmentsPage() {
+  const workspace = WORKSPACE_CONTENT.logisticsShipments;
+
   return (
     <div className="space-y-6">
       <PhaseWorkspace
-        phase={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.phase}
-        title={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.title}
-        subtitle={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.subtitle}
-        metrics={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.metrics}
-        streams={MOCK_LOGISTICS_SHIPMENTS_WORKSPACE.streams}
+        phase={workspace.phase}
+        title={workspace.title}
+        subtitle={workspace.subtitle}
+        metrics={workspace.metrics}
+        streams={workspace.streams}
       />
-      <WorkflowPipeline
-        title="Logistics Lifecycle"
-        states={LOGISTICS_WORKFLOW_STATES}
-      />
+      <LogisticsShipmentsClient />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
+import type { Route } from "next";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   CUSTOMER_SERVICE_BUNDLES,
@@ -31,6 +33,8 @@ export function CustomerBundleCatalog({
   targetPath?: string;
   onSelectBundle?: (bundle: ServiceBundle) => void;
 }) {
+  const router = useRouter();
+
   const handleAction = (bundle: ServiceBundle) => {
     if (mode === "select" && onSelectBundle) {
       onSelectBundle(bundle);
@@ -38,7 +42,7 @@ export function CustomerBundleCatalog({
     }
 
     const destination = `${targetPath}?bundle=${bundle.id}`;
-    window.location.assign(destination);
+    router.push(destination as Route);
   };
 
   return (

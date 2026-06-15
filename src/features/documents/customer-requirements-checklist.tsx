@@ -22,7 +22,7 @@ function statusTone(status: CustomerRequirementItem["status"]) {
   if (status === "rejected") {
     return "bg-rose-500/20 text-rose-200 border-rose-400/40";
   }
-  return "bg-amber-500/20 text-amber-200 border-amber-400/40";
+  return "bg-amber-500/20 text-slate-200 border-amber-400/40";
 }
 
 export function CustomerRequirementsChecklist({
@@ -135,7 +135,7 @@ export function CustomerRequirementsChecklist({
         label: "Missing",
         count: summary.missing,
         percent: percentOfTotal(summary.missing),
-        ringClass: "border-amber-300/70 text-amber-200",
+        ringClass: "border-amber-300/70 text-slate-200",
         barClass: "bg-amber-300",
       },
       {

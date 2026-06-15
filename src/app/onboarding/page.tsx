@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { createClient } from "@/lib/supabase/browser";
 
 type PackageOption = {
@@ -475,40 +476,38 @@ export default function CustomerOnboardingPage() {
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Company type</span>
-              <select
+              <SelectMenu
                 value={form.companyType}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    companyType: event.target
-                      .value as OnboardingForm["companyType"],
+                    companyType: nextValue as OnboardingForm["companyType"],
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="llc">LLC</option>
-                <option value="corporation">Corporation</option>
-                <option value="partnership">Partnership</option>
-              </select>
+                options={[
+                  { value: "llc", label: "LLC" },
+                  { value: "corporation", label: "Corporation" },
+                  { value: "partnership", label: "Partnership" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Employees</span>
-              <select
+              <SelectMenu
                 value={form.employees}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    employees: event.target
-                      .value as OnboardingForm["employees"],
+                    employees: nextValue as OnboardingForm["employees"],
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="1-20">1-20</option>
-                <option value="21-49">21-49</option>
-                <option value="50+">50+</option>
-              </select>
+                options={[
+                  { value: "1-20", label: "1-20" },
+                  { value: "21-49", label: "21-49" },
+                  { value: "50+", label: "50+" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
@@ -545,26 +544,23 @@ export default function CustomerOnboardingPage() {
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Primary industry *</span>
-              <select
+              <SelectMenu
                 value={form.primaryIndustry}
-                onChange={(event) =>
+                placeholder="Select primary industry"
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    primaryIndustry: event.target.value,
+                    primaryIndustry: nextValue,
                     subIndustry: "",
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="">Select primary industry</option>
-                {industryOptions.map((industry) => (
-                  <option key={industry.value} value={industry.value}>
-                    {industry.label}
-                  </option>
-                ))}
-              </select>
+                options={industryOptions.map((industry) => ({
+                  value: industry.value,
+                  label: industry.label,
+                }))}
+              />
               {industryLoadError ? (
-                <p className="text-xs text-amber-300">
+                <p className="text-xs text-slate-300">
                   Could not load industries from database: {industryLoadError}
                 </p>
               ) : null}
@@ -572,71 +568,68 @@ export default function CustomerOnboardingPage() {
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Sub-industry</span>
-              <select
+              <SelectMenu
                 value={form.subIndustry}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    subIndustry: event.target.value,
+                    subIndustry: nextValue,
                   }))
                 }
                 disabled={!form.primaryIndustry}
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">
-                  {form.primaryIndustry
+                placeholder={
+                  form.primaryIndustry
                     ? "Select sub-industry"
-                    : "Select primary industry first"}
-                </option>
-                {subIndustryOptions.map((subIndustry) => (
-                  <option key={subIndustry} value={subIndustry}>
-                    {subIndustry}
-                  </option>
-                ))}
-              </select>
+                    : "Select primary industry first"
+                }
+                options={subIndustryOptions.map((subIndustry) => ({
+                  value: subIndustry,
+                  label: subIndustry,
+                }))}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Business model</span>
-              <select
+              <SelectMenu
                 value={form.businessModel}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    businessModel: event.target.value as BusinessModel,
+                    businessModel: nextValue as BusinessModel,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="seller">Seller</option>
-                <option value="reseller">Reseller</option>
-                <option value="distributor">Distributor</option>
-                <option value="manufacturer">Manufacturer</option>
-                <option value="marketplace">Marketplace</option>
-                <option value="service_provider">Service provider</option>
-              </select>
+                options={[
+                  { value: "seller", label: "Seller" },
+                  { value: "reseller", label: "Reseller" },
+                  { value: "distributor", label: "Distributor" },
+                  { value: "manufacturer", label: "Manufacturer" },
+                  { value: "marketplace", label: "Marketplace" },
+                  { value: "service_provider", label: "Service provider" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Customer segment</span>
-              <select
+              <SelectMenu
                 value={form.customerSegment}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    customerSegment: event.target.value as CustomerSegment,
+                    customerSegment: nextValue as CustomerSegment,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="b2b">B2B</option>
-                <option value="b2c">B2C</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
+                options={[
+                  { value: "b2b", label: "B2B" },
+                  { value: "b2c", label: "B2C" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+              />
             </label>
 
             {!isBusinessStepComplete ? (
-              <p className="text-sm text-amber-300 md:col-span-2">
+              <p className="text-sm text-slate-300 md:col-span-2">
                 Fill required fields to continue:{" "}
                 {missingBusinessFields.join(", ")}.
               </p>
@@ -661,98 +654,97 @@ export default function CustomerOnboardingPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm text-slate-200">
               <span>Inventory handling</span>
-              <select
+              <SelectMenu
                 value={form.inventoryHandling}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    inventoryHandling: event.target
-                      .value as OnboardingForm["inventoryHandling"],
+                    inventoryHandling:
+                      nextValue as OnboardingForm["inventoryHandling"],
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="in_house">In-house</option>
-                <option value="third_party">Third-party</option>
-                <option value="none">No inventory</option>
-              </select>
+                options={[
+                  { value: "in_house", label: "In-house" },
+                  { value: "third_party", label: "Third-party" },
+                  { value: "none", label: "No inventory" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Inventory model</span>
-              <select
+              <SelectMenu
                 value={form.inventoryModel}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    inventoryModel: event.target.value as InventoryModel,
+                    inventoryModel: nextValue as InventoryModel,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="own_stock">Own stock</option>
-                <option value="dropship">Dropship</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="none">None</option>
-              </select>
+                options={[
+                  { value: "own_stock", label: "Own stock" },
+                  { value: "dropship", label: "Dropship" },
+                  { value: "hybrid", label: "Hybrid" },
+                  { value: "none", label: "None" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Fulfillment model</span>
-              <select
+              <SelectMenu
                 value={form.fulfillmentModel}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    fulfillmentModel: event.target.value as FulfillmentModel,
+                    fulfillmentModel: nextValue as FulfillmentModel,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="in_house">In-house</option>
-                <option value="third_party">Third-party</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
+                options={[
+                  { value: "in_house", label: "In-house" },
+                  { value: "third_party", label: "Third-party" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Annual revenue band</span>
-              <select
+              <SelectMenu
                 value={form.annualRevenueBand}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    annualRevenueBand: event.target.value as RevenueBand,
+                    annualRevenueBand: nextValue as RevenueBand,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="under_1m">Under R1m</option>
-                <option value="1m_10m">R1m - R10m</option>
-                <option value="10m_50m">R10m - R50m</option>
-                <option value="50m_200m">R50m - R200m</option>
-                <option value="200m_plus">R200m+</option>
-              </select>
+                options={[
+                  { value: "under_1m", label: "Under R1m" },
+                  { value: "1m_10m", label: "R1m - R10m" },
+                  { value: "10m_50m", label: "R10m - R50m" },
+                  { value: "50m_200m", label: "R50m - R200m" },
+                  { value: "200m_plus", label: "R200m+" },
+                ]}
+              />
             </label>
 
             <label className="space-y-1 text-sm text-slate-200">
               <span>Monthly order volume band</span>
-              <select
+              <SelectMenu
                 value={form.monthlyOrderVolumeBand}
-                onChange={(event) =>
+                onChange={(nextValue) =>
                   setForm((current) => ({
                     ...current,
-                    monthlyOrderVolumeBand: event.target
-                      .value as OrderVolumeBand,
+                    monthlyOrderVolumeBand: nextValue as OrderVolumeBand,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-              >
-                <option value="under_100">Under 100 orders</option>
-                <option value="100_1000">100 - 1,000 orders</option>
-                <option value="1000_10000">1,000 - 10,000 orders</option>
-                <option value="10000_plus">10,000+ orders</option>
-              </select>
+                options={[
+                  { value: "under_100", label: "Under 100 orders" },
+                  { value: "100_1000", label: "100 - 1,000 orders" },
+                  { value: "1000_10000", label: "1,000 - 10,000 orders" },
+                  { value: "10000_plus", label: "10,000+ orders" },
+                ]}
+              />
             </label>
 
             <div className="space-y-2 text-sm text-slate-200 md:col-span-2">
@@ -846,7 +838,7 @@ export default function CustomerOnboardingPage() {
           </label>
 
           {form.salesChannels.length === 0 ? (
-            <p className="text-sm text-amber-300">
+            <p className="text-sm text-slate-300">
               Select at least one sales channel to continue.
             </p>
           ) : null}
@@ -982,7 +974,7 @@ export default function CustomerOnboardingPage() {
         </label>
 
         {!isAccountStepComplete ? (
-          <p className="text-sm text-amber-300">
+          <p className="text-sm text-slate-300">
             Finish account setup to submit: {missingAccountFields.join(", ")}.
           </p>
         ) : null}
@@ -1137,7 +1129,7 @@ export default function CustomerOnboardingPage() {
           </div>
 
           {!canContinue && currentStep === 3 ? (
-            <p className="mt-3 text-sm text-amber-300">
+            <p className="mt-3 text-sm text-slate-300">
               Continue is disabled until required fields are completed.
             </p>
           ) : null}

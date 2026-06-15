@@ -1,14 +1,16 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { MOCK_LOGISTICS_DELIVERY_WORKSPACE } from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
 
 export default function LogisticsDeliveryPage() {
+  const workspace = WORKSPACE_CONTENT.logisticsDelivery;
+
   return (
     <PhaseWorkspace
-      phase={MOCK_LOGISTICS_DELIVERY_WORKSPACE.phase}
-      title={MOCK_LOGISTICS_DELIVERY_WORKSPACE.title}
-      subtitle={MOCK_LOGISTICS_DELIVERY_WORKSPACE.subtitle}
-      metrics={MOCK_LOGISTICS_DELIVERY_WORKSPACE.metrics}
-      streams={MOCK_LOGISTICS_DELIVERY_WORKSPACE.streams}
+      phase={workspace.phase}
+      title={workspace.title}
+      subtitle={workspace.subtitle}
+      metrics={workspace.metrics}
+      streams={workspace.streams}
     />
   );
 }

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import {
   createCustomerRequest,
@@ -69,9 +70,7 @@ export default function CustomerRequestsPage() {
   });
 
   const requests = useMemo<RequestRecord[]>(() => {
-    return Array.isArray(requestsQuery.data)
-      ? requestsQuery.data
-      : [];
+    return Array.isArray(requestsQuery.data) ? requestsQuery.data : [];
   }, [requestsQuery.data]);
 
   const stats = useMemo(() => {
@@ -134,8 +133,7 @@ export default function CustomerRequestsPage() {
     result.sort((a, b) => {
       if (sortBy === "oldest") {
         return (
-          new Date(a.created_at).getTime() -
-          new Date(b.created_at).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
       }
 
@@ -148,8 +146,7 @@ export default function CustomerRequestsPage() {
 
       // newest default
       return (
-        new Date(b.created_at).getTime() -
-        new Date(a.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     });
 
@@ -189,7 +186,11 @@ export default function CustomerRequestsPage() {
   };
 
   if (customerContext.isLoading) {
-    return <p className="text-sm text-slate-300">Loading requests...</p>;
+    return (
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Loading requests...
+      </p>
+    );
   }
 
   if (customerContext.isError || !customerContext.data) {
@@ -203,7 +204,9 @@ export default function CustomerRequestsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-3xl font-semibold text-white">Customer Requests</h2>
+        <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+          Customer Requests
+        </h2>
         <Badge>{stats.open} Open</Badge>
       </div>
 
@@ -217,8 +220,10 @@ export default function CustomerRequestsPage() {
               : "hover:ring-1 hover:ring-white/20"
           }`}
         >
-          <p className="text-lg font-semibold text-white">Total</p>
-          <p className="mt-4 text-3xl font-semibold text-white">
+          <p className="text-lg font-semibold text-slate-900 dark:text-white">
+            Total
+          </p>
+          <p className="mt-4 text-3xl font-semibold text-slate-900 dark:text-white">
             {stats.total}
           </p>
         </button>
@@ -232,7 +237,9 @@ export default function CustomerRequestsPage() {
               : "hover:ring-1 hover:ring-white/20"
           }`}
         >
-          <p className="text-lg font-semibold text-white">Open</p>
+          <p className="text-lg font-semibold text-slate-900 dark:text-white">
+            Open
+          </p>
           <p className="mt-4 text-3xl font-semibold text-mint">{stats.open}</p>
         </button>
 
@@ -245,7 +252,9 @@ export default function CustomerRequestsPage() {
               : "hover:ring-1 hover:ring-white/20"
           }`}
         >
-          <p className="text-lg font-semibold text-white">Cancelled</p>
+          <p className="text-lg font-semibold text-slate-900 dark:text-white">
+            Cancelled
+          </p>
           <p className="mt-4 text-3xl font-semibold text-red-300">
             {stats.cancelled}
           </p>
@@ -260,8 +269,10 @@ export default function CustomerRequestsPage() {
               : "hover:ring-1 hover:ring-white/20"
           }`}
         >
-          <p className="text-lg font-semibold text-white">At Risk</p>
-          <p className="mt-4 text-3xl font-semibold text-amber-300">
+          <p className="text-lg font-semibold text-slate-900 dark:text-white">
+            At Risk
+          </p>
+          <p className="mt-4 text-3xl font-semibold text-slate-300">
             {stats.atRisk}
           </p>
         </button>
@@ -277,28 +288,24 @@ export default function CustomerRequestsPage() {
             required
           />
           <textarea
-            className="min-h-24 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-300/60 focus:outline-none focus:ring-2 focus:ring-coral"
+            className="min-h-24 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-coral dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-300/60"
             placeholder="Describe what you need from the team"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={500}
           />
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              className="h-11 rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
+            <SelectMenu
               value={priority}
-              onChange={(event) =>
-                setPriority(
-                  event.target.value as (typeof REQUEST_PRIORITIES)[number],
-                )
+              onChange={(nextValue) =>
+                setPriority(nextValue as (typeof REQUEST_PRIORITIES)[number])
               }
-            >
-              {REQUEST_PRIORITIES.map((item) => (
-                <option key={item} value={item}>
-                  {item.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              options={REQUEST_PRIORITIES.map((item) => ({
+                value: item,
+                label: item.toUpperCase(),
+              }))}
+              className="min-w-[180px]"
+            />
             <Button
               type="submit"
               disabled={!title.trim() || createRequestMutation.isPending}
@@ -316,27 +323,27 @@ export default function CustomerRequestsPage() {
 
       <Card title="Request List">
         <div className="flex flex-wrap gap-3 mb-4">
+          <Input
+            placeholder="Search requests..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
 
-        <Input
-          placeholder="Search requests..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-
-        <select
-          className="h-11 rounded-xl border border-white/20 bg-slate-900 px-3 text-sm text-white"
-          value={sortBy}
-          onChange={(e) =>
-            setSortBy(e.target.value as SortOption)
-          }
-        >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="priority">Priority</option>
-        </select>
-      </div>
+          <SelectMenu
+            value={sortBy}
+            onChange={(nextValue) => setSortBy(nextValue as SortOption)}
+            options={[
+              { value: "newest", label: "Newest" },
+              { value: "oldest", label: "Oldest" },
+              { value: "priority", label: "Priority" },
+            ]}
+            className="min-w-[180px]"
+          />
+        </div>
         {requestsQuery.isLoading ? (
-          <p className="text-sm text-slate-300">Loading requests...</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Loading requests...
+          </p>
         ) : requestsQuery.isError ? (
           <p className="text-sm text-red-300">
             Could not load customer requests right now.
@@ -348,18 +355,21 @@ export default function CustomerRequestsPage() {
             ))}
 
             {requests.length === 0 ? (
-              <p className="text-sm text-slate-300">No requests available.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                No requests available.
+              </p>
             ) : processedRequests.length === 0 ? (
-              <p className="text-sm text-slate-300">No matching results.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                No matching results.
+              </p>
             ) : null}
 
             {processedRequests.length >= 0 && (
-              <div className="mt-4 flex flex-col items-center gap-3 border-t border-white/10 pt-4">
-                
-                <p className="text-sm text-slate-300 text-center">
+              <div className="mt-4 flex flex-col items-center gap-3 border-t border-slate-300 pt-4 dark:border-white/10">
+                <p className="text-sm text-slate-600 text-center dark:text-slate-300">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1} -{" "}
-                  {Math.min(currentPage * PAGE_SIZE, processedRequests.length)} of{" "}
-                  {processedRequests.length}
+                  {Math.min(currentPage * PAGE_SIZE, processedRequests.length)}{" "}
+                  of {processedRequests.length}
                 </p>
 
                 <div className="flex items-center gap-3">
@@ -370,9 +380,12 @@ export default function CustomerRequestsPage() {
                     Prev
                   </Button>
 
-                  <span className="px-2 text-sm text-white">
+                  <span className="px-2 text-sm text-slate-900 dark:text-white">
                     {currentPage} /{" "}
-                    {Math.max(1, Math.ceil(processedRequests.length / PAGE_SIZE))}
+                    {Math.max(
+                      1,
+                      Math.ceil(processedRequests.length / PAGE_SIZE),
+                    )}
                   </span>
 
                   <Button
@@ -388,7 +401,6 @@ export default function CustomerRequestsPage() {
               </div>
             )}
           </div>
-          
         )}
       </Card>
     </div>
@@ -399,16 +411,18 @@ function RequestListItem({ item }: { item: RequestRecord }) {
   return (
     <Link
       href={`/customer/requests/${item.id}`}
-      className="block rounded-xl border border-white/15 bg-white/5 p-4 transition hover:border-white/25"
+      className="block rounded-xl border border-slate-300 bg-slate-50 p-4 transition hover:border-slate-400 dark:border-white/15 dark:bg-white/5 dark:hover:border-white/25"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-white">{item.title}</h3>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+          {item.title}
+        </h3>
         <Badge className="capitalize">{formatStatusLabel(item.status)}</Badge>
       </div>
-      <p className="mt-1 text-sm text-slate-200/85">
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-200/85">
         {item.description || "No description"}
       </p>
-      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
         <Badge className="uppercase">{item.priority}</Badge>
         <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
       </div>

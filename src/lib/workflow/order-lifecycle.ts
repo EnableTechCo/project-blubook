@@ -110,12 +110,6 @@ export function computeDeliveredOrderMetadata(
   };
 }
 
-function readMockAccountUserId(metadata: unknown) {
-  const mockAccount = asObject(asObject(metadata).mock_account);
-  const userId = mockAccount.user_id;
-  return typeof userId === "string" && userId.length > 0 ? userId : null;
-}
-
 export async function resolveCustomerUserIds(
   admin: AdminClient,
   organizationId: string,
@@ -154,17 +148,36 @@ export async function resolvePartnerUserIds(
     return [] as string[];
   }
 
-  const { data } = await admin
-    .from("service_partners")
+  const { data: allPartnerOrganizations } = await admin
+    .from("organizations")
     .select("id, metadata")
-    .in("id", providerIds);
+    .not("metadata->>service_partner_id", "is", null);
+
+  const organizationIds = (allPartnerOrganizations ?? [])
+    .filter((row) => {
+      const metadata = asObject(row.metadata);
+      const servicePartnerId = metadata.service_partner_id;
+      return (
+        typeof servicePartnerId === "string" &&
+        providerIds.includes(servicePartnerId)
+      );
+    })
+    .map((row) => row.id)
+    .filter((value): value is string => Boolean(value));
+
+  if (organizationIds.length === 0) {
+    return [] as string[];
+  }
+
+  const { data } = await admin
+    .from("organization_memberships")
+    .select("user_id")
+    .in("organization_id", organizationIds)
+    .eq("status", "active")
+    .eq("role", "partner");
 
   return Array.from(
-    new Set(
-      (data ?? [])
-        .map((row) => readMockAccountUserId(row.metadata))
-        .filter((value): value is string => Boolean(value)),
-    ),
+    new Set((data ?? []).map((row) => row.user_id).filter(Boolean)),
   );
 }
 

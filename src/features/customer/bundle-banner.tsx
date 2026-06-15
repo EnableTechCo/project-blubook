@@ -49,6 +49,7 @@ export function CustomerBundleBanner() {
             {CUSTOMER_SERVICE_BUNDLES.map((bundle, index) => (
               <button
                 key={bundle.id}
+                type="button"
                 aria-label={`Show ${bundle.title}`}
                 className={`h-2.5 w-8 rounded-full transition ${
                   index === activeIndex ? "bg-coral" : "bg-white/40"
@@ -60,6 +61,7 @@ export function CustomerBundleBanner() {
 
           <div className="flex gap-2">
             <button
+              type="button"
               className="rounded-xl border border-white/35 bg-black/35 px-3 py-2 text-xs text-white"
               onClick={() =>
                 setActiveIndex(
@@ -72,6 +74,7 @@ export function CustomerBundleBanner() {
               Prev
             </button>
             <button
+              type="button"
               className="rounded-xl border border-white/35 bg-black/35 px-3 py-2 text-xs text-white"
               onClick={() =>
                 setActiveIndex(

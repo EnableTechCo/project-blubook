@@ -1,14 +1,16 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { MOCK_LOGISTICS_TRACKING_WORKSPACE } from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
 
 export default function LogisticsTrackingPage() {
+  const workspace = WORKSPACE_CONTENT.logisticsTracking;
+
   return (
     <PhaseWorkspace
-      phase={MOCK_LOGISTICS_TRACKING_WORKSPACE.phase}
-      title={MOCK_LOGISTICS_TRACKING_WORKSPACE.title}
-      subtitle={MOCK_LOGISTICS_TRACKING_WORKSPACE.subtitle}
-      metrics={MOCK_LOGISTICS_TRACKING_WORKSPACE.metrics}
-      streams={MOCK_LOGISTICS_TRACKING_WORKSPACE.streams}
+      phase={workspace.phase}
+      title={workspace.title}
+      subtitle={workspace.subtitle}
+      metrics={workspace.metrics}
+      streams={workspace.streams}
     />
   );
 }

@@ -4,11 +4,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
-import {
-  MOCK_ADMIN_DASHBOARD_PACK,
-  MOCK_AI_SCENARIOS,
-} from "@/features/mock/dashboard-data";
 
 type PartnerRow = {
   id: string;
@@ -76,7 +73,7 @@ const ANOMALY_TYPE_LABELS: Record<string, string> = {
 
 const SEVERITY_CLASSES: Record<"low" | "medium" | "high", string> = {
   high: "border-coral/40 bg-coral/10 text-coral",
-  medium: "border-amber-400/30 bg-amber-400/10 text-amber-300",
+  medium: "border-amber-400/30 bg-amber-400/10 text-slate-300",
   low: "border-yellow-400/20 bg-yellow-400/5 text-yellow-300",
 };
 
@@ -223,6 +220,36 @@ export default function AdminDashboardPage() {
   }, []);
 
   const streamOptions = useMemo(() => streams, [streams]);
+
+  const adminMetrics = useMemo(
+    () => [
+      {
+        id: "mapped-partners",
+        label: "Mapped Partners",
+        value: String(partners.length),
+        hint: "Active service partner records",
+      },
+      {
+        id: "active-streams",
+        label: "Active Streams",
+        value: String(streams.length),
+        hint: "Package streams with configured partners",
+      },
+      {
+        id: "routing-pending",
+        label: "Routing Pending",
+        value: String(routingPendingCount),
+        hint: "Routing recommendations awaiting decisions",
+      },
+      {
+        id: "anomaly-pending",
+        label: "Anomalies Pending",
+        value: String(anomalyPendingCount),
+        hint: "Onboarding anomaly alerts awaiting review",
+      },
+    ],
+    [anomalyPendingCount, partners.length, routingPendingCount, streams.length],
+  );
 
   const visiblePartners = useMemo(() => {
     if (activeStream === "all") {
@@ -422,12 +449,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {MOCK_ADMIN_DASHBOARD_PACK.metrics.map((metric) => (
+        {adminMetrics.map((metric) => (
           <Card key={metric.id} title={metric.label} description={metric.hint}>
             <p className="text-3xl font-semibold text-white">{metric.value}</p>
-            {metric.delta ? (
-              <p className="mt-1 text-xs text-slate-300">{metric.delta}</p>
-            ) : null}
           </Card>
         ))}
       </div>
@@ -446,18 +470,16 @@ export default function AdminDashboardPage() {
           <div className="grid gap-3 md:grid-cols-4">
             <label className="text-xs text-slate-300">
               Stream
-              <select
-                className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-slate-900 px-3 text-sm text-white"
+              <SelectMenu
+                className="mt-1"
                 value={newStream}
-                onChange={(event) => setNewStream(event.target.value)}
+                onChange={(nextValue) => setNewStream(nextValue)}
                 disabled={isLoading || isSaving || streamOptions.length === 0}
-              >
-                {streamOptions.map((stream) => (
-                  <option key={stream} value={stream}>
-                    {stream}
-                  </option>
-                ))}
-              </select>
+                options={streamOptions.map((stream) => ({
+                  value: stream,
+                  label: stream,
+                }))}
+              />
             </label>
 
             <label className="text-xs text-slate-300 md:col-span-1">
@@ -654,7 +676,7 @@ export default function AdminDashboardPage() {
                                 setOverrideReason("");
                               }}
                               disabled={Boolean(routingActioning)}
-                              className="text-amber-300 hover:text-amber-200"
+                              className="text-slate-300 hover:text-slate-200"
                             >
                               Override
                             </Button>
@@ -676,7 +698,7 @@ export default function AdminDashboardPage() {
                       {overrideTarget === rec.id ? (
                         <tr className="border-b border-amber-400/20 bg-amber-500/5">
                           <td colSpan={8} className="px-3 py-3">
-                            <p className="mb-2 text-xs font-semibold text-amber-200">
+                            <p className="mb-2 text-xs font-semibold text-slate-200">
                               Override routing for{" "}
                               <span className="text-white">
                                 {rec.organizationName}
@@ -686,25 +708,31 @@ export default function AdminDashboardPage() {
                             <div className="flex flex-wrap items-end gap-3">
                               <label className="text-xs text-slate-300">
                                 New Partner
-                                <select
-                                  className="mt-1 h-9 w-52 rounded-lg border border-white/20 bg-slate-900 px-2 text-sm text-white"
+                                <SelectMenu
+                                  className="mt-1 w-52"
                                   value={overridePartnerId}
-                                  onChange={(e) =>
-                                    setOverridePartnerId(e.target.value)
+                                  onChange={(nextValue) =>
+                                    setOverridePartnerId(nextValue)
                                   }
-                                >
-                                  {rec.alternativePartners.length === 0 ? (
-                                    <option value="" disabled>
-                                      No alternatives in this stream
-                                    </option>
-                                  ) : (
-                                    rec.alternativePartners.map((p) => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.name}
-                                      </option>
-                                    ))
-                                  )}
-                                </select>
+                                  options={
+                                    rec.alternativePartners.length === 0
+                                      ? [
+                                          {
+                                            value: "",
+                                            label:
+                                              "No alternatives in this stream",
+                                            disabled: true,
+                                          },
+                                        ]
+                                      : rec.alternativePartners.map((p) => ({
+                                          value: p.id,
+                                          label: p.name,
+                                        }))
+                                  }
+                                  disabled={
+                                    rec.alternativePartners.length === 0
+                                  }
+                                />
                               </label>
                               <label className="flex-1 text-xs text-slate-300">
                                 Reason
@@ -759,20 +787,27 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Governance Tasks" description="Policy and approval tasks.">
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.tasks.map((task) => (
+            {routingRecs.slice(0, 3).map((task) => (
               <div
                 key={task.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
-                <p className="text-sm font-semibold text-white">{task.title}</p>
+                <p className="text-sm font-semibold text-white">
+                  Review routing: {task.organizationName}
+                </p>
                 <p className="mt-1 text-xs text-slate-300">
-                  Owner: {task.owner} | ETA: {task.eta}
+                  Stream: {task.stream} | Source: {task.source}
                 </p>
                 <p className="mt-1 text-xs text-slate-200">
                   Status: {task.status}
                 </p>
               </div>
             ))}
+            {routingRecs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No pending governance tasks right now.
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -781,20 +816,23 @@ export default function AdminDashboardPage() {
           description="Audit and security incidents."
         >
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.alerts.map((alert) => (
+            {anomalies.slice(0, 3).map((alert) => (
               <div
                 key={alert.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
                 <p className="text-sm font-semibold text-coral">
-                  {alert.title}
+                  {ANOMALY_TYPE_LABELS[alert.anomalyType] ?? alert.anomalyType}
                 </p>
-                <p className="mt-1 text-xs text-slate-300">{alert.detail}</p>
+                <p className="mt-1 text-xs text-slate-300">{alert.reason}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Source: {alert.source}
+                  Source: onboarding-anomaly
                 </p>
               </div>
             ))}
+            {anomalies.length === 0 ? (
+              <p className="text-xs text-slate-400">No critical alerts.</p>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -905,19 +943,25 @@ export default function AdminDashboardPage() {
           description="Recommendations with confidence and action mapping."
         >
           <div className="space-y-3">
-            {MOCK_ADMIN_DASHBOARD_PACK.aiRecommendations.map((item) => (
+            {routingRecs.slice(0, 5).map((item) => (
               <div
                 key={item.id}
                 className="rounded-xl border border-white/15 bg-white/5 p-3"
               >
-                <p className="text-sm text-white">{item.title}</p>
-                <p className="mt-1 text-xs text-slate-300">{item.reason}</p>
+                <p className="text-sm text-white">{item.organizationName}</p>
+                <p className="mt-1 text-xs text-slate-300">
+                  {item.explanation}
+                </p>
                 <p className="mt-2 text-xs text-slate-200">
-                  Action: {item.action} (confidence{" "}
-                  {Math.round(item.confidence * 100)}%)
+                  Action: {item.status} (confidence {item.confidence}%)
                 </p>
               </div>
             ))}
+            {routingRecs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No AI governance recommendations pending.
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -926,22 +970,20 @@ export default function AdminDashboardPage() {
           description="Scenario coverage for AI ticketing."
         >
           <div className="space-y-3">
-            {MOCK_AI_SCENARIOS.map((scenario) => (
-              <div
-                key={scenario.id}
-                className="rounded-xl border border-white/15 bg-white/5 p-3"
-              >
-                <p className="text-sm font-semibold text-white">
-                  {scenario.name}
-                </p>
-                <p className="mt-1 text-xs text-slate-300">
-                  {scenario.trigger}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {scenario.phase} | Expected: {scenario.expectedOutcome}
-                </p>
-              </div>
-            ))}
+            <div className="rounded-xl border border-white/15 bg-white/5 p-3">
+              <p className="text-sm font-semibold text-white">
+                Scenario definitions are now sourced from live workflow
+                behavior.
+              </p>
+              <p className="mt-1 text-xs text-slate-300">
+                Use routing and anomaly queues above to validate current model
+                output.
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Static mock scenario libraries have been removed from this
+                dashboard.
+              </p>
+            </div>
           </div>
         </Card>
       </div>
