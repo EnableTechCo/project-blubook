@@ -67,14 +67,15 @@ export async function markAllNotificationsRead(userId: string) {
   }
 }
 
-export async function subscribeToNotifications(
-  userId: string,
-  callback: () => void,
-) {
+export function subscribeToNotifications(userId: string, callback: () => void) {
   const supabase = createClient();
 
+  const channelName = `notifications-${userId}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+
   const channel = supabase
-    .channel(`notifications-${userId}`)
+    .channel(channelName)
     .on(
       "postgres_changes",
       {

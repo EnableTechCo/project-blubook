@@ -4,7 +4,10 @@ import { useEffect } from "react";
 
 export function TailwindDebug() {
   useEffect(() => {
-    if (process.env.NODE_ENV === "production") {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.NEXT_PUBLIC_DEBUG_TAILWIND !== "1"
+    ) {
       return;
     }
 

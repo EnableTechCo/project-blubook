@@ -1,19 +1,16 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import {
-  MOCK_ADMIN_USER_STREAMS,
-  buildMockAdminUserMetrics,
-} from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
 
 export default function AdminUsersPage() {
-  const metrics = buildMockAdminUserMetrics();
+  const workspace = WORKSPACE_CONTENT.adminUsers;
 
   return (
     <PhaseWorkspace
-      phase="Phase 4"
-      title="User Management"
-      subtitle="Manage user lifecycle, onboarding status and department assignments."
-      metrics={metrics}
-      streams={MOCK_ADMIN_USER_STREAMS}
+      phase={workspace.phase}
+      title={workspace.title}
+      subtitle={workspace.subtitle}
+      metrics={workspace.metrics}
+      streams={workspace.streams}
     />
   );
 }

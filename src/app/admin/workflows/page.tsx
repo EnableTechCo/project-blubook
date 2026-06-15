@@ -118,6 +118,7 @@ export default function AdminWorkflowsPage() {
               {orders.map((order) => (
                 <button
                   key={order.id}
+                  type="button"
                   onClick={() => setSelectedOrderId(order.id)}
                   className={`w-full rounded-xl border px-3 py-3 text-left transition ${
                     selectedOrder?.id === order.id

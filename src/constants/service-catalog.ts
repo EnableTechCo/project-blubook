@@ -423,6 +423,11 @@ export const SERVICE_PARTNERS: ServicePartner[] = [
   { packageStream: "Legal", name: "LEGL", site: "www.legl.online" },
   { packageStream: "Legal", name: "Resolve", site: "www.rslv.co.za" },
   {
+    packageStream: "Logistics",
+    name: "BluBook Logistics",
+    site: "www.blubook-logistics.com",
+  },
+  {
     packageStream: "Mgt Consulting",
     name: "Letsema Consulting",
     site: "www.letsema.co.za",

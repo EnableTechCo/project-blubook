@@ -1,14 +1,12 @@
-import { AppShell } from "@/components/shell/app-shell";
-import { partnerNav } from "@/features/navigation/role-nav";
+import { PartnerShell } from "@/components/shell/partner-shell";
+import { requireRouteAccess } from "@/lib/auth/require-route-access";
 
-export default function PartnerLayout({
+export default async function PartnerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AppShell roleLabel="Partner" navItems={partnerNav}>
-      {children}
-    </AppShell>
-  );
+  await requireRouteAccess({ allowedRoles: ["partner", "admin"] });
+
+  return <PartnerShell>{children}</PartnerShell>;
 }

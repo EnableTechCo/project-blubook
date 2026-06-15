@@ -1,14 +1,16 @@
 import { PhaseWorkspace } from "@/features/operations/phase-workspace";
-import { MOCK_ADMIN_SETTINGS_WORKSPACE } from "@/features/mock/dashboard-data";
+import { WORKSPACE_CONTENT } from "@/constants/workspace-content";
 
 export default function AdminSettingsPage() {
+  const workspace = WORKSPACE_CONTENT.adminSettings;
+
   return (
     <PhaseWorkspace
-      phase={MOCK_ADMIN_SETTINGS_WORKSPACE.phase}
-      title={MOCK_ADMIN_SETTINGS_WORKSPACE.title}
-      subtitle={MOCK_ADMIN_SETTINGS_WORKSPACE.subtitle}
-      metrics={MOCK_ADMIN_SETTINGS_WORKSPACE.metrics}
-      streams={MOCK_ADMIN_SETTINGS_WORKSPACE.streams}
+      phase={workspace.phase}
+      title={workspace.title}
+      subtitle={workspace.subtitle}
+      metrics={workspace.metrics}
+      streams={workspace.streams}
     />
   );
 }

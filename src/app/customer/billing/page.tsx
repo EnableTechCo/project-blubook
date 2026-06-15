@@ -49,8 +49,10 @@ export default function CustomerBillingPage() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  const refresh = async () => {
-    setLoading(true);
+  const refresh = async (options?: { preserveView?: boolean }) => {
+    if (!options?.preserveView) {
+      setLoading(true);
+    }
     const response = await fetch("/api/customer/billing");
 
     if (!response.ok) {
@@ -107,7 +109,7 @@ export default function CustomerBillingPage() {
         ? "Subscription will cancel at period end."
         : "Subscription updated successfully.",
     );
-    await refresh();
+    await refresh({ preserveView: true });
     setBusy(false);
   };
 
@@ -115,8 +117,10 @@ export default function CustomerBillingPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col py-10">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-semibold text-white">Billing</h2>
-          <p className="mt-1 text-sm text-slate-300">
+          <h2 className="text-4xl font-semibold text-slate-900 dark:text-white">
+            Billing
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             Track your active package, invoice history, and subscription
             actions.
           </p>
@@ -124,15 +128,17 @@ export default function CustomerBillingPage() {
       </div>
 
       {loading ? (
-        <p className="mt-6 text-sm text-slate-300">Loading billing data...</p>
+        <p className="mt-6 text-sm text-slate-600 dark:text-slate-300">
+          Loading billing data...
+        </p>
       ) : null}
 
       {!loading && data?.currentSubscription ? (
-        <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5">
-          <h3 className="text-lg font-semibold text-white">
+        <section className="mt-6 rounded-2xl border border-slate-300 bg-slate-50 p-5 dark:border-white/15 dark:bg-white/5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             Current subscription
           </h3>
-          <div className="mt-3 space-y-2 text-sm text-slate-200">
+          <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
             <p>
               Package:{" "}
               {data.currentSubscription.package?.name ?? "Unknown package"}
@@ -188,24 +194,26 @@ export default function CustomerBillingPage() {
       ) : null}
 
       {!loading && !data?.currentSubscription ? (
-        <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5">
-          <h3 className="text-lg font-semibold text-white">
+        <section className="mt-6 rounded-2xl border border-slate-300 bg-slate-50 p-5 dark:border-white/15 dark:bg-white/5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             No active subscription
           </h3>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Complete onboarding to activate billing and invoice tracking.
           </p>
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5">
-        <h3 className="text-lg font-semibold text-white">Invoices</h3>
+      <section className="mt-6 rounded-2xl border border-slate-300 bg-slate-50 p-5 dark:border-white/15 dark:bg-white/5">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+          Invoices
+        </h3>
 
         {data?.invoices?.length ? (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full text-left text-sm text-slate-200">
+            <table className="min-w-full text-left text-sm text-slate-700 dark:text-slate-200">
               <thead>
-                <tr className="text-slate-300">
+                <tr className="text-slate-600 dark:text-slate-300">
                   <th className="px-2 py-2">Invoice</th>
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2">Amount</th>
@@ -215,8 +223,11 @@ export default function CustomerBillingPage() {
               </thead>
               <tbody>
                 {data.invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-t border-white/10">
-                    <td className="px-2 py-2 font-medium text-white">
+                  <tr
+                    key={invoice.id}
+                    className="border-t border-slate-300 dark:border-white/10"
+                  >
+                    <td className="px-2 py-2 font-medium text-slate-900 dark:text-white">
                       {invoice.invoiceNumber}
                     </td>
                     <td className="px-2 py-2">{invoice.status}</td>
@@ -239,13 +250,17 @@ export default function CustomerBillingPage() {
             </table>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             No invoices available yet.
           </p>
         )}
       </section>
 
-      {status ? <p className="mt-4 text-sm text-cyan-200">{status}</p> : null}
+      {status ? (
+        <p className="mt-4 text-sm text-cyan-700 dark:text-cyan-200">
+          {status}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -10,11 +10,7 @@ const PUBLIC_ROUTES = [
   "/reset-password",
   "/invite",
   "/verify-email",
-  "/partner",
-  "/staff",
-  "/admin",
-  "/sales",
-  "/logistics",
+  "/unauthorized",
 ];
 
 function isPublicRoute(pathname: string) {

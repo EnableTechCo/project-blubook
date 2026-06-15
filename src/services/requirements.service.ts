@@ -70,6 +70,32 @@ export async function listCustomerRequirements(organizationId: string) {
   return (payload ?? []) as CustomerRequirementItem[];
 }
 
+export async function ensurePurchaseOrderRequirement() {
+  const response = await fetch("/api/customer/workflow/ensure-po-requirement", {
+    method: "POST",
+    credentials: "include",
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error ?? "Could not prepare purchase-order upload.",
+    );
+  }
+
+  const requirementId =
+    payload && typeof payload.requirementId === "string"
+      ? payload.requirementId
+      : null;
+
+  if (!requirementId) {
+    throw new Error("Could not resolve purchase-order requirement.");
+  }
+
+  return { requirementId };
+}
+
 export async function submitRequirementEvidence(input: {
   requirementItemId: string;
   bucket: string;
@@ -168,11 +194,36 @@ export async function submitRequirementEvidence(input: {
     salesOrderId?: string | null;
     poReference?: string | null;
     queuedEventId?: string | null;
+    dispatch?: {
+      processed: number;
+      succeeded: number;
+      failed: number;
+    } | null;
+    routing?: Array<{
+      handoffId?: string;
+      status?: string;
+      packageStream?: string;
+      toProviderId?: string;
+      toProviderName?: string;
+      toProviderStream?: string;
+      fromProviderId?: string;
+      fromProviderName?: string;
+    }>;
     error?: string;
   } | null = null;
 
   if (kickoffResponse?.ok) {
     kickoff = await kickoffResponse.json().catch(() => null);
+  }
+
+  if (kickoff) {
+    console.info("[requirements] PO upload kickoff result", {
+      requirementItemId: input.requirementItemId,
+      salesOrderId: kickoff.salesOrderId ?? null,
+      poReference: kickoff.poReference ?? null,
+      dispatch: kickoff.dispatch ?? null,
+      routing: kickoff.routing ?? [],
+    });
   }
 
   if (kickoffResponse && !kickoffResponse.ok) {
@@ -194,6 +245,7 @@ export async function submitRequirementEvidence(input: {
 
 const requirementsService = {
   listCustomerRequirements,
+  ensurePurchaseOrderRequirement,
   submitRequirementEvidence,
 };
 

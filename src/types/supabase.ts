@@ -589,6 +589,171 @@ export interface Database {
         Insert: Record<string, Json>;
         Update: Record<string, Json>;
       };
+      automation_decisions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          request_id: string | null;
+          profile_id: string | null;
+          rule_id: string | null;
+          source: "rule" | "ai" | "hybrid" | "manual";
+          recommended_priority:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          recommended_stream: string | null;
+          recommended_owner_id: string | null;
+          recommendation_json: Json;
+          explanation: string | null;
+          confidence_score: number | null;
+          status: string;
+          decided_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          request_id?: string | null;
+          profile_id?: string | null;
+          rule_id?: string | null;
+          source: "rule" | "ai" | "hybrid" | "manual";
+          recommended_priority?:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          recommended_stream?: string | null;
+          recommended_owner_id?: string | null;
+          recommendation_json?: Json;
+          explanation?: string | null;
+          confidence_score?: number | null;
+          status?: string;
+          decided_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          request_id?: string | null;
+          profile_id?: string | null;
+          rule_id?: string | null;
+          source?: "rule" | "ai" | "hybrid" | "manual";
+          recommended_priority?:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          recommended_stream?: string | null;
+          recommended_owner_id?: string | null;
+          recommendation_json?: Json;
+          explanation?: string | null;
+          confidence_score?: number | null;
+          status?: string;
+          decided_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      onboarding_anomaly_alerts: {
+        Row: {
+          id: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          onboarding_submission_id: string;
+          profile_id: string;
+          anomaly_type: string;
+          reason: string;
+          severity: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          onboarding_submission_id?: string;
+          profile_id?: string;
+          anomaly_type?: string;
+          reason?: string;
+          severity?: "low" | "medium" | "high";
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+      };
+      automation_overrides: {
+        Row: {
+          id: string;
+          decision_id: string;
+          overridden_by: string | null;
+          previous_priority:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          new_priority: "standard" | "high" | "critical" | "strategic" | null;
+          previous_owner_id: string | null;
+          new_owner_id: string | null;
+          reason: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          decision_id: string;
+          overridden_by?: string | null;
+          previous_priority?:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          new_priority?: "standard" | "high" | "critical" | "strategic" | null;
+          previous_owner_id?: string | null;
+          new_owner_id?: string | null;
+          reason: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          decision_id?: string;
+          overridden_by?: string | null;
+          previous_priority?:
+            | "standard"
+            | "high"
+            | "critical"
+            | "strategic"
+            | null;
+          new_priority?: "standard" | "high" | "critical" | "strategic" | null;
+          previous_owner_id?: string | null;
+          new_owner_id?: string | null;
+          reason?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
