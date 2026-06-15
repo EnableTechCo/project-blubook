@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\"",
+    "prebuild": "node -e \"const fs=require('fs');try{fs.rmSync('.next',{recursive:true,force:true,maxRetries:10,retryDelay:200});}catch(e){if(e&&(e.code==='EBUSY'||e.code==='EPERM')){console.warn('[prebuild] .next is locked, continuing without full cleanup');}else{throw e;}}\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
