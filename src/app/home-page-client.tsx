@@ -44,7 +44,7 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
 
   if (!activePackage) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12">
+      <main className="mx-auto flex h-[100dvh] max-w-6xl flex-col overflow-y-auto px-6 py-6 lg:overflow-hidden">
         <section className="surface rounded-3xl p-7 md:p-9">
           <h1 className="text-3xl font-semibold text-white">BluBook</h1>
           <p className="mt-3 text-sm text-slate-200">
@@ -56,8 +56,8 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12">
-      <section className="surface relative overflow-hidden rounded-3xl p-7 md:p-9">
+    <main className="mx-auto flex h-[100dvh] max-w-6xl flex-col overflow-y-auto px-6 py-5 lg:overflow-hidden">
+      <section className="surface relative overflow-hidden rounded-3xl p-5 md:p-6">
         <div
           className="absolute inset-0"
           style={{
@@ -67,22 +67,16 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
             backgroundSize: "cover",
           }}
         />
-        <div className="absolute inset-0 bg-black/45" />
+        <div className="absolute inset-0 bg-black/75" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/92 via-black/80 to-black/62" />
         <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-black/95 via-black/82 to-transparent lg:w-[72%]" />
 
-        <div
-          className="relative z-10 max-w-3xl"
-          style={{ textShadow: "0 3px 16px rgba(0, 0, 0, 0.78)" }}
-        >
-          <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/85">
-            Built For Operators Selling Real Products
-          </p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight text-white md:text-5xl">
+        <div className="relative z-10 max-w-3xl">
+          <h1 className="mt-3 max-w-3xl text-4xl font-semibold text-white md:text-5xl">
             You sell to your customers. BluBook runs the corporate machine
             behind you.
           </h1>
-          <p className="mt-4 max-w-2xl text-sm text-slate-100/90 md:text-base">
+          <p className="mt-4 max-w-2xl text-sm text-white md:text-base">
             Pick a package, complete onboarding, and activate the service
             streams your business needs now. Coverage can expand over time as
             your operating model grows.
@@ -93,14 +87,16 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
               View Packages
             </Button>
             <Link href="/login">
-              <Button variant="ghost">Login</Button>
+              <Button className="text-white" variant="ghost">
+                Login
+              </Button>
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <article className="surface relative min-h-[380px] overflow-hidden rounded-2xl p-5">
+      <section className="mt-4 grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1.6fr_1fr]">
+        <article className="surface relative min-h-[360px] overflow-hidden rounded-2xl p-4 md:p-5 lg:h-full lg:min-h-0">
           {packages.map((pkg, index) => (
             <div
               key={pkg.id}
@@ -114,35 +110,32 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
               }}
             />
           ))}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20" />
+          <div className="absolute inset-0 bg-black/75" />
 
-          <div className="relative z-10">
+          <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="mt-1 text-3xl font-semibold text-white">
                   {activePackage.tier}
                 </h2>
-                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-cyan-100/75">
-                  {activePackage.badge}
-                </p>
               </div>
             </div>
 
-            <p className="mt-3 text-2xl font-semibold text-cyan-200">
+            <p className="mt-3 text-2xl font-semibold text-[#f97316]">
               {activePackage.price}
             </p>
-            <p className="mt-2 max-w-xl text-sm text-slate-100/90">
+            <p className="mt-2 max-w-xl text-sm text-white">
               {activePackage.summary}
             </p>
-            <p className="mt-2 text-xs text-slate-200">{activePackage.sla}</p>
+            <p className="mt-2 text-xs text-white">{activePackage.sla}</p>
 
-            <ul className="mt-3 space-y-1 text-xs text-slate-100/90">
+            <ul className="mt-3 space-y-1 overflow-auto pr-1 text-xs text-white lg:max-h-40">
               {activePackage.highlights.map((line) => (
                 <li key={line}>- {line}</li>
               ))}
             </ul>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
               {packages.map((item, index) => (
                 <button
                   key={item.id}
@@ -164,11 +157,11 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
           </div>
         </article>
 
-        <article className="surface min-h-[380px] rounded-2xl p-5">
+        <article className="surface min-h-[360px] rounded-2xl p-4 md:p-5 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
           <p className="text-xs uppercase tracking-[0.18em] text-cyan-200/80">
             Why This Tier Matters
           </p>
-          <h3 className="mt-1 text-2xl font-semibold text-white">
+          <h3 className="mt-1 text-2xl font-semibold text-slate-300">
             {activePackage.tier} Outcomes
           </h3>
 
@@ -176,12 +169,12 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
             <p className="text-xs uppercase tracking-[0.12em] text-slate-300">
               Response Commitment
             </p>
-            <p className="mt-1 text-sm text-white">
+            <p className="mt-1 text-sm text-slate-300">
               {activePackage.responseWindow}
             </p>
           </div>
 
-          <ul className="mt-3 min-h-[168px] space-y-2 text-sm text-slate-100">
+          <ul className="mt-3 min-h-[168px] space-y-2 text-sm text-slate-100 lg:min-h-0 lg:flex-1 lg:overflow-auto lg:pr-1">
             {activePackage.first14Days.map((item) => (
               <li
                 key={item}
@@ -208,7 +201,7 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
           onClick={() => setPackageModalOpen(false)}
         >
           <div
-            className="surface w-full max-w-4xl rounded-2xl border border-white/20 p-5"
+            className="surface max-h-[90dvh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/20 p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">

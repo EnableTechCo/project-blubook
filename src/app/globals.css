@@ -86,7 +86,7 @@ html.theme-dark .surface {
 
 /* Light-mode typography safety net for legacy dark-first utility usage */
 html.theme-light [class*="text-white"] {
-  color: #0f172a;
+  color: #ffffff;
 }
 
 html.theme-light [class*="text-slate-100"],
