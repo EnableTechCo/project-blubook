@@ -5,7 +5,7 @@ import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
@@ -43,11 +43,10 @@ import { WorkflowIcon } from "@/components/icons/workflow";
 import { SidebarInsightsSlider } from "@/components/shell/sidebar-insights-slider";
 import {
   listNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
   subscribeToNotifications,
 } from "@/services/notifications.service";
 import { useNotificationStore } from "@/store/notification-store";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useUiStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
 
@@ -121,7 +120,7 @@ export function AppShell({
   const queryClient = useQueryClient();
   const { data: user, isLoading: authLoading, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
-  const { items, setItems, markRead, markAllRead } = useNotificationStore();
+  const { items, setItems } = useNotificationStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -167,26 +166,6 @@ export function AppShell({
       unsubscribe();
     };
   }, [queryClient, user?.id]);
-
-  const markReadMutation = useMutation({
-    mutationFn: markNotificationRead,
-    onSuccess: async (_, variables) => {
-      markRead(variables.notificationId);
-      await queryClient.invalidateQueries({
-        queryKey: ["notifications", user?.id],
-      });
-    },
-  });
-
-  const markAllReadMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
-    onSuccess: async () => {
-      markAllRead();
-      await queryClient.invalidateQueries({
-        queryKey: ["notifications", user?.id],
-      });
-    },
-  });
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.read).length,
@@ -613,104 +592,12 @@ export function AppShell({
                 ) : null}
               </button>
 
-              {notificationsOpen ? (
-                <div
-                  className={cn(
-                    "absolute right-0 z-50 mt-2 w-[320px] rounded-2xl border p-3 shadow-panel",
-                    isDark
-                      ? "border-slate-700 bg-slate-900"
-                      : "border-slate-200 bg-white",
-                  )}
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        isDark ? "text-slate-100" : "text-slate-900",
-                      )}
-                    >
-                      Notifications
-                    </p>
-                    <button
-                      type="button"
-                      className={cn(
-                        "text-xs disabled:opacity-60",
-                        isDark
-                          ? "text-cyan-300 hover:text-cyan-200"
-                          : "text-cyan-700 hover:text-cyan-800",
-                      )}
-                      onClick={() =>
-                        user?.id && markAllReadMutation.mutate(user.id)
-                      }
-                      disabled={
-                        markAllReadMutation.isPending || unreadCount === 0
-                      }
-                    >
-                      Mark all read
-                    </button>
-                  </div>
-
-                  <div className="max-h-72 space-y-2 overflow-y-auto">
-                    {notificationsQuery.isLoading ? (
-                      <p
-                        className={cn(
-                          "text-xs",
-                          isDark ? "text-slate-400" : "text-slate-500",
-                        )}
-                      >
-                        Loading...
-                      </p>
-                    ) : null}
-                    {items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={cn(
-                          "w-full rounded-xl border px-3 py-2 text-left transition",
-                          item.read
-                            ? isDark
-                              ? "border-slate-700 bg-slate-800"
-                              : "border-slate-200 bg-slate-50"
-                            : "border-coral/40 bg-coral/10",
-                        )}
-                        onClick={() =>
-                          user?.id &&
-                          markReadMutation.mutate({
-                            notificationId: item.id,
-                            userId: user.id,
-                          })
-                        }
-                      >
-                        <p
-                          className={cn(
-                            "text-sm",
-                            isDark ? "text-slate-100" : "text-slate-800",
-                          )}
-                        >
-                          {item.message}
-                        </p>
-                        <p
-                          className={cn(
-                            "mt-1 text-[11px]",
-                            isDark ? "text-slate-400" : "text-slate-500",
-                          )}
-                        >
-                          {new Date(item.createdAt).toLocaleString()}
-                        </p>
-                      </button>
-                    ))}
-                    {!notificationsQuery.isLoading && items.length === 0 ? (
-                      <p
-                        className={cn(
-                          "text-xs",
-                          isDark ? "text-slate-400" : "text-slate-500",
-                        )}
-                      >
-                        No notifications yet.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+              {notificationsOpen && user?.id ? (
+                <NotificationPanel
+                  userId={user.id}
+                  isDark={isDark}
+                  isLoading={notificationsQuery.isLoading}
+                />
               ) : null}
             </div>
           </div>
