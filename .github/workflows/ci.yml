@@ -160,7 +160,6 @@ jobs:
           fi
 
   e2e-smoke:
-    if: ${{ vars.RUN_E2E_SMOKE == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs:
