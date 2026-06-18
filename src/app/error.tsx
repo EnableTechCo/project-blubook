@@ -16,7 +16,7 @@ export default function GlobalError({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 text-center">
-      <h1 className="mt-3 text-4xl font-semibold text-white">
+      <h1 className="mt-3 text-4xl font-semibold text-slate-300">
         Something went wrong
       </h1>
       <p className="mt-3 text-sm text-slate-200/85">

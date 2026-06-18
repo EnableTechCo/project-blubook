@@ -84,7 +84,11 @@ export default function InvitePage() {
           onChange={(event) => setPassword(event.target.value)}
           required
         />
-        <Button className="w-full" disabled={loading || !token || !email}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || !token || !email}
+        >
           {loading ? "Activating..." : "Activate account"}
         </Button>
       </form>
