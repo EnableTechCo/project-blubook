@@ -94,6 +94,7 @@ const NAV_ICON_BY_HREF: Record<string, NavIconComponent> = {
   "/logistics/delivery": MapPinCheckIcon,
 
   "/admin/dashboard": LayoutGridIcon,
+  "/admin/anomalies": GaugeIcon,
   "/admin/users": UsersIcon,
   "/admin/roles": KeyIcon,
   "/admin/settings": SettingsIcon,
