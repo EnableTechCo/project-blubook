@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
           onChange={(event) => setConfirmPassword(event.target.value)}
           required
         />
-        <Button className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Updating..." : "Update password"}
         </Button>
       </form>

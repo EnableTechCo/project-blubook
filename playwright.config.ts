@@ -1,8 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
-const configuredBaseUrl =
-  process.env.PLAYWRIGHT_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
+const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const baseURL = configuredBaseUrl ?? `http://127.0.0.1:${port}`;
 const shouldUseLocalWebServer = !configuredBaseUrl;
 
@@ -32,7 +31,7 @@ export default defineConfig({
         webServer: {
           command: `pnpm exec next dev -H 127.0.0.1 -p ${port}`,
           url: `http://127.0.0.1:${port}`,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer: false,
           timeout: 120000,
         },
       }
