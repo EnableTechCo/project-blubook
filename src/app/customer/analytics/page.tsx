@@ -241,10 +241,7 @@ export default function CustomerAnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
-              Phase 2
-            </p>
-            <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+            <h2 className="text-3xl font-semibold text-slate-900">
               Customer Analytics
             </h2>
           </div>
@@ -270,10 +267,7 @@ export default function CustomerAnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-cyan-200/80">
-              Phase 2
-            </p>
-            <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+            <h2 className="text-3xl font-semibold text-slate-900">
               Customer Analytics
             </h2>
           </div>
@@ -294,7 +288,7 @@ export default function CustomerAnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">
+          <h2 className="text-3xl font-semibold text-slate-900">
             Customer Analytics
           </h2>
         </div>
@@ -303,7 +297,7 @@ export default function CustomerAnalyticsPage() {
           className="rounded-full cursor-pointer transition-colors hover:bg-cyan-500/10"
           onClick={() => navigateToRequests("all", "All Requests")}
         >
-          <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
+          <Badge className="bg-cyan-500/20 text-black border-cyan-500/30">
             {stats.total} Requests
           </Badge>
         </button>

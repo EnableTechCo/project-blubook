@@ -62,17 +62,6 @@ function mapPackages(
 }
 
 export default async function HomePage() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    },
-  );
   let data: Array<{
     code: string;
     name: string;
@@ -81,15 +70,30 @@ export default async function HomePage() {
     metadata: unknown;
   }> | null = null;
 
-  try {
-    const result = await supabase
-      .from("service_packages")
-      .select("code, name, description, unit_amount_cents, metadata")
-      .eq("is_active", true)
-      .order("unit_amount_cents", { ascending: true });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    data = result.data;
-  } catch {
+  if (supabaseUrl && supabaseAnonKey) {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+    try {
+      const result = await supabase
+        .from("service_packages")
+        .select("code, name, description, unit_amount_cents, metadata")
+        .eq("is_active", true)
+        .order("unit_amount_cents", { ascending: true });
+
+      data = result.data;
+    } catch {
+      data = [];
+    }
+  } else {
     data = [];
   }
 
