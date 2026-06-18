@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
+import { logActivity } from "@/lib/activity-log";
 
 async function resolveServicePartnerId(input: {
   admin: ReturnType<typeof createAdminClient>;
@@ -1319,6 +1320,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
 
+  try {
+    await logActivity({
+      requestId: requestId,
+      organizationId: requestRow.organization_id,
+      partnerId: servicePartnerId,
+      actorId: partnerUserId,
+      actorType: 'partner',
+      actionType: normalizedAction === 'accept' ? 'request_accepted' : 'request_rejected',
+      actionDetails: {
+        previous_status: requestRow.request_status,
+        new_status: normalizedAction === 'accept' ? 'acknowledged' : 'failed',
+        package_stream: requestRow.package_stream,
+        decision: normalizedAction,
+      },
+      metadata: {
+        decision_at: nowIso,
+      },
+    });
+  } catch (error) {
+    // Log but don't fail - activity logging should not break the main flow
+    console.error('Failed to log activity:', error);
+  }
+
   const partnerName =
     typeof existingMetadata.provider_name === "string" &&
     existingMetadata.provider_name.length > 0
@@ -1354,6 +1378,30 @@ export async function POST(request: Request) {
         },
       })),
     );
+
+    try {
+      await logActivity({
+        requestId: requestId,
+        organizationId: requestRow.organization_id,
+        partnerId: servicePartnerId,
+        actorId: partnerUserId,
+        actorType: 'system', // System sends the notification
+        actionType: 'request_acknowledged',
+        actionDetails: {
+          decision: normalizedAction,
+          package_stream: requestRow.package_stream,
+          notification_sent: true,
+          customer_count: customerUserIds.length,
+        },
+        metadata: {
+          decision_at: nowIso,
+          message_preview: partnerDecisionMessage.slice(0, 100),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to log notification activity:', error);
+    }
+
   }
 
   const { data: relatedServiceRequests } = await admin
