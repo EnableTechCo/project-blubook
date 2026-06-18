@@ -1,6 +1,11 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
-const { createServerClientMock, createAdminClientMock, queueEmailMock, dispatchQueuedEmailsMock } = vi.hoisted(() => ({
+const {
+  createServerClientMock,
+  createAdminClientMock,
+  queueEmailMock,
+  dispatchQueuedEmailsMock,
+} = vi.hoisted(() => ({
   createServerClientMock: vi.fn(),
   createAdminClientMock: vi.fn(),
   queueEmailMock: vi.fn(),
@@ -22,8 +27,24 @@ vi.mock("@/lib/email/dispatcher", () => ({
 
 import { POST } from "./route";
 
-function createChain(result: { data?: unknown; error?: unknown }) {
-  const chain: any = {};
+type QueryResult = { data?: unknown; error?: unknown };
+
+type QueryChain = {
+  select: () => QueryChain;
+  eq: () => QueryChain;
+  insert: () => QueryChain;
+  single: () => Promise<QueryResult>;
+  maybeSingle: () => Promise<QueryResult>;
+};
+
+function createChain(result: QueryResult) {
+  const chain: QueryChain = {
+    select: () => chain,
+    eq: () => chain,
+    insert: () => chain,
+    single: async () => result,
+    maybeSingle: async () => result,
+  };
 
   chain.select = vi.fn(() => chain);
   chain.eq = vi.fn(() => chain);
@@ -34,13 +55,18 @@ function createChain(result: { data?: unknown; error?: unknown }) {
   return chain;
 }
 
-function createAdminClient(results: Record<string, { data?: unknown; error?: unknown }>) {
+function createAdminClient(results: Record<string, QueryResult>) {
   const chains = Object.fromEntries(
-    Object.entries(results).map(([table, result]) => [table, createChain(result)]),
+    Object.entries(results).map(([table, result]) => [
+      table,
+      createChain(result),
+    ]),
   );
 
   return {
-    from: vi.fn((table: string) => chains[table] ?? createChain({ data: null })),
+    from: vi.fn(
+      (table: string) => chains[table] ?? createChain({ data: null }),
+    ),
   };
 }
 

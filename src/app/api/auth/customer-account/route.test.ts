@@ -1,6 +1,11 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
-const { createAdminClientMock, queueEmailMock, dispatchQueuedEmailsMock, persistAutomationMock } = vi.hoisted(() => ({
+const {
+  createAdminClientMock,
+  queueEmailMock,
+  dispatchQueuedEmailsMock,
+  persistAutomationMock,
+} = vi.hoisted(() => ({
   createAdminClientMock: vi.fn(),
   queueEmailMock: vi.fn(),
   dispatchQueuedEmailsMock: vi.fn(),
@@ -28,8 +33,28 @@ import { POST } from "./route";
 
 const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function createChain(result: { data?: unknown; error?: unknown }) {
-  const chain: any = {};
+type QueryResult = { data?: unknown; error?: unknown };
+
+type QueryChain = {
+  select: () => QueryChain;
+  eq: () => QueryChain;
+  insert: () => QueryChain;
+  update: () => QueryChain;
+  upsert: () => QueryChain;
+  single: () => Promise<QueryResult>;
+  maybeSingle: () => Promise<QueryResult>;
+};
+
+function createChain(result: QueryResult) {
+  const chain: QueryChain = {
+    select: () => chain,
+    eq: () => chain,
+    insert: () => chain,
+    update: () => chain,
+    upsert: () => chain,
+    single: async () => result,
+    maybeSingle: async () => result,
+  };
 
   chain.select = vi.fn(() => chain);
   chain.eq = vi.fn(() => chain);
@@ -42,9 +67,12 @@ function createChain(result: { data?: unknown; error?: unknown }) {
   return chain;
 }
 
-function createAdminClient(results: Record<string, { data?: unknown; error?: unknown }>) {
+function createAdminClient(results: Record<string, QueryResult>) {
   const chains = Object.fromEntries(
-    Object.entries(results).map(([table, result]) => [table, createChain(result)]),
+    Object.entries(results).map(([table, result]) => [
+      table,
+      createChain(result),
+    ]),
   );
 
   const createUser = vi.fn(async () => ({
@@ -59,7 +87,9 @@ function createAdminClient(results: Record<string, { data?: unknown; error?: unk
         deleteUser: vi.fn(async () => ({ error: null })),
       },
     },
-    from: vi.fn((table: string) => chains[table] ?? createChain({ data: null })),
+    from: vi.fn(
+      (table: string) => chains[table] ?? createChain({ data: null }),
+    ),
     rpc: vi.fn(async () => ({ error: null })),
   };
 }

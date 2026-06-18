@@ -15,8 +15,28 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import { GET } from "./route";
 
+type QueryResult = { data?: unknown; error?: unknown };
+
+type QueryChain = {
+  select: () => QueryChain;
+  eq: () => QueryChain;
+  insert: () => QueryChain;
+  update: () => QueryChain;
+  upsert: () => QueryChain;
+  single: () => Promise<QueryResult>;
+  maybeSingle: () => Promise<QueryResult>;
+};
+
 function createChain(result: { data?: unknown; error?: unknown }) {
-  const chain: any = {};
+  const chain: QueryChain = {
+    select: () => chain,
+    eq: () => chain,
+    insert: () => chain,
+    update: () => chain,
+    upsert: () => chain,
+    single: async () => result,
+    maybeSingle: async () => result,
+  };
 
   chain.select = vi.fn(() => chain);
   chain.eq = vi.fn(() => chain);
@@ -29,13 +49,18 @@ function createChain(result: { data?: unknown; error?: unknown }) {
   return chain;
 }
 
-function createAdminClient(results: Record<string, { data?: unknown; error?: unknown }>) {
+function createAdminClient(results: Record<string, QueryResult>) {
   const chains = Object.fromEntries(
-    Object.entries(results).map(([table, result]) => [table, createChain(result)]),
+    Object.entries(results).map(([table, result]) => [
+      table,
+      createChain(result),
+    ]),
   );
 
   return {
-    from: vi.fn((table: string) => chains[table] ?? createChain({ data: null })),
+    from: vi.fn(
+      (table: string) => chains[table] ?? createChain({ data: null }),
+    ),
   };
 }
 

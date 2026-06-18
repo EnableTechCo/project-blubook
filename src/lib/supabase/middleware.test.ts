@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { nextMock, redirectMock, createServerClientMock } = vi.hoisted(() => ({
   nextMock: vi.fn((args?: { request?: unknown }) => ({
@@ -36,6 +36,8 @@ type MutableUrl = {
   searchParams: URLSearchParams;
 };
 
+type UpdateSessionRequest = Parameters<typeof updateSession>[0];
+
 function createRequest(pathname: string) {
   const current = {
     pathname,
@@ -60,42 +62,32 @@ function createRequest(pathname: string) {
       getAll: vi.fn(() => []),
       set: vi.fn(),
     },
-  } as any;
+  } as unknown as UpdateSessionRequest;
 }
-
-const originalEnv = {
-  NODE_ENV: process.env.NODE_ENV,
-  NEXT_PUBLIC_DEV_AUTH_BYPASS: process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-};
 
 describe("updateSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = "test";
-    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS = "false";
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("NEXT_PUBLIC_DEV_AUTH_BYPASS", "false");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", undefined);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", undefined);
   });
 
-  afterAll(() => {
-    process.env.NODE_ENV = originalEnv.NODE_ENV;
-    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS = originalEnv.NEXT_PUBLIC_DEV_AUTH_BYPASS;
-    process.env.NEXT_PUBLIC_SUPABASE_URL = originalEnv.NEXT_PUBLIC_SUPABASE_URL;
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("allows all routes during dev auth bypass", async () => {
-    process.env.NODE_ENV = "development";
-    delete process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS;
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_DEV_AUTH_BYPASS", undefined);
 
     const request = createRequest("/customer/dashboard");
     const result = await updateSession(request);
 
     expect(createServerClientMock).not.toHaveBeenCalled();
-    expect(nextMock).toHaveBeenCalled();
-    expect(result.kind).toBe("next");
+    expect(nextMock).toHaveBeenCalledOnce();
+    expect(result).toBe(nextMock.mock.results[0]?.value);
   });
 
   it("redirects protected routes to login when supabase env is missing", async () => {
@@ -107,7 +99,7 @@ describe("updateSession", () => {
     const [url] = redirectMock.mock.calls[0] as [MutableUrl];
     expect(url.pathname).toBe("/login");
     expect(url.searchParams.get("next")).toBe("/customer/dashboard");
-    expect(result.kind).toBe("redirect");
+    expect(result).toBe(redirectMock.mock.results[0]?.value);
   });
 
   it("allows public routes when supabase env is missing", async () => {
@@ -116,13 +108,13 @@ describe("updateSession", () => {
     const result = await updateSession(request);
 
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(nextMock).toHaveBeenCalled();
-    expect(result.kind).toBe("next");
+    expect(nextMock).toHaveBeenCalledOnce();
+    expect(result).toBe(nextMock.mock.results[0]?.value);
   });
 
   it("redirects unauthenticated users from protected routes", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
     createServerClientMock.mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
@@ -138,12 +130,12 @@ describe("updateSession", () => {
     const [url] = redirectMock.mock.calls[0] as [MutableUrl];
     expect(url.pathname).toBe("/login");
     expect(url.searchParams.get("next")).toBe("/customer/dashboard");
-    expect(result.kind).toBe("redirect");
+    expect(result).toBe(redirectMock.mock.results[0]?.value);
   });
 
   it("allows authenticated users on protected routes", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
     createServerClientMock.mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -160,6 +152,7 @@ describe("updateSession", () => {
 
     expect(createServerClientMock).toHaveBeenCalledOnce();
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(result.kind).toBe("next");
+    expect(nextMock).toHaveBeenCalledOnce();
+    expect(result).toBe(nextMock.mock.results[0]?.value);
   });
 });

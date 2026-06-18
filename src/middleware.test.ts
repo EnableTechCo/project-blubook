@@ -20,6 +20,8 @@ vi.mock("@/lib/supabase/middleware", () => ({
 
 import { middleware } from "../middleware";
 
+type MiddlewareRequest = Parameters<typeof middleware>[0];
+
 function createRequest(pathname: string, search = "") {
   return {
     method: "GET",
@@ -27,7 +29,7 @@ function createRequest(pathname: string, search = "") {
       pathname,
       search,
     },
-  } as any;
+  } as unknown as MiddlewareRequest;
 }
 
 describe("root middleware", () => {
