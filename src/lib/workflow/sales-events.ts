@@ -8,6 +8,7 @@ import {
 } from "@/lib/workflow/order-lifecycle";
 import { resolveServicePartnerForStream } from "@/lib/workflow/service-partner-routing";
 import { assertValidTransition } from "@/lib/workflow/transition-validator";
+import { validateInvoiceTotals } from "@/lib/workflow/invoice-consistency";
 import type {
   QueueWorkflowEvent,
   SalesWorkflowEventType,
@@ -536,6 +537,11 @@ export async function processSalesWorkflowEvent(
             unit_amount_cents: item.unit_price_cents,
             line_total_cents: item.quantity * item.unit_price_cents,
           });
+        }
+
+        const consistency = await validateInvoiceTotals(invoice.id, admin);
+        if (!consistency.valid) {
+          throw new Error(consistency.error);
         }
       }
 

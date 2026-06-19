@@ -294,6 +294,38 @@ export interface Database {
         Insert: Record<string, Json>;
         Update: Record<string, Json>;
       };
+      inventory_movements: {
+        Row: {
+          id: string;
+          sku: string;
+          quantity: number;
+          movement_type: "reservation" | "restoration" | "adjustment" | "deduction";
+          sales_order_id: string | null;
+          reason: string | null;
+          actor_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sku: string;
+          quantity: number;
+          movement_type: "reservation" | "restoration" | "adjustment" | "deduction";
+          sales_order_id?: string | null;
+          reason?: string | null;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sku?: string;
+          quantity?: number;
+          movement_type?: "reservation" | "restoration" | "adjustment" | "deduction";
+          sales_order_id?: string | null;
+          reason?: string | null;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+      };
       shipments: {
         Row: Record<string, Json>;
         Insert: Record<string, Json>;
