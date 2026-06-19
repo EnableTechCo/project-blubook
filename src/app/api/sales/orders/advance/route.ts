@@ -8,6 +8,10 @@ import {
 } from "@/lib/workflow/order-lifecycle";
 import { resolveServicePartnerForStream } from "@/lib/workflow/service-partner-routing";
 import { recordStepEvent } from "@/services/workflow-step-events.service";
+import {
+  reserveStockForOrder,
+  restoreStockForOrder,
+} from "@/services/inventory.service";
 
 const SALES_PARTNER_STREAM = "Sales Ops";
 const LOGISTICS_PARTNER_STREAM = "Logistics";
@@ -288,6 +292,48 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       );
+    }
+
+    if (action === "rollback_inventory") {
+      try {
+        await restoreStockForOrder(order.id, user.id, admin);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+          { error: `Could not restore inventory: ${message}` },
+          { status: 500 },
+        );
+      }
+    }
+  }
+
+  if (action === "reserve_inventory") {
+    const { data: orderItems, error: itemsError } = await admin
+      .from("sales_order_items")
+      .select("sku, quantity")
+      .eq("order_id", order.id);
+
+    if (itemsError) {
+      return NextResponse.json({ error: itemsError.message }, { status: 400 });
+    }
+
+    const items = (orderItems ?? [])
+      .filter((item) => typeof item.sku === "string" && item.sku.length > 0)
+      .map((item) => ({
+        sku: item.sku as string,
+        quantity: item.quantity as number,
+      }));
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { error: "No stockable items found on this order to reserve." },
+        { status: 400 },
+      );
+    }
+
+    const result = await reserveStockForOrder(order.id, items, user.id, admin);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 422 });
     }
   }
 
