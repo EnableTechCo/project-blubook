@@ -45,6 +45,14 @@ function derivePoReference(fileName: string | null) {
   return `PO-${Date.now().toString().slice(-8)}`;
 }
 
+function toSearchableFileStem(value: string | null) {
+  return (value ?? "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/(^-|-$)/g, "")
+    .toLowerCase();
+}
+
 function readPartnerEmail(value: unknown): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -312,6 +320,63 @@ export async function POST(request: Request) {
           }
         }
       }
+    }
+
+    // Persist/update normalized purchase order header row.
+    // Resolve the uploaded PO document directly from documents instead of requirement evidence.
+    const uploadedFileStem = toSearchableFileStem(uploadedFileName);
+    const documentsQuery = admin
+      .from("documents")
+      .select("id, uploaded_by")
+      .eq("organization_id", requirement.organization_id)
+      .eq("uploaded_by", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const { data: recentDocs } = uploadedFileStem
+      ? await documentsQuery.ilike("file_name", `%${uploadedFileStem}%`)
+      : await documentsQuery;
+
+    const matchedDocument = (recentDocs ?? []).find(
+      (doc): doc is { id: string; uploaded_by: string | null } =>
+        Boolean(doc && typeof doc.id === "string"),
+    );
+
+    const purchaseOrderStatus = "submitted";
+    const poUpsertMetadata = {
+      source: "customer_po_upload",
+      requirement_item_id: requirement.id,
+      package_stream: requirement.package_stream,
+    };
+
+    const { error: purchaseOrderUpsertError } = await admin
+      .from("purchase_orders")
+      .upsert(
+        {
+          organization_id: requirement.organization_id,
+          sales_order_id: salesOrderId,
+          provider_id:
+            typeof requirement.provider_id === "string"
+              ? requirement.provider_id
+              : null,
+          po_number: poReference,
+          customer_document_id:
+            typeof matchedDocument?.id === "string" ? matchedDocument.id : null,
+          status: purchaseOrderStatus,
+          submitted_by:
+            typeof matchedDocument?.uploaded_by === "string"
+              ? matchedDocument.uploaded_by
+              : user.id,
+          metadata: poUpsertMetadata,
+        },
+        { onConflict: "sales_order_id" },
+      );
+
+    if (purchaseOrderUpsertError) {
+      return NextResponse.json(
+        { error: purchaseOrderUpsertError.message },
+        { status: 400 },
+      );
     }
 
     const { data: existingKickoffEvent } = await admin

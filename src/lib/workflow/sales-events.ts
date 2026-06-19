@@ -353,6 +353,7 @@ export async function processSalesWorkflowEvent(
 
       let orderItemId = "";
       let orderId = "";
+      let completedPurchaseOrderTask = false;
 
       if (taskType === "pick_ticket") {
         const { data: ticket, error: ticketError } = await admin
@@ -414,6 +415,7 @@ export async function processSalesWorkflowEvent(
 
         if (poError || !po) throw new Error("Purchase order not found");
         orderItemId = po.order_item_id;
+        completedPurchaseOrderTask = true;
 
         await admin.from("fulfillment_logs").insert({
           order_item_id: orderItemId,
@@ -432,6 +434,16 @@ export async function processSalesWorkflowEvent(
 
       if (!item) throw new Error("Order item not associated with any order");
       orderId = item.order_id;
+
+      if (completedPurchaseOrderTask) {
+        await admin
+          .from("purchase_orders")
+          .update({
+            status: "completed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("sales_order_id", orderId);
+      }
 
       await assertSalesCompletionUnlocked(orderId);
 

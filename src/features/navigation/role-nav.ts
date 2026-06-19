@@ -33,8 +33,16 @@ export const staffNav: ShellNavItem[] = [
 ];
 
 export const adminNav: ShellNavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard" },
+  { href: "/admin/dashboard", label: "Overview" },
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/partners", label: "Partners" },
+  { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/dispatch-queue", label: "Dispatch Queue" },
+  { href: "/admin/work-orders", label: "Work Orders" },
+  { href: "/admin/logistics-handoffs", label: "Logistics Handoffs" },
+  { href: "/admin/sales-pipeline", label: "Sales Pipeline" },
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/documents", label: "Documents" },
   { href: "/admin/roles", label: "Roles" },
   { href: "/admin/settings", label: "Settings" },
   { href: "/admin/audit-logs", label: "Audit Logs" },

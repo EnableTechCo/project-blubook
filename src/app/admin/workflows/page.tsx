@@ -102,7 +102,7 @@ export default function AdminWorkflowsPage() {
       {orders.length === 0 ? (
         <Card
           title="No orders yet"
-          description="Workflow history will appear here as orders are processed."
+          description="This timeline will fill automatically as orders move through each stage."
         >
           <p className="text-sm text-slate-300">
             No workflow records are available yet.
@@ -112,7 +112,7 @@ export default function AdminWorkflowsPage() {
         <div className="grid gap-6 xl:grid-cols-[320px,1fr]">
           <Card
             title="Orders"
-            description="Select an order to inspect its lifecycle."
+            description="Pick an order to review its full journey from start to finish."
           >
             <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
               {orders.map((order) => (
@@ -151,7 +151,7 @@ export default function AdminWorkflowsPage() {
             description={
               selectedOrder?.updated_at
                 ? `Updated ${new Date(selectedOrder.updated_at).toLocaleString()}`
-                : "Workflow lifecycle"
+                : "Order journey"
             }
           >
             {selectedOrder ? (

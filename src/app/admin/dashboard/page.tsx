@@ -60,6 +60,39 @@ type AnomalyRow = {
   country: string | null;
 };
 
+type OverviewMetricsPayload = {
+  metrics: {
+    activeOrders: number;
+    completedOrders: number;
+    activePartners: number;
+    activeCustomers: number;
+    queueFailed: number;
+    queueQueued: number;
+    staleHandoffs: number;
+  };
+  alerts: string[];
+};
+
+type AdminKpiCard = {
+  id: string;
+  title: string;
+  value: number;
+  unit: "count" | "percent";
+  trendDeltaPct: number;
+  trendDirection: "up" | "down" | "flat";
+  formula: string;
+  drillDownHref: string;
+  drillDownLabel: string;
+};
+
+type AdminKpiPayload = {
+  window: {
+    from: string;
+    to: string;
+  };
+  cards: AdminKpiCard[];
+};
+
 const ANOMALY_TYPE_LABELS: Record<string, string> = {
   revenue_volume_contradiction: "Revenue / Volume Mismatch",
   employee_revenue_mismatch: "Employee / Revenue Mismatch",
@@ -111,6 +144,81 @@ export default function AdminDashboardPage() {
   const [anomaliesLoading, setAnomaliesLoading] = useState(true);
   const [anomaliesError, setAnomaliesError] = useState<string | null>(null);
   const [anomalyActioning, setAnomalyActioning] = useState<string | null>(null);
+  const [overviewMetrics, setOverviewMetrics] = useState<
+    OverviewMetricsPayload["metrics"] | null
+  >(null);
+  const [overviewAlerts, setOverviewAlerts] = useState<string[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [kpiCards, setKpiCards] = useState<AdminKpiCard[]>([]);
+  const [kpiWindow, setKpiWindow] = useState<AdminKpiPayload["window"] | null>(
+    null,
+  );
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+
+  const loadKpiCards = async () => {
+    setKpiLoading(true);
+    setKpiError(null);
+
+    try {
+      const response = await fetch("/api/admin/dashboard-kpis", {
+        credentials: "include",
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        window?: AdminKpiPayload["window"];
+        cards?: AdminKpiCard[];
+      };
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Could not load KPI cards.");
+      }
+
+      setKpiCards(body.cards ?? []);
+      setKpiWindow(body.window ?? null);
+    } catch (loadError) {
+      setKpiError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load KPI cards.",
+      );
+    } finally {
+      setKpiLoading(false);
+    }
+  };
+
+  const loadOverviewMetrics = async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
+
+    try {
+      const response = await fetch("/api/admin/overview-metrics", {
+        credentials: "include",
+      });
+
+      const body = (await response.json()) as {
+        error?: string;
+        metrics?: OverviewMetricsPayload["metrics"];
+        alerts?: string[];
+      };
+
+      if (!response.ok || !body.metrics) {
+        throw new Error(body.error ?? "Could not load overview metrics.");
+      }
+
+      setOverviewMetrics(body.metrics);
+      setOverviewAlerts(body.alerts ?? []);
+    } catch (loadError) {
+      setOverviewError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load overview metrics.",
+      );
+    } finally {
+      setOverviewLoading(false);
+    }
+  };
 
   const loadPartners = async () => {
     setIsLoading(true);
@@ -214,6 +322,8 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    void loadOverviewMetrics();
+    void loadKpiCards();
     void loadPartners();
     void loadRoutingRecs();
     void loadAnomalies();
@@ -448,6 +558,157 @@ export default function AdminDashboardPage() {
         <Badge>Management Console</Badge>
       </div>
 
+      <Card
+        title="System Oversight"
+        description="A live snapshot of how orders, handoffs, and the dispatch queue are performing right now."
+      >
+        {overviewError ? (
+          <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {overviewError}
+          </p>
+        ) : null}
+
+        {overviewLoading ? (
+          <p className="text-xs text-slate-300">Loading overview metrics...</p>
+        ) : overviewMetrics ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Active Orders
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.activeOrders}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Completed Orders
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.completedOrders}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Active Partners
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.activePartners}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Active Customers
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.activeCustomers}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:col-span-2 xl:col-span-1">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Queue Failed
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.queueFailed}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:col-span-2 xl:col-span-1">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Queue Queued
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.queueQueued}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:col-span-2 xl:col-span-2">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  Stale Handoffs &gt; 24h
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {overviewMetrics.staleHandoffs}
+                </p>
+              </div>
+            </div>
+
+            {overviewAlerts.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {overviewAlerts.map((alert, index) => (
+                  <p
+                    key={`${alert}-${index}`}
+                    className="rounded-lg border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+                  >
+                    {alert}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-emerald-200">
+                No critical system alerts right now.
+              </p>
+            )}
+          </>
+        ) : null}
+      </Card>
+
+      <Card
+        title="KPI Drilldowns"
+        description={
+          kpiWindow
+            ? `Trend window: ${new Date(kpiWindow.from).toLocaleDateString()} - ${new Date(kpiWindow.to).toLocaleDateString()}`
+            : "Trend window: last 7 days"
+        }
+      >
+        {kpiError ? (
+          <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {kpiError}
+          </p>
+        ) : null}
+
+        {kpiLoading ? (
+          <p className="text-xs text-slate-300">Loading KPI drilldowns...</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {kpiCards.map((card) => (
+              <div
+                key={card.id}
+                className="flex flex-col rounded-xl border border-white/10 bg-white/5 p-3"
+              >
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                  {card.title}
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {card.unit === "percent"
+                    ? `${card.value.toFixed(2)}%`
+                    : card.value}
+                </p>
+                <p className="mt-1 text-xs text-slate-300">
+                  {card.trendDirection === "up"
+                    ? "↑"
+                    : card.trendDirection === "down"
+                      ? "↓"
+                      : "→"}{" "}
+                  {Math.abs(card.trendDeltaPct).toFixed(1)}% vs prior 7 days
+                </p>
+                <p className="mt-1 text-[11px] text-slate-400 flex-1">
+                  {card.formula}
+                </p>
+                <a
+                  href={card.drillDownHref}
+                  className="mt-3 inline-flex text-xs font-semibold text-cyan-200 hover:text-cyan-100"
+                >
+                  {card.drillDownLabel} →
+                </a>
+              </div>
+            ))}
+
+            {kpiCards.length === 0 ? (
+              <p className="text-xs text-slate-400">No KPI cards available.</p>
+            ) : null}
+          </div>
+        )}
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {adminMetrics.map((metric) => (
           <Card key={metric.id} title={metric.label} description={metric.hint}>
@@ -458,7 +719,7 @@ export default function AdminDashboardPage() {
 
       <Card
         title="Service Partner Management"
-        description="Manage partners mapped to each service stream."
+        description="Assign and adjust which partners handle each service type."
       >
         <div className="space-y-4">
           {error ? (
@@ -585,7 +846,7 @@ export default function AdminDashboardPage() {
       {/* ── Provider Routing Queue ──────────────────────────────────────────── */}
       <Card
         title={`Provider Routing Queue${routingPendingCount > 0 ? ` (${routingPendingCount} pending)` : ""}`}
-        description="AI-generated partner routing recommendations. Accept to confirm, override to reassign, or dismiss to skip."
+        description="Suggested partner assignments for incoming orders. Review each one and confirm, swap, or ignore."
       >
         <div className="space-y-3">
           {routingError ? (
@@ -621,7 +882,7 @@ export default function AdminDashboardPage() {
                   {routingRecs.map((rec) => (
                     <Fragment key={rec.id}>
                       <tr className="border-b border-white/10 align-top">
-                        <td className="max-w-[140px] truncate px-3 py-2 text-xs">
+                        <td className="px-3 py-2 text-xs">
                           {rec.organizationName}
                         </td>
                         <td className="px-3 py-2 text-xs font-medium text-white">
@@ -647,10 +908,8 @@ export default function AdminDashboardPage() {
                             {rec.source}
                           </span>
                         </td>
-                        <td className="max-w-[240px] px-3 py-2 text-xs text-slate-300">
-                          {rec.explanation.length > 100
-                            ? rec.explanation.slice(0, 97) + "…"
-                            : rec.explanation}
+                        <td className="px-3 py-2 text-xs text-slate-300">
+                          {rec.explanation}
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex flex-wrap gap-1.5">
@@ -785,7 +1044,10 @@ export default function AdminDashboardPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Governance Tasks" description="Policy and approval tasks.">
+        <Card
+          title="Pending Approvals"
+          description="Items waiting on a decision before work can continue."
+        >
           <div className="space-y-3">
             {routingRecs.slice(0, 3).map((task) => (
               <div
@@ -813,7 +1075,7 @@ export default function AdminDashboardPage() {
 
         <Card
           title="Critical Alerts"
-          description="Audit and security incidents."
+          description="Recent alerts that may need your attention."
         >
           <div className="space-y-3">
             {anomalies.slice(0, 3).map((alert) => (
@@ -839,7 +1101,7 @@ export default function AdminDashboardPage() {
 
       <Card
         title={`Onboarding Anomaly Alerts${anomalyPendingCount > 0 ? ` (${anomalyPendingCount} pending)` : ""}`}
-        description="Flagged submissions requiring manual review before provider dispatch."
+        description="Submissions that were flagged during onboarding and need a manual check before they can proceed."
       >
         {anomaliesError ? (
           <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
@@ -940,7 +1202,7 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card
           title="AI Governance Recommendations"
-          description="Recommendations with confidence and action mapping."
+          description="How confident the system is in each suggestion and what action was taken."
         >
           <div className="space-y-3">
             {routingRecs.slice(0, 5).map((item) => (
@@ -967,7 +1229,7 @@ export default function AdminDashboardPage() {
 
         <Card
           title="AI Scenario Library"
-          description="Scenario coverage for AI ticketing."
+          description="Which types of requests the system can handle automatically."
         >
           <div className="space-y-3">
             <div className="rounded-xl border border-white/15 bg-white/5 p-3">

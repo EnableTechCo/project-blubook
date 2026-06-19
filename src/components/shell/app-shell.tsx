@@ -263,8 +263,8 @@ export function AppShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex flex-1 flex-col overflow-y-auto no-scrollbar pb-4">
-          <div className="mb-8 flex items-end justify-between">
+        <div className="flex h-full min-h-0 flex-col pb-4">
+          <div className="mb-4 flex items-end justify-between">
             <div>
               <p
                 className={cn(
@@ -293,7 +293,7 @@ export function AppShell({
             </button>
           </div>
 
-          <nav className="space-y-2 px-1">
+          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto px-1 no-scrollbar">
             {navItems.map((item) => {
               const showBadge =
                 item.badgeAlwaysVisible ||
@@ -359,7 +359,7 @@ export function AppShell({
               );
             })}
           </nav>
-          <div className="mt-auto space-y-3 pt-4">
+          <div className="shrink-0 space-y-3 pt-4">
             <SidebarInsightsSlider isDark={isDark} />
 
             <div className="relative mb-2">
