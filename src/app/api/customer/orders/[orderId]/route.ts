@@ -99,6 +99,7 @@ export async function DELETE(
     }
 
     await Promise.all([
+      admin.from("purchase_orders").delete().eq("sales_order_id", orderId),
       admin
         .from("provider_workflow_handoffs")
         .delete()

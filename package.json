@@ -18,7 +18,8 @@
     "debug:login:partner": "node scripts/debug-partner-login.mjs",
     "db:introspect": "node --env-file=.env.local scripts/introspect-db-and-apis.mjs",
     "email:test:onboarding": "node --env-file=.env.local scripts/send-test-onboarding-email.mjs",
-    "seed:providers:mock": "node --env-file=.env.local scripts/seed-mock-provider-accounts.mjs"
+    "seed:providers:mock": "node --env-file=.env.local scripts/seed-mock-provider-accounts.mjs",
+    "provision:admin": "node --env-file=.env.local scripts/provision-admin-account.mjs"
   },
   "dependencies": {
     "@highcharts/react": "^5.1.0",
@@ -31,7 +32,7 @@
     "lucide-react": "^0.511.0",
     "motion": "^12.40.0",
     "next": "^15.3.3",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.1",
     "pdf-lib": "^1.17.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

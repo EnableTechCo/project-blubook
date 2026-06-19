@@ -73,6 +73,17 @@ html.theme-dark .surface {
   background: rgba(15, 23, 42, 0.9);
 }
 
+/* Keep scroll behavior but hide scrollbar chrome for constrained UI panes. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 /* Global gradient kill-switch (user request: remove gradients app-wide) */
 [class*="bg-gradient"],
 [class*="from-"][class*="to-"],
@@ -85,45 +96,93 @@ html.theme-dark .surface {
 }
 
 /* Light-mode typography safety net for legacy dark-first utility usage */
-html.theme-light [class*="text-white"] {
-  color: #ffffff;
+/* Apply whenever the document is not explicitly in dark mode. */
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-white"] {
+  color: #0f172a;
 }
 
-html.theme-light [class*="text-slate-100"],
-html.theme-light [class*="text-slate-200"],
-html.theme-light [class*="text-slate-300"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="hover:text-white"]:hover {
+  color: #0f172a;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-slate-50"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-slate-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-slate-200"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-slate-300"] {
   color: #334155;
 }
 
-html.theme-light [class*="text-slate-400"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-slate-400"] {
   color: #475569;
 }
 
-html.theme-light [class*="text-cyan-100"],
-html.theme-light [class*="text-cyan-200"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-cyan-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-cyan-200"] {
   color: #0e7490;
 }
 
-html.theme-light [class*="bg-white/5"],
-html.theme-light [class*="bg-white/[0.03]"],
-html.theme-light [class*="bg-white/[0.02]"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-red-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-red-200"] {
+  color: #991b1b;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-amber-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-amber-200"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-orange-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-orange-200"] {
+  color: #9a3412;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-blue-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-blue-200"] {
+  color: #1d4ed8;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-emerald-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-emerald-200"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-green-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-green-200"] {
+  color: #166534;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-purple-100"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="text-purple-200"] {
+  color: #6b21a8;
+}
+
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="hover:text-slate-200"]:hover,
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="hover:text-slate-300"]:hover,
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="hover:text-slate-400"]:hover {
+  color: #1e293b;
+}
+
+:is(html.theme-light, html:not(.theme-dark)) [class*="bg-white/5"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="bg-white/[0.03]"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="bg-white/[0.02]"] {
   background-color: rgba(148, 163, 184, 0.12) !important;
 }
 
-html.theme-light [class*="bg-white/10"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="bg-white/10"] {
   background-color: rgba(148, 163, 184, 0.16) !important;
 }
 
-html.theme-light [class*="border-white/10"],
-html.theme-light [class*="border-white/15"],
-html.theme-light [class*="border-white/20"] {
+:is(html.theme-light, html:not(.theme-dark)) [class*="border-white/10"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="border-white/15"],
+:is(html.theme-light, html:not(.theme-dark)) [class*="border-white/20"] {
   border-color: rgba(148, 163, 184, 0.35) !important;
 }
 
 /* Keep explicit white-on-brand/alert controls readable */
-html.theme-light [class*="bg-coral"][class*="text-white"],
-html.theme-light [class*="bg-red-"][class*="text-white"],
-html.theme-light [class*="bg-green-"][class*="text-white"],
-html.theme-light [class*="bg-emerald-"][class*="text-white"] {
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="bg-coral"][class*="text-white"],
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="bg-red-"][class*="text-white"],
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="bg-green-"][class*="text-white"],
+:is(html.theme-light, html:not(.theme-dark))
+  [class*="bg-emerald-"][class*="text-white"] {
   color: #ffffff;
 }
