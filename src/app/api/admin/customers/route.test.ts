@@ -23,10 +23,10 @@ type QueryResult = {
 
 type QueryChain = {
   select: (..._args: unknown[]) => QueryChain;
-  eq: (..._args: unknown[]) => QueryChain;
+  eq: (field: string, value: unknown) => QueryChain;
   maybeSingle: () => Promise<QueryResult>;
   order: (..._args: unknown[]) => QueryChain;
-  in: (..._args: unknown[]) => QueryChain;
+  in: (field: string, values: unknown[]) => QueryChain;
   then: <T>(
     onFulfilled?: ((value: QueryResult) => T | PromiseLike<T>) | null,
     onRejected?: ((reason: unknown) => T | PromiseLike<T>) | null,

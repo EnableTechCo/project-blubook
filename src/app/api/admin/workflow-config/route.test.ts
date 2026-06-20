@@ -22,7 +22,7 @@ type QueryResult = {
 
 type Chain = {
   select: (..._args: unknown[]) => Chain;
-  eq: (..._args: unknown[]) => Chain;
+  eq: (field: string, value: unknown) => Chain;
   maybeSingle: () => Promise<QueryResult>;
   update: (..._args: unknown[]) => Chain;
   then: <T>(
