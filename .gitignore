@@ -28,6 +28,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# design docs (internal only)
+docs/DESIGN.md
+
 # generated planning exports
 phase-tasklist.json
 ai-feature-tasklist.json

@@ -34,9 +34,27 @@ type Chain = {
   ) => Promise<T>;
 };
 
-function createChain(result: QueryResult): Chain {
+function createChain(
+  result: QueryResult,
+  eqFilters?: Record<string, unknown>,
+  isMaybeSingle?: boolean,
+): Chain {
+  const hasFilters = eqFilters && Object.keys(eqFilters).length > 0;
+  let filteredData = result.data;
+
+  if (hasFilters && Array.isArray(result.data)) {
+    const matches = (result.data as Array<Record<string, unknown>>).filter(
+      (item) =>
+        Object.entries(eqFilters!).every(([key, value]) => item[key] === value),
+    );
+    filteredData = isMaybeSingle ? (matches[0] ?? null) : matches;
+  }
+
   const resolved: QueryResult = {
-    data: result.data ?? null,
+    data:
+      isMaybeSingle && Array.isArray(filteredData)
+        ? (filteredData[0] ?? null)
+        : filteredData,
     error: result.error ?? null,
   };
 
@@ -52,9 +70,25 @@ function createChain(result: QueryResult): Chain {
       Promise.resolve(resolved).then(onFulfilled, onRejected),
   };
 
+  const eqFiltersCopy = { ...eqFilters };
+
   chain.select = vi.fn(() => chain);
-  chain.eq = vi.fn(() => chain);
-  chain.maybeSingle = vi.fn(async () => resolved);
+  chain.eq = vi.fn((field: string, value: unknown) => {
+    eqFiltersCopy[field] = value;
+    return createChain(result, eqFiltersCopy, false);
+  });
+  chain.maybeSingle = vi.fn(async () => {
+    let data = resolved.data;
+    if (Array.isArray(data) && data.length > 0) {
+      data = data[0];
+    } else if (Array.isArray(data)) {
+      data = null;
+    }
+    return {
+      data,
+      error: resolved.error,
+    };
+  });
   chain.order = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
   chain.in = vi.fn(() => chain);
@@ -166,7 +200,15 @@ describe("/api/admin/roles", () => {
     });
 
     const adminClient = createAdminClient({
-      user_profiles: { data: { role: "admin" }, error: null },
+      user_profiles: {
+        data: [
+          {
+            user_id: "11111111-1111-4111-8111-111111111111",
+            role: "admin",
+          },
+        ],
+        error: null,
+      },
     });
     createAdminClientMock.mockReturnValue(adminClient);
 
@@ -199,10 +241,16 @@ describe("/api/admin/roles", () => {
 
     const adminClient = createAdminClient({
       user_profiles: {
-        data: {
-          user_id: "22222222-2222-4222-8222-222222222222",
-          role: "partner",
-        },
+        data: [
+          {
+            user_id: "11111111-1111-4111-8111-111111111111",
+            role: "admin",
+          },
+          {
+            user_id: "22222222-2222-4222-8222-222222222222",
+            role: "partner",
+          },
+        ],
         error: null,
       },
       organization_memberships: { data: null, error: null },

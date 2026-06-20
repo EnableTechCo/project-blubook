@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 export interface ShellNavItem {
   href: Route;
   label: string;
+  section?: string;
   /** Pre-computed badge count supplied by the role-specific shell wrapper. */
   badge?: number;
   /**
@@ -172,6 +173,20 @@ export function AppShell({
     [items],
   );
 
+  const groupedNavItems = useMemo(() => {
+    const sections = new Map<string, ShellNavItem[]>();
+    navItems.forEach((item) => {
+      const key = item.section ?? "General";
+      const rows = sections.get(key) ?? [];
+      rows.push(item);
+      sections.set(key, rows);
+    });
+    return Array.from(sections.entries()).map(([section, items]) => ({
+      section,
+      items,
+    }));
+  }, [navItems]);
+
   const isNavItemActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
   const isDark = theme === "dark";
@@ -272,71 +287,88 @@ export function AppShell({
             </button>
           </div>
 
-          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto px-1 no-scrollbar">
-            {navItems.map((item) => {
-              const showBadge =
-                item.badgeAlwaysVisible ||
-                (item.badge != null && item.badge > 0);
-              const badgeCount = item.badge ?? 0;
-              const NavIcon = getNavIcon(item);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onMouseEnter={() => setHoveredNavHref(item.href)}
-                  onMouseLeave={() =>
-                    setHoveredNavHref((current) =>
-                      current === item.href ? null : current,
-                    )
-                  }
+          <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 no-scrollbar">
+            {groupedNavItems.map((group) => (
+              <section
+                key={group.section}
+                aria-label={`${group.section} links`}
+              >
+                <p
                   className={cn(
-                    "group flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
-                    isDark
-                      ? "text-slate-200 hover:bg-slate-800"
-                      : "text-slate-700 hover:bg-slate-100",
-                    isNavItemActive(item.href)
-                      ? isDark
-                        ? "bg-cyan-900/45 text-cyan-100 ring-1 ring-cyan-700"
-                        : "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-300/60"
-                      : "",
+                    "mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    isDark ? "text-slate-400" : "text-slate-500",
                   )}
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <HoverAnimatedIcon
-                      icon={NavIcon}
-                      active={hoveredNavHref === item.href}
-                      className={cn(
-                        "h-4 w-4 transition-transform duration-200 group-hover:scale-110",
-                        isNavItemActive(item.href)
-                          ? isDark
-                            ? "text-cyan-200"
-                            : "text-cyan-700"
-                          : isDark
-                            ? "text-slate-300 group-hover:text-cyan-200"
-                            : "text-slate-500 group-hover:text-cyan-700",
-                      )}
-                      size={16}
-                    />
-                    <span>{item.label}</span>
-                  </span>
-                  {showBadge ? (
-                    <span
-                      className={cn(
-                        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
-                        badgeCount > 0
-                          ? "bg-coral text-white"
-                          : isDark
-                            ? "bg-slate-800 text-slate-300"
-                            : "bg-slate-100 text-slate-500",
-                      )}
-                    >
-                      {badgeCount > 99 ? "99+" : badgeCount}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
+                  {group.section}
+                </p>
+                <div className="space-y-2">
+                  {group.items.map((item) => {
+                    const showBadge =
+                      item.badgeAlwaysVisible ||
+                      (item.badge != null && item.badge > 0);
+                    const badgeCount = item.badge ?? 0;
+                    const NavIcon = getNavIcon(item);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onMouseEnter={() => setHoveredNavHref(item.href)}
+                        onMouseLeave={() =>
+                          setHoveredNavHref((current) =>
+                            current === item.href ? null : current,
+                          )
+                        }
+                        className={cn(
+                          "group flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
+                          isDark
+                            ? "text-slate-200 hover:bg-slate-800"
+                            : "text-slate-700 hover:bg-slate-100",
+                          isNavItemActive(item.href)
+                            ? isDark
+                              ? "bg-cyan-900/45 text-cyan-100 ring-1 ring-cyan-700"
+                              : "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-300/60"
+                            : "",
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <HoverAnimatedIcon
+                            icon={NavIcon}
+                            active={hoveredNavHref === item.href}
+                            className={cn(
+                              "h-4 w-4 transition-transform duration-200 group-hover:scale-110",
+                              isNavItemActive(item.href)
+                                ? isDark
+                                  ? "text-cyan-200"
+                                  : "text-cyan-700"
+                                : isDark
+                                  ? "text-slate-300 group-hover:text-cyan-200"
+                                  : "text-slate-500 group-hover:text-cyan-700",
+                            )}
+                            size={16}
+                          />
+                          <span>{item.label}</span>
+                        </span>
+                        {showBadge ? (
+                          <span
+                            className={cn(
+                              "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                              badgeCount > 0
+                                ? "bg-coral text-white"
+                                : isDark
+                                  ? "bg-slate-800 text-slate-300"
+                                  : "bg-slate-100 text-slate-500",
+                            )}
+                          >
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </nav>
           <div className="shrink-0 space-y-3 pt-4">
             <SidebarInsightsSlider isDark={isDark} />

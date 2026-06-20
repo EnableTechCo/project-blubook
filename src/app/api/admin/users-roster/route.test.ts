@@ -33,9 +33,27 @@ type Chain = {
   ) => Promise<T>;
 };
 
-function createChain(result: QueryResult): Chain {
+function createChain(
+  result: QueryResult,
+  eqFilters?: Record<string, unknown>,
+  isMaybeSingle?: boolean,
+): Chain {
+  const hasFilters = eqFilters && Object.keys(eqFilters).length > 0;
+  let filteredData = result.data;
+
+  if (hasFilters && Array.isArray(result.data)) {
+    const matches = (result.data as Array<Record<string, unknown>>).filter(
+      (item) =>
+        Object.entries(eqFilters!).every(([key, value]) => item[key] === value),
+    );
+    filteredData = isMaybeSingle ? (matches[0] ?? null) : matches;
+  }
+
   const resolved: QueryResult = {
-    data: result.data ?? null,
+    data:
+      isMaybeSingle && Array.isArray(filteredData)
+        ? (filteredData[0] ?? null)
+        : filteredData,
     error: result.error ?? null,
   };
 
@@ -50,9 +68,25 @@ function createChain(result: QueryResult): Chain {
       Promise.resolve(resolved).then(onFulfilled, onRejected),
   };
 
+  const eqFiltersCopy = { ...eqFilters };
+
   chain.select = vi.fn(() => chain);
-  chain.eq = vi.fn(() => chain);
-  chain.maybeSingle = vi.fn(async () => resolved);
+  chain.eq = vi.fn((field: string, value: unknown) => {
+    eqFiltersCopy[field] = value;
+    return createChain(result, eqFiltersCopy, true);
+  });
+  chain.maybeSingle = vi.fn(async () => {
+    let data = resolved.data;
+    if (Array.isArray(data) && data.length > 0) {
+      data = data[0];
+    } else if (Array.isArray(data)) {
+      data = null;
+    }
+    return {
+      data,
+      error: resolved.error,
+    };
+  });
   chain.order = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
   chain.in = vi.fn(() => chain);
@@ -189,4 +223,3 @@ describe("GET /api/admin/users-roster", () => {
     });
   });
 });
-
