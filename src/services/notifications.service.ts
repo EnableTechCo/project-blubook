@@ -54,6 +54,22 @@ export async function markNotificationRead(input: {
   return data as NotificationRecord;
 }
 
+export async function markNotificationsRead(input: {
+  notificationIds: string[];
+  userId: string;
+}) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .in("id", input.notificationIds)
+    .eq("user_id", input.userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function markAllNotificationsRead(userId: string) {
   const supabase = createClient();
   const { error } = await supabase

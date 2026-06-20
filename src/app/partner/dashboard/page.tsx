@@ -28,6 +28,7 @@ import { uploadDocument } from "@/services/documents.service";
 import { LogisticsWorkOrdersCtaCard } from "@/components/dashboard/partner/logistics-work-orders-cta-card";
 import { PartnerRequestPingCard } from "@/components/dashboard/partner/partner-request-ping-card";
 import { PartnerRequestQueueItem } from "@/components/dashboard/partner/partner-request-queue-item";
+import { ActivityTimeline } from "@/components/dashboard/partner/activity-timeline";
 import {
   WorkflowStepMatrix,
   getWorkflowStageIndexFromSalesOrder,
@@ -2688,6 +2689,13 @@ export default function PartnerDashboardPage() {
                 ]
           }
         />
+
+        <Card
+          title="Recent Activity"
+          description="Latest actions and events across your requests"
+        >
+          <ActivityTimeline limit={10} />
+        </Card>
 
         {!isLogisticsPartner ? (
           <div className="grid gap-4">

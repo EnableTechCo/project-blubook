@@ -8,6 +8,7 @@ import {
 } from "@/lib/workflow/order-lifecycle";
 import { resolveServicePartnerForStream } from "@/lib/workflow/service-partner-routing";
 import { assertValidTransition } from "@/lib/workflow/transition-validator";
+import { validateInvoiceTotals } from "@/lib/workflow/invoice-consistency";
 import type {
   QueueWorkflowEvent,
   SalesWorkflowEventType,
@@ -353,6 +354,7 @@ export async function processSalesWorkflowEvent(
 
       let orderItemId = "";
       let orderId = "";
+      let completedPurchaseOrderTask = false;
 
       if (taskType === "pick_ticket") {
         const { data: ticket, error: ticketError } = await admin
@@ -414,6 +416,7 @@ export async function processSalesWorkflowEvent(
 
         if (poError || !po) throw new Error("Purchase order not found");
         orderItemId = po.order_item_id;
+        completedPurchaseOrderTask = true;
 
         await admin.from("fulfillment_logs").insert({
           order_item_id: orderItemId,
@@ -432,6 +435,16 @@ export async function processSalesWorkflowEvent(
 
       if (!item) throw new Error("Order item not associated with any order");
       orderId = item.order_id;
+
+      if (completedPurchaseOrderTask) {
+        await admin
+          .from("purchase_orders")
+          .update({
+            status: "completed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("sales_order_id", orderId);
+      }
 
       await assertSalesCompletionUnlocked(orderId);
 
@@ -524,6 +537,11 @@ export async function processSalesWorkflowEvent(
             unit_amount_cents: item.unit_price_cents,
             line_total_cents: item.quantity * item.unit_price_cents,
           });
+        }
+
+        const consistency = await validateInvoiceTotals(invoice.id, admin);
+        if (!consistency.valid) {
+          throw new Error(consistency.error);
         }
       }
 

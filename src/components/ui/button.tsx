@@ -21,7 +21,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={props.type ?? "button"}
         className={cn(
-          "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition active:scale-[0.99] [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg]:-translate-y-0.5 hover:[&_svg]:scale-110",
+          "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg]:-translate-y-0.5 hover:[&_svg]:scale-110",
           variantClass[variant],
           className,
         )}

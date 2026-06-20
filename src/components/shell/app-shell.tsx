@@ -5,7 +5,7 @@ import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
@@ -43,17 +43,17 @@ import { WorkflowIcon } from "@/components/icons/workflow";
 import { SidebarInsightsSlider } from "@/components/shell/sidebar-insights-slider";
 import {
   listNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
   subscribeToNotifications,
 } from "@/services/notifications.service";
 import { useNotificationStore } from "@/store/notification-store";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useUiStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
 
 export interface ShellNavItem {
   href: Route;
   label: string;
+  section?: string;
   /** Pre-computed badge count supplied by the role-specific shell wrapper. */
   badge?: number;
   /**
@@ -121,7 +121,7 @@ export function AppShell({
   const queryClient = useQueryClient();
   const { data: user, isLoading: authLoading, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
-  const { items, setItems, markRead, markAllRead } = useNotificationStore();
+  const { items, setItems } = useNotificationStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -168,30 +168,24 @@ export function AppShell({
     };
   }, [queryClient, user?.id]);
 
-  const markReadMutation = useMutation({
-    mutationFn: markNotificationRead,
-    onSuccess: async (_, variables) => {
-      markRead(variables.notificationId);
-      await queryClient.invalidateQueries({
-        queryKey: ["notifications", user?.id],
-      });
-    },
-  });
-
-  const markAllReadMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
-    onSuccess: async () => {
-      markAllRead();
-      await queryClient.invalidateQueries({
-        queryKey: ["notifications", user?.id],
-      });
-    },
-  });
-
   const unreadCount = useMemo(
     () => items.filter((item) => !item.read).length,
     [items],
   );
+
+  const groupedNavItems = useMemo(() => {
+    const sections = new Map<string, ShellNavItem[]>();
+    navItems.forEach((item) => {
+      const key = item.section ?? "General";
+      const rows = sections.get(key) ?? [];
+      rows.push(item);
+      sections.set(key, rows);
+    });
+    return Array.from(sections.entries()).map(([section, items]) => ({
+      section,
+      items,
+    }));
+  }, [navItems]);
 
   const isNavItemActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -263,8 +257,8 @@ export function AppShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex flex-1 flex-col overflow-y-auto no-scrollbar pb-4">
-          <div className="mb-8 flex items-end justify-between">
+        <div className="flex h-full min-h-0 flex-col pb-4">
+          <div className="mb-4 flex items-end justify-between">
             <div>
               <p
                 className={cn(
@@ -293,73 +287,90 @@ export function AppShell({
             </button>
           </div>
 
-          <nav className="space-y-2 px-1">
-            {navItems.map((item) => {
-              const showBadge =
-                item.badgeAlwaysVisible ||
-                (item.badge != null && item.badge > 0);
-              const badgeCount = item.badge ?? 0;
-              const NavIcon = getNavIcon(item);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onMouseEnter={() => setHoveredNavHref(item.href)}
-                  onMouseLeave={() =>
-                    setHoveredNavHref((current) =>
-                      current === item.href ? null : current,
-                    )
-                  }
+          <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 no-scrollbar">
+            {groupedNavItems.map((group) => (
+              <section
+                key={group.section}
+                aria-label={`${group.section} links`}
+              >
+                <p
                   className={cn(
-                    "group flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
-                    isDark
-                      ? "text-slate-200 hover:bg-slate-800"
-                      : "text-slate-700 hover:bg-slate-100",
-                    isNavItemActive(item.href)
-                      ? isDark
-                        ? "bg-cyan-900/45 text-cyan-100 ring-1 ring-cyan-700"
-                        : "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-300/60"
-                      : "",
+                    "mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    isDark ? "text-slate-400" : "text-slate-500",
                   )}
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <HoverAnimatedIcon
-                      icon={NavIcon}
-                      active={hoveredNavHref === item.href}
-                      className={cn(
-                        "h-4 w-4 transition-transform duration-200 group-hover:scale-110",
-                        isNavItemActive(item.href)
-                          ? isDark
-                            ? "text-cyan-200"
-                            : "text-cyan-700"
-                          : isDark
-                            ? "text-slate-300 group-hover:text-cyan-200"
-                            : "text-slate-500 group-hover:text-cyan-700",
-                      )}
-                      size={16}
-                    />
-                    <span>{item.label}</span>
-                  </span>
-                  {showBadge ? (
-                    <span
-                      className={cn(
-                        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
-                        badgeCount > 0
-                          ? "bg-coral text-white"
-                          : isDark
-                            ? "bg-slate-800 text-slate-300"
-                            : "bg-slate-100 text-slate-500",
-                      )}
-                    >
-                      {badgeCount > 99 ? "99+" : badgeCount}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
+                  {group.section}
+                </p>
+                <div className="space-y-2">
+                  {group.items.map((item) => {
+                    const showBadge =
+                      item.badgeAlwaysVisible ||
+                      (item.badge != null && item.badge > 0);
+                    const badgeCount = item.badge ?? 0;
+                    const NavIcon = getNavIcon(item);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onMouseEnter={() => setHoveredNavHref(item.href)}
+                        onMouseLeave={() =>
+                          setHoveredNavHref((current) =>
+                            current === item.href ? null : current,
+                          )
+                        }
+                        className={cn(
+                          "group flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
+                          isDark
+                            ? "text-slate-200 hover:bg-slate-800"
+                            : "text-slate-700 hover:bg-slate-100",
+                          isNavItemActive(item.href)
+                            ? isDark
+                              ? "bg-cyan-900/45 text-cyan-100 ring-1 ring-cyan-700"
+                              : "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-300/60"
+                            : "",
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <HoverAnimatedIcon
+                            icon={NavIcon}
+                            active={hoveredNavHref === item.href}
+                            className={cn(
+                              "h-4 w-4 transition-transform duration-200 group-hover:scale-110",
+                              isNavItemActive(item.href)
+                                ? isDark
+                                  ? "text-cyan-200"
+                                  : "text-cyan-700"
+                                : isDark
+                                  ? "text-slate-300 group-hover:text-cyan-200"
+                                  : "text-slate-500 group-hover:text-cyan-700",
+                            )}
+                            size={16}
+                          />
+                          <span>{item.label}</span>
+                        </span>
+                        {showBadge ? (
+                          <span
+                            className={cn(
+                              "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                              badgeCount > 0
+                                ? "bg-coral text-white"
+                                : isDark
+                                  ? "bg-slate-800 text-slate-300"
+                                  : "bg-slate-100 text-slate-500",
+                            )}
+                          >
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </nav>
-          <div className="mt-auto space-y-3 pt-4">
+          <div className="shrink-0 space-y-3 pt-4">
             <SidebarInsightsSlider isDark={isDark} />
 
             <div className="relative mb-2">
@@ -613,104 +624,12 @@ export function AppShell({
                 ) : null}
               </button>
 
-              {notificationsOpen ? (
-                <div
-                  className={cn(
-                    "absolute right-0 z-50 mt-2 w-[320px] rounded-2xl border p-3 shadow-panel",
-                    isDark
-                      ? "border-slate-700 bg-slate-900"
-                      : "border-slate-200 bg-white",
-                  )}
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        isDark ? "text-slate-100" : "text-slate-900",
-                      )}
-                    >
-                      Notifications
-                    </p>
-                    <button
-                      type="button"
-                      className={cn(
-                        "text-xs disabled:opacity-60",
-                        isDark
-                          ? "text-cyan-300 hover:text-cyan-200"
-                          : "text-cyan-700 hover:text-cyan-800",
-                      )}
-                      onClick={() =>
-                        user?.id && markAllReadMutation.mutate(user.id)
-                      }
-                      disabled={
-                        markAllReadMutation.isPending || unreadCount === 0
-                      }
-                    >
-                      Mark all read
-                    </button>
-                  </div>
-
-                  <div className="max-h-72 space-y-2 overflow-y-auto">
-                    {notificationsQuery.isLoading ? (
-                      <p
-                        className={cn(
-                          "text-xs",
-                          isDark ? "text-slate-400" : "text-slate-500",
-                        )}
-                      >
-                        Loading...
-                      </p>
-                    ) : null}
-                    {items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={cn(
-                          "w-full rounded-xl border px-3 py-2 text-left transition",
-                          item.read
-                            ? isDark
-                              ? "border-slate-700 bg-slate-800"
-                              : "border-slate-200 bg-slate-50"
-                            : "border-coral/40 bg-coral/10",
-                        )}
-                        onClick={() =>
-                          user?.id &&
-                          markReadMutation.mutate({
-                            notificationId: item.id,
-                            userId: user.id,
-                          })
-                        }
-                      >
-                        <p
-                          className={cn(
-                            "text-sm",
-                            isDark ? "text-slate-100" : "text-slate-800",
-                          )}
-                        >
-                          {item.message}
-                        </p>
-                        <p
-                          className={cn(
-                            "mt-1 text-[11px]",
-                            isDark ? "text-slate-400" : "text-slate-500",
-                          )}
-                        >
-                          {new Date(item.createdAt).toLocaleString()}
-                        </p>
-                      </button>
-                    ))}
-                    {!notificationsQuery.isLoading && items.length === 0 ? (
-                      <p
-                        className={cn(
-                          "text-xs",
-                          isDark ? "text-slate-400" : "text-slate-500",
-                        )}
-                      >
-                        No notifications yet.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+              {notificationsOpen && user?.id ? (
+                <NotificationPanel
+                  userId={user.id}
+                  isDark={isDark}
+                  isLoading={notificationsQuery.isLoading}
+                />
               ) : null}
             </div>
           </div>

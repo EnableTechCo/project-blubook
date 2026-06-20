@@ -39,6 +39,46 @@ export interface DocumentRecord {
   updatedAt?: string;
   documentType?: string;
   documentTypeLabel?: string;
+  groupKey?:
+    | "requirements-docs"
+    | "service-request-docs"
+    | "delivery-docs"
+    | "purchase-orders"
+    | "commercial-docs"
+    | "compliance-docs";
+  groupLabel?: string;
+}
+
+export type DocumentGroupKey =
+  | "requirements-docs"
+  | "service-request-docs"
+  | "delivery-docs"
+  | "purchase-orders"
+  | "commercial-docs"
+  | "compliance-docs";
+
+export interface CustomerGroupedDocumentsPayload {
+  metrics: {
+    total: number;
+    pageCount: number;
+    byGroup: Record<DocumentGroupKey, number>;
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasPrevPage: boolean;
+    hasNextPage: boolean;
+  };
+  filters: {
+    selectedGroup: DocumentGroupKey | null;
+    availableGroups: Array<{
+      key: DocumentGroupKey;
+      label: string;
+    }>;
+  };
+  documents: DocumentRecord[];
 }
 
 export async function listDocuments(input: { bucket: string; prefix: string }) {
@@ -83,6 +123,68 @@ export async function listDocuments(input: { bucket: string; prefix: string }) {
         ? item.metadata.documentTypeLabel
         : undefined,
   }));
+}
+
+export async function listCustomerDocumentsGrouped(input: {
+  organizationId: string;
+  bucket: string;
+  prefix: string;
+  group?: DocumentGroupKey;
+  page?: number;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams({
+    organizationId: input.organizationId,
+    bucket: input.bucket,
+    prefix: input.prefix,
+    page: String(input.page ?? 1),
+    pageSize: String(input.pageSize ?? 15),
+  });
+
+  if (input.group) {
+    params.set("group", input.group);
+  }
+
+  const response = await fetch(`/api/customer/documents?${params.toString()}`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const body = (await response.json().catch(() => null)) as
+    | ({ error?: string } & Partial<CustomerGroupedDocumentsPayload>)
+    | null;
+
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Could not load customer documents.");
+  }
+
+  return {
+    metrics: {
+      total: body?.metrics?.total ?? 0,
+      pageCount: body?.metrics?.pageCount ?? 0,
+      byGroup: body?.metrics?.byGroup ?? {
+        "requirements-docs": 0,
+        "service-request-docs": 0,
+        "delivery-docs": 0,
+        "purchase-orders": 0,
+        "commercial-docs": 0,
+        "compliance-docs": 0,
+      },
+    },
+    pagination: {
+      page: body?.pagination?.page ?? 1,
+      pageSize: body?.pagination?.pageSize ?? 15,
+      total: body?.pagination?.total ?? 0,
+      totalPages: body?.pagination?.totalPages ?? 1,
+      hasPrevPage: body?.pagination?.hasPrevPage ?? false,
+      hasNextPage: body?.pagination?.hasNextPage ?? false,
+    },
+    filters: {
+      selectedGroup: body?.filters?.selectedGroup ?? null,
+      availableGroups: body?.filters?.availableGroups ?? [],
+    },
+    documents: body?.documents ?? [],
+  } satisfies CustomerGroupedDocumentsPayload;
 }
 
 export async function uploadDocument(input: {

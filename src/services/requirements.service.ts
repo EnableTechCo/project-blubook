@@ -52,6 +52,19 @@ export interface CustomerRequirementItem {
   updatedAt: string;
 }
 
+export interface CustomerRequirementsPage {
+  items: CustomerRequirementItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    page: number;
+    hasPrevPage: boolean;
+    hasNextPage: boolean;
+  };
+}
+
 export async function listCustomerRequirements(organizationId: string) {
   const response = await fetch(
     `/api/customer/requirements?organizationId=${encodeURIComponent(organizationId)}`,
@@ -68,6 +81,44 @@ export async function listCustomerRequirements(organizationId: string) {
   }
 
   return (payload ?? []) as CustomerRequirementItem[];
+}
+
+export async function listCustomerRequirementsPage(input: {
+  organizationId: string;
+  status: RequirementStatus;
+  page: number;
+  pageSize: number;
+}) {
+  const page = Math.max(1, input.page);
+  const pageSize = Math.max(1, input.pageSize);
+  const offset = (page - 1) * pageSize;
+
+  const response = await fetch(
+    `/api/customer/requirements?organizationId=${encodeURIComponent(input.organizationId)}&status=${encodeURIComponent(input.status)}&limit=${pageSize}&offset=${offset}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Could not load customer requirements.");
+  }
+
+  return {
+    items: (payload?.items ?? []) as CustomerRequirementItem[],
+    pagination: {
+      limit: payload?.pagination?.limit ?? pageSize,
+      offset: payload?.pagination?.offset ?? offset,
+      total: payload?.pagination?.total ?? 0,
+      totalPages: payload?.pagination?.totalPages ?? 1,
+      page: payload?.pagination?.page ?? page,
+      hasPrevPage: payload?.pagination?.hasPrevPage ?? page > 1,
+      hasNextPage: payload?.pagination?.hasNextPage ?? false,
+    },
+  } as CustomerRequirementsPage;
 }
 
 export async function ensurePurchaseOrderRequirement() {
@@ -245,6 +296,7 @@ export async function submitRequirementEvidence(input: {
 
 const requirementsService = {
   listCustomerRequirements,
+  listCustomerRequirementsPage,
   ensurePurchaseOrderRequirement,
   submitRequirementEvidence,
 };

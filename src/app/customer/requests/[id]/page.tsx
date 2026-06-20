@@ -16,6 +16,7 @@ import {
   listRequestMessages,
   sendRequestMessage,
 } from "@/services/messages.service";
+import { ThreadAiAssist } from "@/components/messages/thread-ai-assist";
 import { getCustomerRequestById } from "@/services/requests.service";
 import { listCustomerRequirements } from "@/services/requirements.service";
 import requirementsService from "@/services/requirements.service";
@@ -661,6 +662,22 @@ export default function CustomerRequestDetailPage() {
       )}
 
       <Card title="Messages">
+        {messagesQuery.data && request ? (
+          <div className="mb-4">
+            <ThreadAiAssist
+              messages={messagesQuery.data}
+              request={{
+                title: request.title,
+                status: request.status,
+                priority: request.priority,
+                description: request.description,
+              }}
+              role={customerContext.data.role}
+              onInsertReply={setMessageBody}
+            />
+          </div>
+        ) : null}
+
         <form className="space-y-3" onSubmit={onSubmitMessage}>
           <textarea
             className="min-h-24 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-coral dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-300/60"
