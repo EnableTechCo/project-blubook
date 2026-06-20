@@ -23,21 +23,60 @@ type QueryResult = {
 
 type QueryChain = {
   select: (..._args: unknown[]) => QueryChain;
-  eq: (..._args: unknown[]) => QueryChain;
+  eq: (field: string, value: unknown) => QueryChain;
   maybeSingle: () => Promise<QueryResult>;
   order: (..._args: unknown[]) => QueryChain;
-  in: (..._args: unknown[]) => QueryChain;
+  in: (field: string, values: unknown[]) => QueryChain;
   then: <T>(
     onFulfilled?: ((value: QueryResult) => T | PromiseLike<T>) | null,
     onRejected?: ((reason: unknown) => T | PromiseLike<T>) | null,
   ) => Promise<T>;
 };
 
-function createChain(result: QueryResult): QueryChain {
+function createChain(
+  result: QueryResult,
+  eqFilters?: Record<string, unknown>,
+  inFilters?: Record<string, unknown[]>,
+  isMaybeSingle?: boolean,
+): QueryChain {
+  const hasEqFilters = eqFilters && Object.keys(eqFilters).length > 0;
+  const hasInFilters = inFilters && Object.keys(inFilters).length > 0;
+
+  let filteredData = result.data;
+  if ((hasEqFilters || hasInFilters) && Array.isArray(result.data)) {
+    filteredData = (result.data as Array<Record<string, unknown>>).filter(
+      (item) => {
+        // Check eq filters
+        if (hasEqFilters) {
+          const eqMatch = Object.entries(eqFilters!).every(
+            ([key, value]) => item[key] === value,
+          );
+          if (!eqMatch) return false;
+        }
+        // Check in filters
+        if (hasInFilters) {
+          const inMatch = Object.entries(inFilters!).every(([key, values]) =>
+            values.includes(item[key] as string),
+          );
+          if (!inMatch) return false;
+        }
+        return true;
+      },
+    );
+  }
+
+  // For maybeSingle, convert array to single object
+  const dataForResponse =
+    isMaybeSingle && Array.isArray(filteredData)
+      ? (filteredData[0] ?? null)
+      : filteredData;
+
   const resolved: QueryResult = {
-    data: result.data ?? null,
+    data: dataForResponse,
     error: result.error ?? null,
-    count: result.count ?? null,
+    count: Array.isArray(filteredData)
+      ? filteredData.length
+      : (result.count ?? null),
   };
 
   const chain: QueryChain = {
@@ -50,11 +89,31 @@ function createChain(result: QueryResult): QueryChain {
       Promise.resolve(resolved).then(onFulfilled, onRejected),
   };
 
+  const eqFiltersCopy = eqFilters ? { ...eqFilters } : {};
+  const inFiltersCopy = inFilters ? { ...inFilters } : {};
+
   chain.select = vi.fn(() => chain);
-  chain.eq = vi.fn(() => chain);
-  chain.maybeSingle = vi.fn(async () => resolved);
+  chain.eq = vi.fn((field: string, value: unknown) => {
+    eqFiltersCopy[field] = value;
+    return createChain(result, eqFiltersCopy, inFiltersCopy, false);
+  });
+  chain.maybeSingle = vi.fn(async () => {
+    let data = resolved.data;
+    if (Array.isArray(data) && data.length > 0) {
+      data = data[0];
+    } else if (Array.isArray(data)) {
+      data = null;
+    }
+    return {
+      data,
+      error: resolved.error,
+    };
+  });
   chain.order = vi.fn(() => chain);
-  chain.in = vi.fn(() => chain);
+  chain.in = vi.fn((field: string, values: unknown[]) => {
+    const newInFilters = { ...inFiltersCopy, [field]: values as unknown[] };
+    return createChain(result, eqFiltersCopy, newInFilters, false);
+  });
 
   return chain;
 }
@@ -101,7 +160,15 @@ describe("GET /api/admin/customers", () => {
     });
 
     const adminClient = createAdminClient({
-      user_profiles: { data: { role: "staff" }, error: null },
+      user_profiles: {
+        data: [
+          {
+            user_id: "user-1",
+            role: "staff",
+          },
+        ],
+        error: null,
+      },
     });
     createAdminClientMock.mockReturnValue(adminClient);
 
@@ -119,11 +186,20 @@ describe("GET /api/admin/customers", () => {
     });
 
     const adminClient = createAdminClient({
-      user_profiles: { data: { role: "admin" }, error: null },
+      user_profiles: {
+        data: [
+          {
+            user_id: "admin-1",
+            role: "admin",
+          },
+        ],
+        error: null,
+      },
       organizations: {
         data: [
           {
             id: "org-1",
+            kind: "customer",
             name: "Acme Customer",
             slug: "acme-customer",
             status: "active",
@@ -132,6 +208,7 @@ describe("GET /api/admin/customers", () => {
           },
           {
             id: "org-2",
+            kind: "customer",
             name: "Beta Customer",
             slug: "beta-customer",
             status: "active",
@@ -143,9 +220,27 @@ describe("GET /api/admin/customers", () => {
       },
       sales_orders: {
         data: [
-          { organization_id: "org-1", status: "in_progress" },
-          { organization_id: "org-1", status: "delivered" },
-          { organization_id: "org-2", status: "order_completed" },
+          {
+            organization_id: "org-1",
+            status: "in_progress",
+            total_cents: 5000,
+            currency_code: "ZAR",
+            updated_at: "2026-06-18T12:00:00.000Z",
+          },
+          {
+            organization_id: "org-1",
+            status: "delivered",
+            total_cents: 3000,
+            currency_code: "ZAR",
+            updated_at: "2026-06-18T12:00:00.000Z",
+          },
+          {
+            organization_id: "org-2",
+            status: "order_completed",
+            total_cents: 2000,
+            currency_code: "ZAR",
+            updated_at: "2026-06-18T11:00:00.000Z",
+          },
         ],
         error: null,
       },
@@ -156,30 +251,28 @@ describe("GET /api/admin/customers", () => {
     const response = await GET();
 
     expect(response!.status).toBe(200);
-    await expect(response!.json()).resolves.toEqual({
-      customers: [
-        {
-          id: "org-1",
-          name: "Acme Customer",
-          slug: "acme-customer",
-          status: "active",
-          primaryContactEmail: "ops@acme.test",
-          activeOrders: 1,
-          completedOrders: 1,
-          updatedAt: "2026-06-18T12:00:00.000Z",
-        },
-        {
-          id: "org-2",
-          name: "Beta Customer",
-          slug: "beta-customer",
-          status: "active",
-          primaryContactEmail: "ops@beta.test",
-          activeOrders: 0,
-          completedOrders: 1,
-          updatedAt: "2026-06-18T11:00:00.000Z",
-        },
-      ],
+    const body = await response!.json();
+    expect(body.summary.total).toBe(2);
+    expect(body.customers).toHaveLength(2);
+    expect(body.customers[0]).toMatchObject({
+      id: "org-1",
+      name: "Acme Customer",
+      slug: "acme-customer",
+      status: "active",
+      primaryContactEmail: "ops@acme.test",
+      activeOrders: 1,
+      completedOrders: 1,
+      updatedAt: "2026-06-18T12:00:00.000Z",
+    });
+    expect(body.customers[1]).toMatchObject({
+      id: "org-2",
+      name: "Beta Customer",
+      slug: "beta-customer",
+      status: "active",
+      primaryContactEmail: "ops@beta.test",
+      activeOrders: 0,
+      completedOrders: 1,
+      updatedAt: "2026-06-18T11:00:00.000Z",
     });
   });
 });
-

@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
-import { SupabaseClient, User, Session } from "@supabase/supabase-js";
 
 // ===== Type Definitions =====
 type AdminClient = ReturnType<typeof createAdminClient>;
-type ServerClient = ReturnType<typeof createServerClient>;
 
 interface PartnerContext {
   admin: AdminClient;
@@ -17,12 +15,6 @@ interface PartnerContext {
 
 interface AuthError {
   error: NextResponse;
-}
-
-interface UserProfile {
-  role: string;
-  metadata: Record<string, unknown>;
-  organization_id: string | null;
 }
 
 interface ActivityActor {
@@ -41,7 +33,7 @@ interface ActivityLog {
   id: string;
   request_id: string;
   actor_id: string;
-  actor_type: 'partner' | 'customer' | 'admin';
+  actor_type: "partner" | "customer" | "admin";
   action_type: string;
   action_details?: {
     title?: string;
@@ -132,61 +124,62 @@ async function requirePartnerContext(): Promise<PartnerContext | AuthError> {
 }
 
 function formatActivity(activity: ActivityLog): ActivityResponse {
-  let actorName = 'System';
-  let actorDisplayName = 'System';
-  
-  if (activity.actor_type === 'partner') {
+  let actorName = "System";
+  let actorDisplayName = "System";
+
+  if (activity.actor_type === "partner") {
     const meta = activity.actor?.raw_user_meta_data || {};
-    actorName = meta.company_name || meta.full_name || activity.actor?.email || 'Partner';
+    actorName =
+      meta.company_name || meta.full_name || activity.actor?.email || "Partner";
     actorDisplayName = actorName;
-  } else if (activity.actor_type === 'customer') {
-    actorName = activity.organization?.name || 'Customer';
+  } else if (activity.actor_type === "customer") {
+    actorName = activity.organization?.name || "Customer";
     actorDisplayName = actorName;
-  } else if (activity.actor_type === 'admin') {
-    actorName = activity.actor?.email || 'Admin';
+  } else if (activity.actor_type === "admin") {
+    actorName = activity.actor?.email || "Admin";
     actorDisplayName = actorName;
   }
 
   // Build action message
-  let actionMessage = '';
+  let actionMessage = "";
   const actionDetails = activity.action_details;
-  
+
   switch (activity.action_type) {
-    case 'request_created':
+    case "request_created":
       actionMessage = `New onboarding request created`;
       break;
-    case 'request_accepted':
+    case "request_accepted":
       actionMessage = `Accepted onboarding request`;
       break;
-    case 'request_rejected':
+    case "request_rejected":
       actionMessage = `Rejected onboarding request`;
       break;
-    case 'request_acknowledged':
+    case "request_acknowledged":
       actionMessage = `Notification sent to customer`;
       break;
-    case 'document_uploaded':
-      actionMessage = `Uploaded document: ${actionDetails?.title || 'Unknown'}`;
+    case "document_uploaded":
+      actionMessage = `Uploaded document: ${actionDetails?.title || "Unknown"}`;
       break;
-    case 'document_approved':
-      actionMessage = `Approved document: ${actionDetails?.title || 'Unknown'}`;
+    case "document_approved":
+      actionMessage = `Approved document: ${actionDetails?.title || "Unknown"}`;
       break;
-    case 'document_rejected':
-      actionMessage = `Requested changes to: ${actionDetails?.title || 'Unknown'}`;
+    case "document_rejected":
+      actionMessage = `Requested changes to: ${actionDetails?.title || "Unknown"}`;
       break;
-    case 'handoff_created':
+    case "handoff_created":
       actionMessage = `Created logistics handoff`;
       break;
-    case 'handoff_accepted':
+    case "handoff_accepted":
       actionMessage = `Accepted logistics handoff`;
       break;
-    case 'handoff_completed':
+    case "handoff_completed":
       actionMessage = `Completed logistics handoff`;
       break;
-    case 'order_confirmed':
+    case "order_confirmed":
       actionMessage = `Confirmed purchase order`;
       break;
     default:
-      actionMessage = activity.action_type.replace(/_/g, ' ');
+      actionMessage = activity.action_type.replace(/_/g, " ");
   }
 
   return {
@@ -213,34 +206,34 @@ export async function GET(request: Request) {
   }
 
   const { admin, servicePartnerId } = auth;
-  
+
   const url = new URL(request.url);
-  const limit = parseInt(url.searchParams.get('limit') || '50');
-  const offset = parseInt(url.searchParams.get('offset') || '0');
-  const requestId = url.searchParams.get('requestId');
+  const limit = parseInt(url.searchParams.get("limit") || "50");
+  const offset = parseInt(url.searchParams.get("offset") || "0");
+  const requestId = url.searchParams.get("requestId");
 
   const safeLimit = Math.min(Math.max(limit, 1), 100);
   const safeOffset = Math.max(offset, 0);
 
   // Build the query with proper typing
   let query = admin
-    .from('activity_log')
-    .select('*', { count: 'exact' })
-    .eq('partner_id', servicePartnerId)
-    .order('created_at', { ascending: false })
+    .from("activity_log")
+    .select("*", { count: "exact" })
+    .eq("partner_id", servicePartnerId)
+    .order("created_at", { ascending: false })
     .range(safeOffset, safeOffset + safeLimit - 1);
 
   if (requestId) {
-    query = query.eq('request_id', requestId);
+    query = query.eq("request_id", requestId);
   }
 
   const { data: activities, error, count } = await query;
 
   if (error) {
-    console.error('[Activity API] Error:', error);
+    console.error("[Activity API] Error:", error);
     return NextResponse.json(
-      { error: 'Could not fetch activity timeline' },
-      { status: 400 }
+      { error: "Could not fetch activity timeline" },
+      { status: 400 },
     );
   }
 
@@ -248,13 +241,15 @@ export async function GET(request: Request) {
   const typedActivities = activities as ActivityLog[] | null;
 
   // Format the response
-  const formattedActivities: ActivityResponse[] = (typedActivities || []).map(formatActivity);
+  const formattedActivities: ActivityResponse[] = (typedActivities || []).map(
+    formatActivity,
+  );
 
   const pagination: PaginationInfo = {
     limit: safeLimit,
     offset: safeOffset,
     total: count || 0,
-    hasMore: (count || 0) > (safeOffset + safeLimit),
+    hasMore: (count || 0) > safeOffset + safeLimit,
   };
 
   return NextResponse.json({

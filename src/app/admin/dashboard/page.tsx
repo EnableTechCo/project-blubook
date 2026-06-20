@@ -569,7 +569,23 @@ export default function AdminDashboardPage() {
         ) : null}
 
         {overviewLoading ? (
-          <p className="text-xs text-slate-300">Loading overview metrics...</p>
+          <div
+            className="animate-pulse space-y-3"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-slate-200 bg-slate-100 p-3"
+                >
+                  <div className="h-3 w-24 rounded bg-slate-200" />
+                  <div className="mt-2 h-7 w-12 rounded bg-slate-200" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : overviewMetrics ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -666,7 +682,24 @@ export default function AdminDashboardPage() {
         ) : null}
 
         {kpiLoading ? (
-          <p className="text-xs text-slate-300">Loading KPI drilldowns...</p>
+          <div
+            className="animate-pulse grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex flex-col rounded-xl border border-slate-200 bg-slate-100 p-3"
+              >
+                <div className="h-3 w-28 rounded bg-slate-200" />
+                <div className="mt-2 h-7 w-14 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-20 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-40 rounded bg-slate-200" />
+                <div className="mt-3 h-3 w-16 rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {kpiCards.map((card) => (
@@ -856,9 +889,22 @@ export default function AdminDashboardPage() {
           ) : null}
 
           {routingLoading ? (
-            <p className="text-xs text-slate-400">
-              Loading routing recommendations…
-            </p>
+            <div
+              className="animate-pulse space-y-2"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-slate-200 bg-slate-100 p-3"
+                >
+                  <div className="h-3 w-1/3 rounded bg-slate-200" />
+                  <div className="mt-2 h-3 w-2/3 rounded bg-slate-200" />
+                  <div className="mt-2 h-3 w-1/2 rounded bg-slate-200" />
+                </div>
+              ))}
+            </div>
           ) : routingRecs.length === 0 ? (
             <p className="text-xs text-slate-400">
               No pending routing recommendations.
@@ -1110,7 +1156,22 @@ export default function AdminDashboardPage() {
         ) : null}
 
         {anomaliesLoading ? (
-          <p className="text-xs text-slate-400">Loading anomaly alerts...</p>
+          <div
+            className="animate-pulse space-y-2"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-slate-200 bg-slate-100 p-4"
+              >
+                <div className="h-3 w-1/4 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-3/4 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-1/2 rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
         ) : anomalies.length === 0 ? (
           <p className="text-xs text-slate-400">
             No pending anomaly alerts — all onboarding submissions are clean.

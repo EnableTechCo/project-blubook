@@ -258,199 +258,228 @@ export default function PartnerDocumentsPage() {
 
       {user ? (
         <>
-          <Card
-            title="Customer Submitted Documents"
-            description="Documents uploaded by customers for your assigned requests, grouped by customer."
+          <section
+            aria-label="Customer provided documents"
+            className="space-y-2"
           >
-            {missingDocumentLabels.length > 0 ? (
-              <div className="mb-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
-                  Missing Required Documents
-                </p>
-                <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/95">
-                  Upload these first to complete work order:{" "}
-                  {missingDocumentLabels.join(", ")}.
-                </p>
-                {shouldRetryComplete ? (
-                  <div className="mt-3">
-                    <Button
-                      type="button"
-                      className="h-8 rounded-md bg-amber-300/90 px-3 text-xs font-semibold text-slate-950 hover:bg-amber-200"
-                      onClick={() => {
-                        const query = new URLSearchParams();
-                        if (retryCompleteId) {
-                          query.set("retryComplete", "1");
-                          query.set("retryCompleteId", retryCompleteId);
-                        }
-
-                        const target = `/partner/work-orders${query.toString() ? `?${query.toString()}` : ""}`;
-                        router.push(target as Route);
-                      }}
-                    >
-                      Return And Finalize Work Order
-                    </Button>
-                    <p className="mt-1 text-[11px] text-slate-800 dark:text-slate-50/90">
-                      After upload, click here to auto-complete and trigger
-                      delivery/SLA updates.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {customerDocsQuery.isLoading ? (
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Loading customer documents...
+            <div>
+              <h2 className="text-lg font-semibold text-slate-100">
+                Customer Provided Documents
+              </h2>
+              <p className="text-sm text-slate-300">
+                Files sent by customers for your assigned work, grouped by
+                customer.
               </p>
-            ) : null}
+            </div>
+            <Card
+              title="Customer Submitted Documents"
+              description="Documents uploaded by customers for your assigned requests, grouped by customer."
+            >
+              {missingDocumentLabels.length > 0 ? (
+                <div className="mb-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
+                    Missing Required Documents
+                  </p>
+                  <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/95">
+                    Upload these first to complete work order:{" "}
+                    {missingDocumentLabels.join(", ")}.
+                  </p>
+                  {shouldRetryComplete ? (
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        className="h-8 rounded-md bg-amber-300/90 px-3 text-xs font-semibold text-slate-950 hover:bg-amber-200"
+                        onClick={() => {
+                          const query = new URLSearchParams();
+                          if (retryCompleteId) {
+                            query.set("retryComplete", "1");
+                            query.set("retryCompleteId", retryCompleteId);
+                          }
 
-            {customerDocsQuery.isError ? (
-              <p className="text-sm text-red-300">
-                {customerDocsQuery.error instanceof Error
-                  ? customerDocsQuery.error.message
-                  : "Could not load customer-submitted documents."}
-              </p>
-            ) : null}
-
-            {!customerDocsQuery.isLoading &&
-            !customerDocsQuery.isError &&
-            customerDocsByCustomer.length === 0 ? (
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                No customer-submitted documents available yet.
-              </p>
-            ) : null}
-
-            <div className="mt-2 space-y-3">
-              {customerDocsByCustomer.map((group) => (
-                <section
-                  key={group.customerName}
-                  className="relative overflow-hidden rounded-xl border border-cyan-300/25 bg-cyan-300/5 p-4"
-                >
-                  <div className="pointer-events-none absolute -right-4 -top-6 h-20 w-20 rounded-full bg-cyan-200/15 blur-xl" />
-                  <div className="pointer-events-none absolute -bottom-8 left-10 h-16 w-16 rounded-full bg-sky-200/10 blur-xl" />
-
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-cyan-200/20 pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-100/30 bg-cyan-100/15 text-xs font-semibold text-cyan-50">
-                        {getCustomerInitials(group.customerName)}
-                      </div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                        {group.customerName}
+                          const target = `/partner/work-orders${query.toString() ? `?${query.toString()}` : ""}`;
+                          router.push(target as Route);
+                        }}
+                      >
+                        Return And Finalize Work Order
+                      </Button>
+                      <p className="mt-1 text-[11px] text-slate-800 dark:text-slate-50/90">
+                        After upload, click here to auto-complete and trigger
+                        delivery/SLA updates.
                       </p>
                     </div>
-                    <p className="text-xs text-cyan-700 dark:text-cyan-100/90">
-                      {group.documents.length} file
-                      {group.documents.length === 1 ? "" : "s"}
-                    </p>
-                  </div>
+                  ) : null}
+                </div>
+              ) : null}
 
-                  <div className="space-y-2">
-                    {group.documents.map((doc) => (
-                      <article
-                        key={doc.id}
-                        className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300/90" />
-                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                {doc.fileName}
+              {customerDocsQuery.isLoading ? (
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Loading customer documents...
+                </p>
+              ) : null}
+
+              {customerDocsQuery.isError ? (
+                <p className="text-sm text-red-300">
+                  {customerDocsQuery.error instanceof Error
+                    ? customerDocsQuery.error.message
+                    : "Could not load customer-submitted documents."}
+                </p>
+              ) : null}
+
+              {!customerDocsQuery.isLoading &&
+              !customerDocsQuery.isError &&
+              customerDocsByCustomer.length === 0 ? (
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  No customer-submitted documents available yet.
+                </p>
+              ) : null}
+
+              <div className="mt-2 space-y-3">
+                {customerDocsByCustomer.map((group) => (
+                  <section
+                    key={group.customerName}
+                    className="relative overflow-hidden rounded-xl border border-cyan-300/25 bg-cyan-300/5 p-4"
+                  >
+                    <div className="pointer-events-none absolute -right-4 -top-6 h-20 w-20 rounded-full bg-cyan-200/15 blur-xl" />
+                    <div className="pointer-events-none absolute -bottom-8 left-10 h-16 w-16 rounded-full bg-sky-200/10 blur-xl" />
+
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-cyan-200/20 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-100/30 bg-cyan-100/15 text-xs font-semibold text-cyan-50">
+                          {getCustomerInitials(group.customerName)}
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                          {group.customerName}
+                        </p>
+                      </div>
+                      <p className="text-xs text-cyan-700 dark:text-cyan-100/90">
+                        {group.documents.length} file
+                        {group.documents.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {group.documents.map((doc) => (
+                        <article
+                          key={doc.id}
+                          className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300/90" />
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                  {doc.fileName}
+                                </p>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                Requirement: {doc.requirementTitle}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                Uploaded{" "}
+                                {new Date(doc.uploadedAt).toLocaleString()}
                               </p>
                             </div>
-                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                              Requirement: {doc.requirementTitle}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              Uploaded{" "}
-                              {new Date(doc.uploadedAt).toLocaleString()}
-                            </p>
+                            {doc.signedUrl ? (
+                              <a
+                                href={doc.signedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <Button variant="ghost">Open</Button>
+                              </a>
+                            ) : (
+                              <Button variant="ghost" disabled>
+                                Open unavailable
+                              </Button>
+                            )}
                           </div>
-                          {doc.signedUrl ? (
-                            <a
-                              href={doc.signedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <Button variant="ghost">Open</Button>
-                            </a>
-                          ) : (
-                            <Button variant="ghost" disabled>
-                              Open unavailable
-                            </Button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </Card>
-
-          {canUploadForPartner && shouldBlockUploadsForMissingStream ? (
-            <Card
-              title="Partner Workspace Documents"
-              description="Files your partner team uploads for delivery and reporting."
-            >
-              <div className="rounded-xl border border-amber-300/35 bg-amber-300/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
-                  Upload Mapping Needed
-                </p>
-                <p className="mt-2 text-sm text-slate-800 dark:text-slate-50/95">
-                  Uploads are currently blocked because this stream has no
-                  mapped partner document types.
-                </p>
-                <p className="mt-2 text-xs text-slate-800 dark:text-slate-50/90">
-                  Partner stream:{" "}
-                  {getStreamDisplayName(
-                    streamResolution.rawPartnerStream || "Unknown Stream",
-                  )}
-                </p>
-                {streamResolution.rawRequestStreams.length > 0 ? (
-                  <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/90">
-                    Request streams:{" "}
-                    {streamResolution.rawRequestStreams
-                      .map((stream) => getStreamDisplayName(stream))
-                      .join(", ")}
-                  </p>
-                ) : null}
-                <p className="mt-3 text-xs text-slate-800 dark:text-slate-50/90">
-                  Next action: add matching entries in PARTNER_UPLOAD_FILE_TYPES
-                  so this workspace can accept uploads.
-                </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             </Card>
-          ) : null}
+          </section>
 
-          {canUploadForPartner && !shouldBlockUploadsForMissingStream ? (
-            <DocumentManager
-              title="Partner Workspace Documents"
-              description="Files your partner team uploads for delivery and reporting."
-              bucket={bucket}
-              prefix={prefix}
-              acceptedFileTypes="application/pdf,image/*"
-              uploadHint="Accepted formats: PDF and images (JPG, PNG, HEIC, WebP)."
-              documentTypeOptions={prioritizedDocumentTypeOptions.map(
-                (item) => ({
-                  value: item.key,
-                  label: item.label,
-                  group: getStreamDisplayName(item.stream),
-                }),
-              )}
-            />
-          ) : null}
-
-          {!canUploadForPartner ? (
-            <Card
-              title="Partner Workspace Documents"
-              description="Files your partner team uploads for delivery and reporting."
-            >
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Resolving partner workspace...
+          <section
+            aria-label="Partner workspace documents"
+            className="space-y-2"
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-slate-100">
+                Partner Workspace Documents
+              </h2>
+              <p className="text-sm text-slate-300">
+                Files your team uploads for delivery, proof, and reporting.
               </p>
-            </Card>
-          ) : null}
+            </div>
+
+            {canUploadForPartner && shouldBlockUploadsForMissingStream ? (
+              <Card
+                title="Partner Workspace Documents"
+                description="Files your partner team uploads for delivery and reporting."
+              >
+                <div className="rounded-xl border border-amber-300/35 bg-amber-300/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-100">
+                    Upload Mapping Needed
+                  </p>
+                  <p className="mt-2 text-sm text-slate-800 dark:text-slate-50/95">
+                    Uploads are currently blocked because this stream has no
+                    mapped partner document types.
+                  </p>
+                  <p className="mt-2 text-xs text-slate-800 dark:text-slate-50/90">
+                    Partner stream:{" "}
+                    {getStreamDisplayName(
+                      streamResolution.rawPartnerStream || "Unknown Stream",
+                    )}
+                  </p>
+                  {streamResolution.rawRequestStreams.length > 0 ? (
+                    <p className="mt-1 text-xs text-slate-800 dark:text-slate-50/90">
+                      Request streams:{" "}
+                      {streamResolution.rawRequestStreams
+                        .map((stream) => getStreamDisplayName(stream))
+                        .join(", ")}
+                    </p>
+                  ) : null}
+                  <p className="mt-3 text-xs text-slate-800 dark:text-slate-50/90">
+                    Next action: add matching entries in
+                    PARTNER_UPLOAD_FILE_TYPES so this workspace can accept
+                    uploads.
+                  </p>
+                </div>
+              </Card>
+            ) : null}
+
+            {canUploadForPartner && !shouldBlockUploadsForMissingStream ? (
+              <DocumentManager
+                title="Partner Workspace Documents"
+                description="Files your partner team uploads for delivery and reporting."
+                bucket={bucket}
+                prefix={prefix}
+                acceptedFileTypes="application/pdf,image/*"
+                uploadHint="Accepted formats: PDF and images (JPG, PNG, HEIC, WebP)."
+                documentTypeOptions={prioritizedDocumentTypeOptions.map(
+                  (item) => ({
+                    value: item.key,
+                    label: item.label,
+                    group: getStreamDisplayName(item.stream),
+                  }),
+                )}
+              />
+            ) : null}
+
+            {!canUploadForPartner ? (
+              <Card
+                title="Partner Workspace Documents"
+                description="Files your partner team uploads for delivery and reporting."
+              >
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Resolving partner workspace...
+                </p>
+              </Card>
+            ) : null}
+          </section>
         </>
       ) : null}
     </div>

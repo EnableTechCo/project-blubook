@@ -17,6 +17,8 @@
     "debug:auth:partner": "node --env-file=.env.local scripts/debug-partner-auth.mjs",
     "debug:login:partner": "node scripts/debug-partner-login.mjs",
     "db:introspect": "node --env-file=.env.local scripts/introspect-db-and-apis.mjs",
+    "docs:cleanup:orphans": "node --env-file=.env.local scripts/cleanup-orphan-storage-docs.mjs",
+    "docs:cleanup:orphans:apply": "node --env-file=.env.local scripts/cleanup-orphan-storage-docs.mjs --apply",
     "email:test:onboarding": "node --env-file=.env.local scripts/send-test-onboarding-email.mjs",
     "seed:providers:mock": "node --env-file=.env.local scripts/seed-mock-provider-accounts.mjs",
     "provision:admin": "node --env-file=.env.local scripts/provision-admin-account.mjs"
