@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCustomerContext } from "@/hooks/use-customer-context";
+import {
+  useGetCustomerBillingSummaryQuery,
+  useUpdateCustomerBillingMutation,
+} from "@/store/redux/api/customer-api";
 
 type BillingResponse = {
   currentSubscription: {
@@ -44,31 +49,17 @@ function formatMoney(cents: number) {
 }
 
 export default function CustomerBillingPage() {
-  const [data, setData] = useState<BillingResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const customerContext = useCustomerContext();
+  const organizationId = customerContext.data?.organizationId ?? "";
+  const billingQuery = useGetCustomerBillingSummaryQuery(organizationId, {
+    skip: !organizationId,
+  });
+  const [updateBilling, updateBillingState] =
+    useUpdateCustomerBillingMutation();
   const [status, setStatus] = useState<string | null>(null);
-
-  const refresh = async (options?: { preserveView?: boolean }) => {
-    if (!options?.preserveView) {
-      setLoading(true);
-    }
-    const response = await fetch("/api/customer/billing");
-
-    if (!response.ok) {
-      setStatus("Could not load billing right now.");
-      setLoading(false);
-      return;
-    }
-
-    const payload = (await response.json()) as BillingResponse;
-    setData(payload);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    void refresh();
-  }, []);
+  const data = (billingQuery.data ?? null) as BillingResponse | null;
+  const loading = customerContext.isLoading || billingQuery.isLoading;
+  const busy = updateBillingState.isLoading;
 
   const availableUpgrade = useMemo(() => {
     const code = data?.currentSubscription?.package?.code;
@@ -85,32 +76,20 @@ export default function CustomerBillingPage() {
     action: "cancel" | "upgrade",
     packageCode?: "bronze" | "silver" | "premium",
   ) => {
-    setBusy(true);
     setStatus(null);
 
-    const response = await fetch("/api/customer/billing", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action, packageCode }),
-    });
-
-    const payload = (await response.json()) as { error?: string };
-
-    if (!response.ok) {
-      setStatus(payload.error ?? "Billing update failed.");
-      setBusy(false);
-      return;
+    try {
+      await updateBilling({ action, packageCode, organizationId }).unwrap();
+      setStatus(
+        action === "cancel"
+          ? "Subscription will cancel at period end."
+          : "Subscription updated successfully.",
+      );
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Billing update failed.",
+      );
     }
-
-    setStatus(
-      action === "cancel"
-        ? "Subscription will cancel at period end."
-        : "Subscription updated successfully.",
-    );
-    await refresh({ preserveView: true });
-    setBusy(false);
   };
 
   return (

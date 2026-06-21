@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,12 +13,12 @@ import { getStreamDisplayName } from "@/constants/stream-display";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import { useCustomerJourneyStore } from "@/store/customer-journey-store";
 import {
-  listRequestMessages,
-  sendRequestMessage,
-} from "@/services/messages.service";
+  useGetCustomerRequestByIdQuery,
+  useGetCustomerRequirementsQuery,
+  useGetRequestMessagesQuery,
+  useSendCustomerRequestMessageMutation,
+} from "@/store/redux/api/customer-api";
 import { ThreadAiAssist } from "@/components/messages/thread-ai-assist";
-import { getCustomerRequestById } from "@/services/requests.service";
-import { listCustomerRequirements } from "@/services/requirements.service";
 import requirementsService from "@/services/requirements.service";
 
 type ProviderRequestContext = {
@@ -167,49 +167,42 @@ export default function CustomerRequestDetailPage() {
   >(null);
   const [isInitialBootstrapped, setIsInitialBootstrapped] = useState(false);
 
-  const requestQuery = useQuery({
-    queryKey: ["customer-request", customerContext.data?.userId, requestId],
-    enabled: Boolean(customerContext.data?.userId && requestId),
-    queryFn: () =>
-      getCustomerRequestById({
-        customerId: customerContext.data!.userId,
-        requestId,
-      }),
-  });
-
-  const messagesQuery = useQuery({
-    queryKey: ["request-messages", requestId],
-    enabled: Boolean(requestId),
-    queryFn: () => listRequestMessages(requestId),
-  });
-
-  const sendMessageMutation = useMutation({
-    mutationFn: sendRequestMessage,
-    onSuccess: async () => {
-      setMessageBody("");
-      setMessageError(null);
-      await queryClient.invalidateQueries({
-        queryKey: ["request-messages", requestId],
-      });
+  const requestQuery = useGetCustomerRequestByIdQuery(
+    {
+      customerId: customerContext.data?.userId ?? "",
+      requestId,
     },
-    onError: (error) => {
-      setMessageError(
-        error instanceof Error ? error.message : "Could not send message.",
-      );
+    {
+      skip: !customerContext.data?.userId || !requestId,
     },
+  );
+
+  const messagesQuery = useGetRequestMessagesQuery(requestId, {
+    skip: !requestId,
   });
 
-  const onSubmitMessage = (event: FormEvent<HTMLFormElement>) => {
+  const [sendRequestMessageMutation, sendRequestMessageState] =
+    useSendCustomerRequestMessageMutation();
+
+  const onSubmitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!customerContext.data?.userId || !messageBody.trim()) {
       return;
     }
 
-    sendMessageMutation.mutate({
-      requestId,
-      senderId: customerContext.data.userId,
-      body: messageBody.trim(),
-    });
+    try {
+      await sendRequestMessageMutation({
+        requestId,
+        senderId: customerContext.data.userId,
+        body: messageBody.trim(),
+      }).unwrap();
+      setMessageBody("");
+      setMessageError(null);
+    } catch (error) {
+      setMessageError(
+        error instanceof Error ? error.message : "Could not send message.",
+      );
+    }
   };
 
   const userId = customerContext.data?.userId ?? "";
@@ -223,16 +216,8 @@ export default function CustomerRequestDetailPage() {
     ? parseProviderRequestContext(request.title)
     : null;
 
-  const requirementsQuery = useQuery({
-    queryKey: [
-      "request-requirements",
-      organizationId,
-      requestId,
-      providerContext?.packageStream,
-      providerContext?.providerName,
-    ],
-    enabled: Boolean(organizationId && request),
-    queryFn: () => listCustomerRequirements(organizationId),
+  const requirementsQuery = useGetCustomerRequirementsQuery(organizationId, {
+    skip: !(organizationId && request),
   });
 
   const submitEvidenceMutation = useMutation({
@@ -240,10 +225,7 @@ export default function CustomerRequestDetailPage() {
     onSuccess: async () => {
       setUploadError(null);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["request-requirements"] }),
-        queryClient.invalidateQueries({
-          queryKey: ["customer-requirements", organizationId],
-        }),
+        requirementsQuery.refetch(),
         queryClient.invalidateQueries({
           queryKey: ["documents", bucket, prefix],
         }),
@@ -689,9 +671,13 @@ export default function CustomerRequestDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="submit"
-              disabled={!messageBody.trim() || sendMessageMutation.isPending}
+              disabled={
+                !messageBody.trim() || sendRequestMessageState.isLoading
+              }
             >
-              {sendMessageMutation.isPending ? "Sending..." : "Send message"}
+              {sendRequestMessageState.isLoading
+                ? "Sending..."
+                : "Send message"}
             </Button>
             {messageError ? (
               <p className="text-sm text-red-300">{messageError}</p>

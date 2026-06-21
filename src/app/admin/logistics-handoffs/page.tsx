@@ -1,23 +1,21 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useGetAdminLogisticsHandoffsQuery } from "@/store/redux/api/admin-api";
 
-type HandoffRow = {
+type LogisticsHandoffRow = {
   id: string;
-  salesOrderId: string | null;
-  orderItemId: string | null;
-  status: string;
-  handoffType: string | null;
-  packageStream: string | null;
-  assignedAt: string | null;
-  completedAt: string | null;
   poReference: string | null;
+  salesOrderId: string | null;
   salesOrderStatus: string | null;
   fromProviderName: string | null;
   toProviderName: string | null;
+  handoffType: string | null;
+  packageStream: string | null;
+  status: string;
+  assignedAt: string | null;
 };
 
 type LogisticsHandoffsPayload = {
@@ -28,7 +26,7 @@ type LogisticsHandoffsPayload = {
     inProgress: number;
     completed: number;
   };
-  handoffs: HandoffRow[];
+  handoffs: LogisticsHandoffRow[];
 };
 
 export default function AdminLogisticsHandoffsPage() {
@@ -36,42 +34,15 @@ export default function AdminLogisticsHandoffsPage() {
   const statusFilter = (searchParams.get("status") ?? "all").toLowerCase();
   const staleOnly = searchParams.get("stale") === "1";
 
-  const handoffsQuery = useQuery({
-    queryKey: ["admin-logistics-handoffs", statusFilter, staleOnly],
-    queryFn: async (): Promise<LogisticsHandoffsPayload> => {
-      const query = new URLSearchParams();
-      if (statusFilter !== "all") {
-        query.set("status", statusFilter);
-      }
-      if (staleOnly) {
-        query.set("stale", "1");
-      }
+  const queryString = new URLSearchParams();
+  if (statusFilter !== "all") queryString.set("status", statusFilter);
+  if (staleOnly) queryString.set("stale", "1");
 
-      const response = await fetch(
-        `/api/admin/logistics-handoffs${query.size > 0 ? `?${query.toString()}` : ""}`,
-        {
-          credentials: "include",
-        },
-      );
-      const body = await response.json().catch(() => null);
+  const handoffsQuery = useGetAdminLogisticsHandoffsQuery(
+    queryString.toString() || "all",
+  );
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load logistics handoffs.");
-      }
-
-      return {
-        metrics: body?.metrics ?? {
-          total: 0,
-          pending: 0,
-          accepted: 0,
-          inProgress: 0,
-          completed: 0,
-        },
-        handoffs: (body?.handoffs ?? []) as HandoffRow[],
-      };
-    },
-    refetchInterval: 30000,
-  });
+  const payload = handoffsQuery.data as LogisticsHandoffsPayload | undefined;
 
   if (handoffsQuery.isLoading) {
     return (
@@ -89,14 +60,14 @@ export default function AdminLogisticsHandoffsPage() {
     );
   }
 
-  const metrics = handoffsQuery.data?.metrics ?? {
+  const metrics = payload?.metrics ?? {
     total: 0,
     pending: 0,
     accepted: 0,
     inProgress: 0,
     completed: 0,
   };
-  const filteredHandoffs = handoffsQuery.data?.handoffs ?? [];
+  const filteredHandoffs = payload?.handoffs ?? [];
 
   return (
     <div className="space-y-6">

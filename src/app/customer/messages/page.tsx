@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCustomerContext } from "@/hooks/use-customer-context";
+import { useGetCustomerRequestsQuery } from "@/store/redux/api/customer-api";
 import {
-  listNotifications,
-  markNotificationRead,
-} from "@/services/notifications.service";
-import { listCustomerRequests } from "@/services/requests.service";
+  useListNotificationsQuery,
+  useMarkNotificationReadMutation,
+} from "@/store/redux/api/notifications-api";
 
 function formatStatusLabel(value: string) {
   return value
@@ -32,16 +31,14 @@ function formatNotificationMessage(message: string) {
 
 export default function CustomerMessagesPage() {
   const customerContext = useCustomerContext();
-  const notificationsQuery = useQuery({
-    queryKey: ["customer-notifications", customerContext.data?.userId],
-    enabled: Boolean(customerContext.data?.userId),
-    queryFn: () => listNotifications(customerContext.data!.userId),
+  const customerUserId = customerContext.data?.userId ?? null;
+  const notificationsQuery = useListNotificationsQuery(customerUserId ?? "", {
+    skip: !customerUserId,
   });
+  const [markNotificationRead] = useMarkNotificationReadMutation();
 
-  const requestsQuery = useQuery({
-    queryKey: ["customer-requests", customerContext.data?.userId],
-    enabled: Boolean(customerContext.data?.userId),
-    queryFn: () => listCustomerRequests(customerContext.data!.userId),
+  const requestsQuery = useGetCustomerRequestsQuery(customerUserId ?? "", {
+    skip: !customerUserId,
   });
 
   if (customerContext.isLoading) {
@@ -60,7 +57,9 @@ export default function CustomerMessagesPage() {
     );
   }
 
+  const customerContextData = customerContext.data;
   const notifications = notificationsQuery.data ?? [];
+  const { userId } = customerContextData;
   const openRequests = (requestsQuery.data ?? []).filter(
     (item) => !["completed", "cancelled"].includes(item.status),
   );
@@ -93,9 +92,7 @@ export default function CustomerMessagesPage() {
                 onClick={() => {
                   void markNotificationRead({
                     notificationId: item.id,
-                    userId: customerContext.data.userId,
-                  }).then(() => {
-                    void notificationsQuery.refetch();
+                    userId,
                   });
                 }}
               >

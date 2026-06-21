@@ -3,36 +3,13 @@
 import type { Route } from "next";
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PARTNER_UPLOAD_FILE_TYPES } from "@/constants/partner-upload-file-types";
 import { getStreamDisplayName } from "@/constants/stream-display";
 import { DocumentManager } from "@/features/documents/document-manager";
 import { useAuth } from "@/hooks/use-auth";
-
-type PartnerDocumentsDashboardPayload = {
-  partner: {
-    id: string;
-    offeredServiceStream: string | null;
-  };
-  requests: Array<{
-    id: string;
-    organizationId: string;
-    organizationName: string | null;
-    packageStream?: string;
-    requirementItems: Array<{
-      id: string;
-      title: string;
-      uploadedFiles: Array<{
-        id: string;
-        fileName: string;
-        uploadedAt: string;
-        signedUrl: string | null;
-      }>;
-    }>;
-  }>;
-};
+import { useGetPartnerDashboardQuery } from "@/store/redux/api/partner-api";
 
 function normalizeStream(input: string | null | undefined) {
   if (!input) {
@@ -71,26 +48,8 @@ export default function PartnerDocumentsPage() {
     process.env.NEXT_PUBLIC_PARTNER_DOCUMENTS_BUCKET?.trim() ||
     "partner-documents";
 
-  const customerDocsQuery = useQuery({
-    queryKey: ["partner-customer-documents", userId],
-    enabled: Boolean(user),
-    queryFn: async (): Promise<PartnerDocumentsDashboardPayload> => {
-      const response = await fetch("/api/partner/dashboard", { method: "GET" });
-      const body = (await response.json().catch(() => null)) as
-        | PartnerDocumentsDashboardPayload
-        | { error?: string }
-        | null;
-
-      if (!response.ok || !body || !("requests" in body)) {
-        throw new Error(
-          (body && "error" in body && typeof body.error === "string"
-            ? body.error
-            : null) ?? "Could not load customer-submitted documents.",
-        );
-      }
-
-      return body;
-    },
+  const customerDocsQuery = useGetPartnerDashboardQuery(userId, {
+    skip: !userId,
   });
 
   const customerDocsByCustomer = useMemo(() => {

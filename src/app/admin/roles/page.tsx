@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectMenu } from "@/components/ui/select-menu";
+import { useGetAdminRolesQuery } from "@/store/redux/api/admin-api";
 
 type RoleUserRow = {
   userId: string;
@@ -32,45 +32,30 @@ type RolesPayload = {
 };
 
 export default function AdminRolesPage() {
-  const queryClient = useQueryClient();
   const [pendingRoleByUser, setPendingRoleByUser] = useState<
     Record<string, string>
   >({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const rolesQuery = useQuery({
-    queryKey: ["admin-role-management"],
-    queryFn: async (): Promise<RolesPayload> => {
-      const response = await fetch("/api/admin/roles", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const rolesQuery = useGetAdminRolesQuery("roles");
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load role management data.");
-      }
+  const payload = rolesQuery.data as RolesPayload | undefined;
 
-      return {
-        availableRoles: (body?.availableRoles ?? []) as string[],
-        metrics: {
-          total: body?.metrics?.total ?? 0,
-          byRole: (body?.metrics?.byRole ?? {}) as Record<string, number>,
-          byStatus: (body?.metrics?.byStatus ?? {}) as Record<string, number>,
-        },
-        users: (body?.users ?? []) as RoleUserRow[],
-      };
-    },
-  });
+  const rolesData = (payload ?? {
+    availableRoles: [],
+    metrics: { total: 0, byRole: {}, byStatus: {} },
+    users: [],
+  }) as RolesPayload;
 
-  const users = rolesQuery.data?.users ?? [];
-  const availableRoles = rolesQuery.data?.availableRoles ?? [];
+  const users = rolesData.users;
+  const availableRoles = rolesData.availableRoles;
   const roleRows = useMemo(
     () =>
-      Object.entries(rolesQuery.data?.metrics.byRole ?? {}).sort(
+      Object.entries(rolesData.metrics.byRole ?? {}).sort(
         (a, b) => b[1] - a[1],
       ),
-    [rolesQuery.data?.metrics.byRole],
+    [rolesData.metrics.byRole],
   );
 
   const saveRole = async (user: RoleUserRow) => {
@@ -102,10 +87,7 @@ export default function AdminRolesPage() {
         return next;
       });
 
-      await queryClient.invalidateQueries({
-        queryKey: ["admin-role-management"],
-      });
-      await queryClient.invalidateQueries({ queryKey: ["admin-users-roster"] });
+      await rolesQuery.refetch();
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Could not update role.",
@@ -138,7 +120,7 @@ export default function AdminRolesPage() {
             Assign and adjust role mappings for authenticated users.
           </p>
         </div>
-        <Badge>{rolesQuery.data?.metrics.total ?? 0} Users</Badge>
+        <Badge>{rolesData.metrics.total ?? 0} Users</Badge>
       </div>
 
       {actionError ? (
@@ -150,7 +132,7 @@ export default function AdminRolesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card title="Total Users">
           <p className="text-3xl font-semibold text-white">
-            {rolesQuery.data?.metrics.total ?? 0}
+            {rolesData.metrics.total ?? 0}
           </p>
         </Card>
         <Card title="Roles Configured">

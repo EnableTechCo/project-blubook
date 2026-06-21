@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useGetPartnerWorkOrdersQuery } from "@/store/redux/api/partner-api";
 
 type ProviderHandoff = {
   id: string;
@@ -84,47 +85,17 @@ function PartnerMessagesLoadingSkeleton() {
 }
 
 export function PartnerMessagesClient() {
-  const [handoffs, setHandoffs] = useState<ProviderHandoff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchData() {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch("/api/partner/work-orders", {
-        method: "GET",
-      });
-      const body = (await response.json().catch(() => null)) as {
-        inboundProviderHandoffs?: ProviderHandoff[];
-        error?: string;
-      } | null;
-
-      if (!mounted) {
-        return;
-      }
-
-      if (!response.ok) {
-        setError(body?.error || "Could not load partner messages workspace.");
-        setLoading(false);
-        return;
-      }
-
-      setHandoffs(body?.inboundProviderHandoffs ?? []);
-      setLoading(false);
-    }
-
-    void fetchData();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const workOrdersQuery = useGetPartnerWorkOrdersQuery("partner");
+  const loading = workOrdersQuery.isLoading;
+  const error = workOrdersQuery.isError
+    ? workOrdersQuery.error instanceof Error
+      ? workOrdersQuery.error.message
+      : "Could not load partner messages workspace."
+    : null;
 
   const grouped = useMemo(() => {
+    const handoffs = (workOrdersQuery.data?.inboundProviderHandoffs ??
+      []) as ProviderHandoff[];
     const pending = handoffs.filter((item) => item.status === "pending");
     const active = handoffs.filter((item) =>
       ["accepted", "in_progress"].includes(item.status),
@@ -137,7 +108,7 @@ export function PartnerMessagesClient() {
     });
 
     return { pending, active, completed, last24h };
-  }, [handoffs]);
+  }, [workOrdersQuery.data]);
 
   if (loading) {
     return <PartnerMessagesLoadingSkeleton />;

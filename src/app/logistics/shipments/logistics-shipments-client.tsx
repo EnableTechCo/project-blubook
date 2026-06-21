@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { WorkflowStepMatrix } from "@/components/ui/workflow-progress";
 import { WorkflowPipeline } from "@/features/operations/workflow-pipeline";
 import { LOGISTICS_WORKFLOW_STATES } from "@/constants/logistics-workflow-states";
+import {
+  useGetWorkflowOrdersQuery,
+  useGetStepEventsQuery,
+  useDispatchWorkflowMutation,
+} from "@/store/redux/api/workflow-api";
 
 type LogisticsOrder = {
   id: string;
@@ -21,25 +25,24 @@ type LogisticsOrder = {
 
 export function LogisticsShipmentsClient() {
   const supabase = useMemo(() => createClient(), []);
-  const [orders, setOrders] = useState<LogisticsOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<LogisticsOrder | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
 
-  const stepEventsQuery = useQuery({
-    queryKey: ["step-events", selectedOrder?.id],
-    enabled: Boolean(selectedOrder?.id),
-    queryFn: async (): Promise<string[]> => {
-      const response = await fetch(
-        `/api/orders/${selectedOrder!.id}/step-events?audience=logistics`,
-        { credentials: "include" },
-      );
-      const body = await response.json().catch(() => null);
-      if (!response.ok) return [];
-      return (body?.completedStepKeys ?? []) as string[];
-    },
-  });
+  const ordersQuery = useGetWorkflowOrdersQuery("logistics");
+  const orders = useMemo(
+    () =>
+      ((ordersQuery.data as { orders?: LogisticsOrder[] } | undefined)
+        ?.orders ?? []) as LogisticsOrder[],
+    [ordersQuery.data],
+  );
+
+  const stepEventsQuery = useGetStepEventsQuery(
+    { orderId: selectedOrder?.id ?? "", audience: "logistics" },
+    { skip: !selectedOrder?.id },
+  );
+  const [dispatchWorkflow] = useDispatchWorkflowMutation();
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -49,57 +52,27 @@ export function LogisticsShipmentsClient() {
     Record<string, { shippingLabel: boolean; podUploaded: boolean }>
   >({});
 
-  const fetchOrders = useCallback(async () => {
-    const response = await fetch("/api/system/workflow/orders", {
-      method: "GET",
-    });
-    const body = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      showMsg("error", body?.error ?? "Could not load logistics shipments.");
-      return;
-    }
-
-    const nextOrders = (body?.orders ?? []) as LogisticsOrder[];
-    setOrders(nextOrders);
-
+  useEffect(() => {
+    if (ordersQuery.isLoading) return;
+    setLoading(false);
+    const nextOrders = orders;
     if (!selectedOrder && nextOrders.length > 0) {
-      setSelectedOrder(nextOrders[0]);
+      setSelectedOrder(nextOrders[0] ?? null);
       return;
     }
-
     if (selectedOrder) {
       const matched = nextOrders.find((item) => item.id === selectedOrder.id);
       setSelectedOrder(matched ?? null);
     }
-  }, [selectedOrder]);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        await fetchOrders();
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void load();
-  }, [fetchOrders]);
+  }, [orders, ordersQuery.isLoading, selectedOrder]);
 
   async function dispatchQueue() {
-    const response = await fetch("/api/system/workflow/dispatch", {
-      method: "POST",
-    });
-    const body = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(body?.error ?? "Could not run workflow dispatch.");
-    }
-
-    if (typeof body?.failed === "number" && body.failed > 0) {
+    const result = (await dispatchWorkflow().unwrap()) as
+      | { failed?: number }
+      | undefined;
+    if (typeof result?.failed === "number" && result.failed > 0) {
       throw new Error(
-        `Workflow dispatch completed with ${body.failed} failed event(s).`,
+        `Workflow dispatch completed with ${result.failed} failed event(s).`,
       );
     }
   }
@@ -122,7 +95,7 @@ export function LogisticsShipmentsClient() {
       }
 
       await dispatchQueue();
-      await fetchOrders();
+      void ordersQuery.refetch();
       showMsg("success", successMessage);
     } catch (error) {
       showMsg(

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useGetAdminSalesPipelineQuery } from "@/store/redux/api/admin-api";
 
 type SalesPipelineOrder = {
   id: string;
@@ -35,36 +35,18 @@ function formatMoney(amountCents: number, currencyCode: string) {
 }
 
 export default function AdminSalesPipelinePage() {
-  const pipelineQuery = useQuery({
-    queryKey: ["admin-sales-pipeline"],
-    queryFn: async (): Promise<SalesPipelinePayload> => {
-      const response = await fetch("/api/admin/sales-pipeline", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const pipelineQuery = useGetAdminSalesPipelineQuery("pipeline");
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load sales pipeline.");
-      }
-
-      return {
-        metrics: body?.metrics ?? {
-          total: 0,
-          active: 0,
-          completed: 0,
-          staleOpen: 0,
-        },
-        byStatus: (body?.byStatus ?? {}) as Record<string, number>,
-        orders: (body?.orders ?? []) as SalesPipelineOrder[],
-      };
-    },
-    refetchInterval: 30000,
-  });
+  const data = (pipelineQuery.data ?? {
+    metrics: { total: 0, active: 0, completed: 0, staleOpen: 0 },
+    byStatus: {},
+    orders: [],
+  }) as SalesPipelinePayload;
 
   const statusRows = useMemo(() => {
-    const byStatus = pipelineQuery.data?.byStatus ?? {};
+    const byStatus = data.byStatus ?? {};
     return Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
-  }, [pipelineQuery.data?.byStatus]);
+  }, [data.byStatus]);
 
   if (pipelineQuery.isLoading) {
     return <p className="text-sm text-slate-300">Loading sales pipeline...</p>;
@@ -80,13 +62,8 @@ export default function AdminSalesPipelinePage() {
     );
   }
 
-  const metrics = pipelineQuery.data?.metrics ?? {
-    total: 0,
-    active: 0,
-    completed: 0,
-    staleOpen: 0,
-  };
-  const orders = pipelineQuery.data?.orders ?? [];
+  const metrics = data.metrics;
+  const orders = data.orders;
 
   return (
     <div className="space-y-6">

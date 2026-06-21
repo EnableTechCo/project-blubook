@@ -5,7 +5,6 @@ import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
@@ -41,11 +40,9 @@ import { UserRoundCogIcon } from "@/components/icons/user-round-cog";
 import { UsersIcon } from "@/components/icons/users";
 import { WorkflowIcon } from "@/components/icons/workflow";
 import { SidebarInsightsSlider } from "@/components/shell/sidebar-insights-slider";
-import {
-  listNotifications,
-  subscribeToNotifications,
-} from "@/services/notifications.service";
+import { subscribeToNotifications } from "@/services/notifications.service";
 import { useNotificationStore } from "@/store/notification-store";
+import { useListNotificationsQuery } from "@/store/redux/api/notifications-api";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useUiStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -118,7 +115,6 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const queryClient = useQueryClient();
   const { data: user, isLoading: authLoading, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, closeSidebar } = useUiStore();
   const { items, setItems } = useNotificationStore();
@@ -131,10 +127,8 @@ export function AppShell({
   >(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  const notificationsQuery = useQuery({
-    queryKey: ["notifications", user?.id],
-    queryFn: () => listNotifications(user!.id),
-    enabled: Boolean(user?.id),
+  const notificationsQuery = useListNotificationsQuery(user?.id ?? "", {
+    skip: !user?.id,
   });
 
   useEffect(() => {
@@ -158,15 +152,13 @@ export function AppShell({
     }
 
     const unsubscribe = subscribeToNotifications(user.id, () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["notifications", user.id],
-      });
+      void notificationsQuery.refetch();
     });
 
     return () => {
       unsubscribe();
     };
-  }, [queryClient, user?.id]);
+  }, [notificationsQuery, user?.id]);
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.read).length,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useGetAdminUsersRosterQuery } from "@/store/redux/api/admin-api";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -31,35 +31,22 @@ type UsersPayload = {
 };
 
 export default function AdminUsersPage() {
-  const usersQuery = useQuery({
-    queryKey: ["admin-users-roster"],
-    queryFn: async (): Promise<UsersPayload> => {
-      const response = await fetch("/api/admin/users-roster", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const usersQuery = useGetAdminUsersRosterQuery("roster");
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load users.");
-      }
-
-      return {
-        metrics: body?.metrics ?? {
-          total: 0,
-          byRole: {},
-          byStatus: {},
-          recentlyActive: 0,
-        },
-        users: (body?.users ?? []) as UserRow[],
-      };
+  const data = (usersQuery.data ?? {
+    metrics: {
+      total: 0,
+      byRole: {},
+      byStatus: {},
+      recentlyActive: 0,
     },
-    refetchInterval: 60000,
-  });
+    users: [],
+  }) as UsersPayload;
 
   const roleRows = useMemo(() => {
-    const byRole = usersQuery.data?.metrics.byRole ?? {};
+    const byRole = data.metrics.byRole ?? {};
     return Object.entries(byRole).sort((a, b) => b[1] - a[1]);
-  }, [usersQuery.data?.metrics.byRole]);
+  }, [data.metrics.byRole]);
 
   if (usersQuery.isLoading) {
     return <p className="text-sm text-slate-300">Loading users...</p>;
@@ -75,13 +62,8 @@ export default function AdminUsersPage() {
     );
   }
 
-  const metrics = usersQuery.data?.metrics ?? {
-    total: 0,
-    byRole: {},
-    byStatus: {},
-    recentlyActive: 0,
-  };
-  const users = usersQuery.data?.users ?? [];
+  const metrics = data.metrics;
+  const users = data.users;
 
   return (
     <div className="space-y-6">

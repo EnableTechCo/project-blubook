@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useGetWorkflowOrdersQuery } from "@/store/redux/api/workflow-api";
 
 type AdminWorkflowOrder = {
   id: string;
@@ -36,26 +36,13 @@ function formatMoney(amountCents: number, currencyCode: string) {
 export default function AdminWorkflowsPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const ordersQuery = useQuery({
-    queryKey: ["admin-workflow-orders"],
-    queryFn: async (): Promise<AdminWorkflowOrder[]> => {
-      const response = await fetch("/api/system/workflow/orders", {
-        method: "GET",
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          body?.error ?? "Could not load admin workflow history.",
-        );
-      }
-
-      return (body?.orders ?? []) as AdminWorkflowOrder[];
-    },
-  });
-
-  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
+  const ordersQuery = useGetWorkflowOrdersQuery("list");
+  const orders = useMemo(
+    () =>
+      ((ordersQuery.data as { orders?: AdminWorkflowOrder[] } | undefined)
+        ?.orders ?? []) as AdminWorkflowOrder[],
+    [ordersQuery.data],
+  );
 
   const selectedOrder = useMemo(() => {
     if (!selectedOrderId) {

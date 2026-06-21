@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   markAllNotificationsRead,
@@ -34,13 +34,11 @@ function SingleNotificationCard({
   isDark: boolean;
 }) {
   const { markRead } = useNotificationStore();
-  const queryClient = useQueryClient();
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
-    onSuccess: async (_, vars) => {
+    onSuccess: (_, vars) => {
       markRead(vars.notificationId);
-      await queryClient.invalidateQueries({ queryKey: ["notifications", userId] });
     },
   });
 
@@ -115,21 +113,18 @@ function GroupNotificationCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { markGroupRead, markRead } = useNotificationStore();
-  const queryClient = useQueryClient();
 
   const markGroupMutation = useMutation({
     mutationFn: markNotificationsRead,
-    onSuccess: async (_, vars) => {
+    onSuccess: (_, vars) => {
       markGroupRead(vars.notificationIds);
-      await queryClient.invalidateQueries({ queryKey: ["notifications", userId] });
     },
   });
 
   const markOneMutation = useMutation({
     mutationFn: markNotificationRead,
-    onSuccess: async (_, vars) => {
+    onSuccess: (_, vars) => {
       markRead(vars.notificationId);
-      await queryClient.invalidateQueries({ queryKey: ["notifications", userId] });
     },
   });
 
@@ -208,9 +203,7 @@ function GroupNotificationCard({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? "Collapse group" : "Expand group"}
-            className={cn(
-              isDark ? "text-slate-400" : "text-slate-500",
-            )}
+            className={cn(isDark ? "text-slate-400" : "text-slate-500")}
           >
             {expanded ? (
               <ChevronUp className="h-3.5 w-3.5" />
@@ -292,7 +285,6 @@ export function NotificationPanel({
   isLoading,
 }: NotificationPanelProps) {
   const { items, markAllRead } = useNotificationStore();
-  const queryClient = useQueryClient();
 
   const entries = useMemo(() => buildNotificationEntries(items), [items]);
 
@@ -303,9 +295,8 @@ export function NotificationPanel({
 
   const markAllMutation = useMutation({
     mutationFn: markAllNotificationsRead,
-    onSuccess: async () => {
+    onSuccess: () => {
       markAllRead();
-      await queryClient.invalidateQueries({ queryKey: ["notifications", userId] });
     },
   });
 
@@ -313,9 +304,7 @@ export function NotificationPanel({
     <div
       className={cn(
         "absolute right-0 z-50 mt-2 w-[340px] rounded-2xl border p-3 shadow-panel",
-        isDark
-          ? "border-slate-700 bg-slate-900"
-          : "border-slate-200 bg-white",
+        isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-white",
       )}
     >
       {/* Header */}
@@ -331,9 +320,7 @@ export function NotificationPanel({
             <span
               className={cn(
                 "ml-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold",
-                isDark
-                  ? "bg-coral/80 text-white"
-                  : "bg-coral text-white",
+                isDark ? "bg-coral/80 text-white" : "bg-coral text-white",
               )}
             >
               {unreadCount}

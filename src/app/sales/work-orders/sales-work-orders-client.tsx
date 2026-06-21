@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { useGetWorkflowOrdersQuery } from "@/store/redux/api/workflow-api";
 
 type WorkOrder = {
   id: string;
@@ -21,83 +22,68 @@ export function SalesWorkOrdersClient() {
     text: string;
   } | null>(null);
 
-  const fetchWorkOrders = useCallback(async () => {
-    try {
-      const response = await fetch("/api/system/workflow/orders", {
-        method: "GET",
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to fetch work orders.");
-      }
-
-      const orders = Array.isArray(payload?.orders)
-        ? (payload.orders as Array<Record<string, unknown>>)
-        : [];
-      const handoffsByOrderId =
-        payload?.partnerHandoffsByOrderId &&
-        typeof payload.partnerHandoffsByOrderId === "object"
-          ? (payload.partnerHandoffsByOrderId as Record<string, unknown[]>)
-          : {};
-
-      const nextWorkOrders: WorkOrder[] = orders.flatMap((order) => {
-        const orderId =
-          order && typeof order === "object" && "id" in order
-            ? String(order.id)
-            : "";
-        const poReference =
-          order && typeof order === "object" && "po_reference" in order
-            ? String(order.po_reference ?? "No PO Ref")
-            : "No PO Ref";
-        const handoffs = handoffsByOrderId[orderId] ?? [];
-
-        return handoffs.map((handoff) => {
-          const safeHandoff =
-            handoff && typeof handoff === "object"
-              ? (handoff as Record<string, unknown>)
-              : {};
-          const metadata =
-            safeHandoff.metadata && typeof safeHandoff.metadata === "object"
-              ? (safeHandoff.metadata as Record<string, unknown>)
-              : null;
-          const providerName =
-            typeof metadata?.provider_name === "string" &&
-            metadata.provider_name.trim().length > 0
-              ? metadata.provider_name.trim()
-              : "Assigned Partner";
-
-          return {
-            id: String(safeHandoff.id ?? ""),
-            orderId,
-            status: String(safeHandoff.status ?? "pending"),
-            packageStream:
-              typeof safeHandoff.package_stream === "string"
-                ? safeHandoff.package_stream
-                : null,
-            providerName,
-            poReference,
-            assignedAt:
-              typeof safeHandoff.assigned_at === "string"
-                ? safeHandoff.assigned_at
-                : null,
-          };
-        });
-      });
-
-      setWorkOrders(nextWorkOrders);
-    } catch (err) {
-      const text = err instanceof Error ? err.message : "Failed to load.";
-      console.error("Error fetching sales work orders:", err);
-      setMessage({ type: "error", text });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const ordersQuery = useGetWorkflowOrdersQuery("sales-work-orders");
 
   useEffect(() => {
-    void fetchWorkOrders();
-  }, [fetchWorkOrders]);
+    if (ordersQuery.isLoading) return;
+    if (ordersQuery.isError) {
+      setMessage({ type: "error", text: "Failed to fetch work orders." });
+      setLoading(false);
+      return;
+    }
+    const payload = ordersQuery.data as Record<string, unknown> | undefined;
+    const orders = Array.isArray(payload?.orders)
+      ? (payload.orders as Array<Record<string, unknown>>)
+      : [];
+    const handoffsByOrderId =
+      payload?.partnerHandoffsByOrderId &&
+      typeof payload.partnerHandoffsByOrderId === "object"
+        ? (payload.partnerHandoffsByOrderId as Record<string, unknown[]>)
+        : {};
+    const nextWorkOrders: WorkOrder[] = orders.flatMap((order) => {
+      const orderId =
+        order && typeof order === "object" && "id" in order
+          ? String(order.id)
+          : "";
+      const poReference =
+        order && typeof order === "object" && "po_reference" in order
+          ? String(order.po_reference ?? "No PO Ref")
+          : "No PO Ref";
+      const handoffs = handoffsByOrderId[orderId] ?? [];
+      return handoffs.map((handoff) => {
+        const safeHandoff =
+          handoff && typeof handoff === "object"
+            ? (handoff as Record<string, unknown>)
+            : {};
+        const metadata =
+          safeHandoff.metadata && typeof safeHandoff.metadata === "object"
+            ? (safeHandoff.metadata as Record<string, unknown>)
+            : null;
+        const providerName =
+          typeof metadata?.provider_name === "string" &&
+          metadata.provider_name.trim().length > 0
+            ? metadata.provider_name.trim()
+            : "Assigned Partner";
+        return {
+          id: String(safeHandoff.id ?? ""),
+          orderId,
+          status: String(safeHandoff.status ?? "pending"),
+          packageStream:
+            typeof safeHandoff.package_stream === "string"
+              ? safeHandoff.package_stream
+              : null,
+          providerName,
+          poReference,
+          assignedAt:
+            typeof safeHandoff.assigned_at === "string"
+              ? safeHandoff.assigned_at
+              : null,
+        };
+      });
+    });
+    setWorkOrders(nextWorkOrders);
+    setLoading(false);
+  }, [ordersQuery.data, ordersQuery.isLoading, ordersQuery.isError]);
 
   if (loading) {
     return (

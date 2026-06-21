@@ -2,7 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PropsWithChildren, useEffect, useState } from "react";
+import { Provider } from "react-redux";
 import { createClient } from "@/lib/supabase/browser";
+import { appStore } from "@/store/redux/store";
 
 const PROTECTED_PATH_PREFIXES = [
   "/customer",
@@ -154,6 +156,8 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <Provider store={appStore}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </Provider>
   );
 }

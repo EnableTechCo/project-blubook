@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  useGetWorkflowOrderDetailsQuery,
+  useGetWorkflowOrdersQuery,
+} from "@/store/redux/api/workflow-api";
 
 type AdminOrder = {
   id: string;
@@ -97,47 +100,26 @@ export default function AdminOrdersPage() {
   const [query, setQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const ordersQuery = useQuery({
-    queryKey: ["admin-orders"],
-    queryFn: async (): Promise<AdminOrder[]> => {
-      const response = await fetch("/api/system/workflow/orders", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const ordersQuery = useGetWorkflowOrdersQuery("list");
+  const orders = useMemo(
+    () =>
+      ((ordersQuery.data as { orders?: AdminOrder[] } | undefined)?.orders ??
+        []) as AdminOrder[],
+    [ordersQuery.data],
+  );
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load admin orders.");
-      }
-
-      return (body?.orders ?? []) as AdminOrder[];
+  const orderDetailsQuery = useGetWorkflowOrderDetailsQuery(
+    selectedOrderId ?? "",
+    {
+      skip: !selectedOrderId,
     },
-  });
+  );
 
-  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
-
-  const orderDetailsQuery = useQuery({
-    queryKey: ["admin-order-details", selectedOrderId],
-    queryFn: async (): Promise<OrderDetailsPayload> => {
-      const response = await fetch(
-        `/api/system/workflow/orders?orderId=${selectedOrderId}`,
-        {
-          credentials: "include",
-        },
-      );
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load order details.");
-      }
-
-      return {
-        order: (body?.order ?? null) as AdminOrder | null,
-        items: (body?.items ?? []) as OrderItem[],
-        partnerHandoffs: (body?.partnerHandoffs ?? []) as PartnerHandoff[],
-      };
-    },
-    enabled: Boolean(selectedOrderId),
-  });
+  const detailsPayload = (orderDetailsQuery.data ?? {
+    order: null,
+    items: [],
+    partnerHandoffs: [],
+  }) as OrderDetailsPayload;
 
   const activeOrders = useMemo(
     () => orders.filter((order) => !isCompletedStatus(order.status)),
@@ -226,9 +208,9 @@ export default function AdminOrdersPage() {
     [orders, selectedOrderId],
   );
 
-  const detailsOrder = orderDetailsQuery.data?.order ?? selectedOrder;
-  const detailsItems = orderDetailsQuery.data?.items ?? [];
-  const detailsHandoffs = orderDetailsQuery.data?.partnerHandoffs ?? [];
+  const detailsOrder = detailsPayload.order ?? selectedOrder;
+  const detailsItems = detailsPayload.items;
+  const detailsHandoffs = detailsPayload.partnerHandoffs;
 
   if (ordersQuery.isLoading) {
     return <p className="text-sm text-slate-300">Loading orders...</p>;

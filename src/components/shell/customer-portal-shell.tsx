@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { listCustomerRequests } from "@/services/requests.service";
-import { useNotificationStore } from "@/store/notification-store";
+import { useGetCustomerRequestsQuery } from "@/store/redux/api/customer-api";
+import { useListNotificationsQuery } from "@/store/redux/api/notifications-api";
 import { AppShell } from "@/components/shell/app-shell";
 import { customerNav } from "@/features/navigation/role-nav";
 
@@ -14,12 +13,12 @@ export function CustomerPortalShell({
   children: React.ReactNode;
 }) {
   const { data: user } = useAuth();
-  const { items: notificationItems } = useNotificationStore();
+  const notificationsQuery = useListNotificationsQuery(user?.id ?? "", {
+    skip: !user?.id,
+  });
 
-  const customerRequestsQuery = useQuery({
-    queryKey: ["customer-requests", user?.id],
-    queryFn: () => listCustomerRequests(user!.id),
-    enabled: Boolean(user?.id),
+  const customerRequestsQuery = useGetCustomerRequestsQuery(user?.id ?? "", {
+    skip: !user?.id,
   });
 
   const requestAlertCount = useMemo(
@@ -31,8 +30,10 @@ export function CustomerPortalShell({
   );
 
   const messageAlertCount = useMemo(
-    () => notificationItems.filter((item) => !item.read).length,
-    [notificationItems],
+    () =>
+      (notificationsQuery.data ?? []).filter((item) => item.read_at == null)
+        .length,
+    [notificationsQuery.data],
   );
 
   const navItems = useMemo(
