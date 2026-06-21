@@ -3,12 +3,11 @@
 import { useMemo } from "react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Chart, type ChartOptions } from "@highcharts/react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useCustomerContext } from "@/hooks/use-customer-context";
-import { listCustomerRequests } from "@/services/requests.service";
+import { useGetCustomerRequestsQuery } from "@/store/redux/api/customer-api";
 
 // Helper function to get status color for visual feedback
 const getStatusColor = (status: string) => {
@@ -76,11 +75,10 @@ const ClickableKPICard = ({
 export default function CustomerAnalyticsPage() {
   const router = useRouter();
   const customerContext = useCustomerContext();
+  const customerId = customerContext.data?.userId ?? "";
 
-  const requestsQuery = useQuery({
-    queryKey: ["customer-requests", customerContext.data?.userId],
-    enabled: Boolean(customerContext.data?.userId),
-    queryFn: () => listCustomerRequests(customerContext.data!.userId),
+  const requestsQuery = useGetCustomerRequestsQuery(customerId, {
+    skip: !customerId,
   });
 
   const stats = useMemo(() => {

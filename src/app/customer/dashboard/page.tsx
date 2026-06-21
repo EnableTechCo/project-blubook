@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { HoverAnimatedIcon } from "@/components/ui/hover-animated-icon";
 import { Button } from "@/components/ui/button";
 import { DashboardPageHeader } from "@/components/ui/dashboard-page-header";
@@ -28,9 +28,15 @@ import { UploadFlowStepCards } from "@/components/dashboard/customer/upload-flow
 import { UploadFlowStepDetailsCard } from "@/components/dashboard/customer/upload-flow-step-details-card";
 import { useRealtimeEventStatus } from "@/hooks/use-realtime-event-status";
 import { useCustomerContext } from "@/hooks/use-customer-context";
-import { listCustomerRequirements } from "@/services/requirements.service";
 import requirementsService from "@/services/requirements.service";
 import { subscribeToCustomerOrderProgress } from "@/services/workflow-realtime.service";
+import {
+  useGetCustomerOrdersQuery,
+  useGetCustomerProviderReadinessQuery,
+  useGetCustomerRequirementsQuery,
+  useGetCustomerStepEventsQuery,
+  useRetractCustomerOrderMutation,
+} from "@/store/redux/api/customer-api";
 import { ChartBarIncreasingIcon } from "@/components/icons/chart-bar-increasing";
 import { ClipboardCheckIcon } from "@/components/icons/clipboard-check";
 import { FilePenLineIcon } from "@/components/icons/file-pen-line";
@@ -80,6 +86,7 @@ export default function CustomerDashboardPage() {
   const [retractingOrderId, setRetractingOrderId] = useState<string | null>(
     null,
   );
+  const [retractError, setRetractError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<{
     fileName: string;
@@ -112,29 +119,12 @@ export default function CustomerDashboardPage() {
     process.env.NEXT_PUBLIC_CUSTOMER_DOCUMENTS_BUCKET?.trim() || "documents";
   const prefix = `organizations/${organizationId}/customers/${userId}`;
 
-  const requirementsQuery = useQuery({
-    queryKey: ["customer-requirements", organizationId],
-    enabled: Boolean(organizationId),
-    queryFn: () => listCustomerRequirements(organizationId),
+  const requirementsQuery = useGetCustomerRequirementsQuery(organizationId, {
+    skip: !organizationId,
   });
 
-  const ordersQuery = useQuery({
-    queryKey: ["customer-orders", organizationId],
-    enabled: Boolean(organizationId),
-    queryFn: async (): Promise<Array<CustomerOrderSummary>> => {
-      const response = await fetch("/api/customer/orders", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load customer orders.");
-      }
-
-      return (body?.orders ?? []) as Array<CustomerOrderSummary>;
-    },
+  const ordersQuery = useGetCustomerOrdersQuery(organizationId, {
+    skip: !organizationId,
   });
 
   const {
@@ -147,45 +137,19 @@ export default function CustomerDashboardPage() {
     requirements: requirementsQuery.data ?? [],
   });
 
-  const stepEventsQuery = useQuery({
-    queryKey: ["step-events", displayedOrderId],
-    enabled: Boolean(displayedOrderId),
-    queryFn: async (): Promise<string[]> => {
-      const response = await fetch(
-        `/api/orders/${displayedOrderId}/step-events?audience=customer`,
-        { credentials: "include" },
-      );
-      const body = await response.json().catch(() => null);
-      if (!response.ok) return [];
-      return (body?.completedStepKeys ?? []) as string[];
+  const stepEventsQuery = useGetCustomerStepEventsQuery(
+    displayedOrderId ?? "",
+    {
+      skip: !displayedOrderId,
     },
-  });
+  );
 
-  const providerReadinessQuery = useQuery({
-    queryKey: ["customer-provider-readiness"],
-    queryFn: async (): Promise<{
-      slas: { active: number; total: number };
-      generatedCustomerRequests: number;
-    }> => {
-      const response = await fetch("/api/customer/provider-readiness", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load SLA metrics.");
-      }
-
-      return {
-        slas: {
-          active: Number(body?.slas?.active ?? 0),
-          total: Number(body?.slas?.total ?? 0),
-        },
-        generatedCustomerRequests: Number(body?.generatedCustomerRequests ?? 0),
-      };
+  const providerReadinessQuery = useGetCustomerProviderReadinessQuery(
+    organizationId,
+    {
+      skip: !organizationId,
     },
-  });
+  );
 
   useEffect(() => {
     if (!organizationId) {
@@ -194,29 +158,29 @@ export default function CustomerDashboardPage() {
 
     const unsubscribe = subscribeToCustomerOrderProgress(organizationId, () => {
       markRealtimeEvent();
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-orders", organizationId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-requirements", organizationId],
-      });
-      // Also refresh step-events so the progress bar updates without a manual reload.
-      void queryClient.invalidateQueries({ queryKey: ["step-events"] });
+      void ordersQuery.refetch();
+      void requirementsQuery.refetch();
+      void stepEventsQuery.refetch();
     });
 
     return () => {
       unsubscribe();
     };
-  }, [organizationId, markRealtimeEvent, queryClient]);
+  }, [
+    organizationId,
+    markRealtimeEvent,
+    ordersQuery,
+    requirementsQuery,
+    stepEventsQuery,
+  ]);
 
   const submitEvidenceMutation = useMutation({
     mutationFn: requirementsService.submitRequirementEvidence,
     onSuccess: async () => {
       setUploadError(null);
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["customer-requirements", organizationId],
-        }),
+        requirementsQuery.refetch(),
+        ordersQuery.refetch(),
         queryClient.invalidateQueries({
           queryKey: ["documents", bucket, prefix],
         }),
@@ -224,38 +188,12 @@ export default function CustomerDashboardPage() {
     },
   });
 
-  const retractOrderMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const response = await fetch(`/api/customer/orders/${orderId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not retract order.");
-      }
-
-      return body;
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["customer-orders", organizationId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["customer-requirements", organizationId],
-        }),
-      ]);
-    },
-  });
+  const [retractOrder] = useRetractCustomerOrderMutation();
 
   const ensurePoRequirementMutation = useMutation({
     mutationFn: requirementsService.ensurePurchaseOrderRequirement,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["customer-requirements", organizationId],
-      });
+      await requirementsQuery.refetch();
     },
   });
 
@@ -327,30 +265,8 @@ export default function CustomerDashboardPage() {
       const kickoffPoReference = result.kickoff?.poReference ?? null;
       const kickoffSkipped = result.kickoff?.skipped === true;
 
-      if (kickoffOrderId && organizationId) {
-        queryClient.setQueryData<Array<CustomerOrderSummary>>(
-          ["customer-orders", organizationId],
-          (current) => {
-            const nextOrder: CustomerOrderSummary = {
-              id: kickoffOrderId,
-              status: "Purchase Order Received",
-              poReference: kickoffPoReference,
-              updatedAt: new Date().toISOString(),
-              timeline: [],
-            };
-
-            const deduped = (current ?? []).filter(
-              (order) => order.id !== kickoffOrderId,
-            );
-            return [nextOrder, ...deduped];
-          },
-        );
-      }
-
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-orders", organizationId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["step-events"] });
+      void ordersQuery.refetch();
+      void stepEventsQuery.refetch();
 
       setUploadFlowStage("starting_workflow");
       setSelectedUploadStepIndex(2);
@@ -436,10 +352,14 @@ export default function CustomerDashboardPage() {
 
     const { id } = retractConfirmOrder;
     setRetractingOrderId(id);
+    setRetractError(null);
     try {
-      await retractOrderMutation.mutateAsync(id);
-    } catch {
-      // handled in UI
+      await retractOrder({ orderId: id, organizationId }).unwrap();
+      await Promise.all([ordersQuery.refetch(), requirementsQuery.refetch()]);
+    } catch (error) {
+      setRetractError(
+        error instanceof Error ? error.message : "Could not retract order.",
+      );
     } finally {
       setRetractingOrderId(null);
       setRetractConfirmOrder(null);
@@ -589,15 +509,13 @@ export default function CustomerDashboardPage() {
     }
 
     const pollId = window.setInterval(() => {
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-orders", organizationId],
-      });
+      void ordersQuery.refetch();
     }, 1500);
 
     return () => {
       window.clearInterval(pollId);
     };
-  }, [organizationId, queryClient, showKickoff, uploadSuccess]);
+  }, [organizationId, ordersQuery, showKickoff, uploadSuccess]);
 
   useEffect(() => {
     if (hasActiveOrder && uploadSuccess) {
@@ -842,14 +760,10 @@ export default function CustomerDashboardPage() {
             ) : hasActiveOrder ? (
               /* ── TRACKING ── */
               <ActiveOrderTrackingCard>
-                {retractOrderMutation.isError ? (
+                {retractError ? (
                   <InlineErrorMessage
                     className="text-sm"
-                    message={
-                      retractOrderMutation.error instanceof Error
-                        ? retractOrderMutation.error.message
-                        : "Could not retract order."
-                    }
+                    message={retractError}
                   />
                 ) : null}
                 {(() => {
@@ -873,10 +787,7 @@ export default function CustomerDashboardPage() {
                         <Button
                           variant="danger"
                           className="h-7 px-2.5 text-[11px]"
-                          disabled={
-                            retractOrderMutation.isPending &&
-                            retractingOrderId === order.id
-                          }
+                          disabled={retractingOrderId === order.id}
                           onClick={() =>
                             onRetractOrderRequest(
                               order.id,
@@ -884,8 +795,7 @@ export default function CustomerDashboardPage() {
                             )
                           }
                         >
-                          {retractOrderMutation.isPending &&
-                          retractingOrderId === order.id
+                          {retractingOrderId === order.id
                             ? "Retracting..."
                             : "Retract"}
                         </Button>
@@ -1044,7 +954,7 @@ export default function CustomerDashboardPage() {
       <RetractOrderDialog
         open={Boolean(retractConfirmOrder)}
         title={`Retract ${retractConfirmOrder?.poReference ?? retractConfirmOrder?.id ?? "order"}?`}
-        busy={retractOrderMutation.isPending}
+        busy={Boolean(retractingOrderId)}
         onClose={() => setRetractConfirmOrder(null)}
         onConfirm={() => void onRetractOrderConfirmed()}
       />

@@ -1,38 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useCustomerContext } from "@/hooks/use-customer-context";
+import { useGetCustomerBillingSummaryQuery } from "@/store/redux/api/customer-api";
 
 export default function CustomerSettingsPage() {
   const customerContext = useCustomerContext();
-  const billingQuery = useQuery({
-    queryKey: ["customer-billing-summary"],
-    queryFn: async () => {
-      const response = await fetch("/api/customer/billing");
-
-      if (!response.ok) {
-        throw new Error("Could not load billing summary.");
-      }
-
-      return (await response.json()) as {
-        currentSubscription: {
-          status: string;
-          cancelAtPeriodEnd: boolean;
-          currentPeriodEnd: string | null;
-          package: {
-            name: string;
-            metadata?: { display_price?: string };
-          } | null;
-        } | null;
-        invoices: Array<{
-          invoiceNumber: string;
-          status: string;
-          issuedAt: string | null;
-        }>;
-      };
-    },
+  const organizationId = customerContext.data?.organizationId ?? "";
+  const billingQuery = useGetCustomerBillingSummaryQuery(organizationId, {
+    skip: !organizationId,
   });
 
   if (customerContext.isLoading || billingQuery.isLoading) {

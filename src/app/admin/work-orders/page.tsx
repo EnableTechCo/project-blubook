@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useGetAdminWorkOrdersQuery } from "@/store/redux/api/admin-api";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -103,41 +103,20 @@ export default function AdminWorkOrdersPage() {
   >("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const workOrdersQuery = useQuery({
-    queryKey: ["admin-work-orders"],
-    queryFn: async (): Promise<WorkOrdersPayload> => {
-      const response = await fetch("/api/admin/work-orders", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const workOrdersQuery = useGetAdminWorkOrdersQuery("work-orders");
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load work orders.");
-      }
-
-      return {
-        metrics: body?.metrics ?? {
-          total: 0,
-          active: 0,
-          completed: 0,
-          blocked: 0,
-        },
-        workOrders: (body?.workOrders ?? []) as WorkOrderRow[],
-      };
+  const data = (workOrdersQuery.data ?? {
+    metrics: {
+      total: 0,
+      active: 0,
+      completed: 0,
+      blocked: 0,
     },
-    refetchInterval: 30000,
-  });
+    workOrders: [],
+  }) as WorkOrdersPayload;
 
-  const metrics = workOrdersQuery.data?.metrics ?? {
-    total: 0,
-    active: 0,
-    completed: 0,
-    blocked: 0,
-  };
-  const workOrders = useMemo(
-    () => workOrdersQuery.data?.workOrders ?? [],
-    [workOrdersQuery.data?.workOrders],
-  );
+  const metrics = data.metrics;
+  const workOrders = useMemo(() => data.workOrders, [data.workOrders]);
 
   const statusOptions = useMemo(() => {
     const counts = new Map<string, number>();

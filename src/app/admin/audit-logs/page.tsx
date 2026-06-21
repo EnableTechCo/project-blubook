@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectMenu } from "@/components/ui/select-menu";
+import { useGetAdminAuditLogsQuery } from "@/store/redux/api/admin-api";
 
 type AuditLogRow = {
   id: string;
@@ -93,60 +93,17 @@ export default function AdminAuditLogsPage() {
     return params.toString();
   }, [filters, page]);
 
-  const logsQuery = useQuery({
-    queryKey: ["admin-audit-logs", queryString],
-    queryFn: async (): Promise<AuditLogsPayload> => {
-      const response = await fetch(`/api/admin/audit-logs?${queryString}`, {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const logsQuery = useGetAdminAuditLogsQuery(queryString);
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load audit logs.");
-      }
-
-      return {
-        options: {
-          modules: (body?.options?.modules ?? []) as string[],
-          actions: (body?.options?.actions ?? []) as string[],
-          actors: (body?.options?.actors ?? []) as Array<{
-            userId: string;
-            name: string;
-          }>,
-          statuses: (body?.options?.statuses ?? []) as string[],
-        },
-        metrics: {
-          total: body?.metrics?.total ?? 0,
-          byModule: (body?.metrics?.byModule ?? {}) as Record<string, number>,
-          bySeverity: (body?.metrics?.bySeverity ?? {}) as Record<
-            string,
-            number
-          >,
-        },
-        pagination: {
-          page: body?.pagination?.page ?? 1,
-          limit: body?.pagination?.limit ?? 20,
-          total: body?.pagination?.total ?? 0,
-          totalPages: body?.pagination?.totalPages ?? 1,
-        },
-        logs: (body?.logs ?? []) as AuditLogRow[],
-      };
-    },
-    placeholderData: keepPreviousData,
-  });
-
-  const metrics = logsQuery.data?.metrics ?? {
-    total: 0,
-    byModule: {},
-    bySeverity: {},
-  };
-  const pagination = logsQuery.data?.pagination ?? {
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 1,
-  };
-  const logs = logsQuery.data?.logs ?? [];
+  const logsData = (logsQuery.data ?? {
+    options: { modules: [], actions: [], actors: [], statuses: [] },
+    metrics: { total: 0, byModule: {}, bySeverity: {} },
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 1 },
+    logs: [],
+  }) as AuditLogsPayload;
+  const metrics = logsData.metrics;
+  const pagination = logsData.pagination;
+  const logs = logsData.logs;
 
   const applyFilter = (key: keyof Filters, value: string) => {
     setPage(1);
@@ -208,7 +165,7 @@ export default function AdminAuditLogsPage() {
               onChange={(next) => applyFilter("module", next)}
               options={[
                 { value: "all", label: "All Modules" },
-                ...(logsQuery.data?.options.modules ?? []).map((module) => ({
+                ...(logsData.options.modules ?? []).map((module) => ({
                   value: module,
                   label: module,
                 })),
@@ -224,7 +181,7 @@ export default function AdminAuditLogsPage() {
               onChange={(next) => applyFilter("action", next)}
               options={[
                 { value: "all", label: "All Actions" },
-                ...(logsQuery.data?.options.actions ?? []).map((action) => ({
+                ...(logsData.options.actions ?? []).map((action) => ({
                   value: action,
                   label: action,
                 })),
@@ -240,7 +197,7 @@ export default function AdminAuditLogsPage() {
               onChange={(next) => applyFilter("actor", next)}
               options={[
                 { value: "all", label: "All Actors" },
-                ...(logsQuery.data?.options.actors ?? []).map((actor) => ({
+                ...(logsData.options.actors ?? []).map((actor) => ({
                   value: actor.userId,
                   label: actor.name,
                 })),
@@ -256,7 +213,7 @@ export default function AdminAuditLogsPage() {
               onChange={(next) => applyFilter("status", next)}
               options={[
                 { value: "all", label: "All Statuses" },
-                ...(logsQuery.data?.options.statuses ?? []).map((status) => ({
+                ...(logsData.options.statuses ?? []).map((status) => ({
                   value: status,
                   label: status,
                 })),

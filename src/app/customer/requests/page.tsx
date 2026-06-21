@@ -2,7 +2,6 @@
 
 import { FormEvent, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import {
-  createCustomerRequest,
-  listCustomerRequests,
-  type RequestRecord,
-} from "@/services/requests.service";
+  useCreateCustomerRequestMutation,
+  useGetCustomerRequestsQuery,
+} from "@/store/redux/api/customer-api";
+import { type RequestRecord } from "@/services/requests.service";
 
 const REQUEST_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
@@ -27,8 +26,8 @@ function formatStatusLabel(value: string) {
 }
 
 export default function CustomerRequestsPage() {
-  const queryClient = useQueryClient();
   const customerContext = useCustomerContext();
+  const customerId = customerContext.data?.userId ?? "";
   const [activeFilter, setActiveFilter] = useState<
     "all" | "open" | "cancelled" | "at_risk"
   >("all");
@@ -45,29 +44,11 @@ export default function CustomerRequestsPage() {
 
   const PAGE_SIZE = 10;
 
-  const requestsQuery = useQuery({
-    queryKey: ["customer-requests", customerContext.data?.userId],
-    enabled: Boolean(customerContext.data?.userId),
-    queryFn: () => listCustomerRequests(customerContext.data!.userId),
+  const requestsQuery = useGetCustomerRequestsQuery(customerId, {
+    skip: !customerId,
   });
-
-  const createRequestMutation = useMutation({
-    mutationFn: createCustomerRequest,
-    onSuccess: async () => {
-      setTitle("");
-      setDescription("");
-      setPriority("medium");
-      setSubmitError(null);
-      await queryClient.invalidateQueries({
-        queryKey: ["customer-requests", customerContext.data?.userId],
-      });
-    },
-    onError: (error) => {
-      setSubmitError(
-        error instanceof Error ? error.message : "Could not create request.",
-      );
-    },
-  });
+  const [createRequest, createRequestMutation] =
+    useCreateCustomerRequestMutation();
 
   const requests = useMemo<RequestRecord[]>(() => {
     return Array.isArray(requestsQuery.data) ? requestsQuery.data : [];
@@ -171,18 +152,28 @@ export default function CustomerRequestsPage() {
     setCurrentPage((prev) => Math.min(prev, maxPage));
   }, [processedRequests.length]);
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim() || !customerContext.data?.userId) {
+    if (!title.trim() || !customerId) {
       return;
     }
 
-    createRequestMutation.mutate({
-      customerId: customerContext.data.userId,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      priority,
-    });
+    try {
+      await createRequest({
+        customerId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        priority,
+      }).unwrap();
+      setTitle("");
+      setDescription("");
+      setPriority("medium");
+      setSubmitError(null);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Could not create request.",
+      );
+    }
   };
 
   if (customerContext.isLoading) {
@@ -308,9 +299,9 @@ export default function CustomerRequestsPage() {
             />
             <Button
               type="submit"
-              disabled={!title.trim() || createRequestMutation.isPending}
+              disabled={!title.trim() || createRequestMutation.isLoading}
             >
-              {createRequestMutation.isPending
+              {createRequestMutation.isLoading
                 ? "Creating..."
                 : "Create request"}
             </Button>

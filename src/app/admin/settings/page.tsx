@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectMenu } from "@/components/ui/select-menu";
+import { useGetAdminWorkflowConfigQuery } from "@/store/redux/api/admin-api";
 
 type WorkflowConfigPayload = {
   organizationId: string;
@@ -77,29 +77,15 @@ export default function AdminSettingsPage() {
   );
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const configQuery = useQuery({
-    queryKey: ["admin-workflow-config"],
-    queryFn: async (): Promise<WorkflowConfigPayload> => {
-      const response = await fetch("/api/admin/workflow-config", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load workflow settings.");
-      }
-
-      return body as WorkflowConfigPayload;
-    },
-  });
+  const configQuery = useGetAdminWorkflowConfigQuery("config");
+  const payload = configQuery.data as WorkflowConfigPayload | undefined;
 
   useEffect(() => {
-    if (configQuery.data?.config) {
-      setEditableConfig(configQuery.data.config);
+    if (payload?.config) {
+      setEditableConfig(payload.config);
     }
-  }, [configQuery.data]);
+  }, [payload]);
 
-  const payload = configQuery.data;
   const config = editableConfig ?? payload?.config ?? null;
 
   const dirty = useMemo(() => {
@@ -251,7 +237,7 @@ export default function AdminSettingsPage() {
                     : current,
                 )
               }
-              options={payload.assigneeRoles.map((role) => ({
+              options={payload.assigneeRoles.map((role: string) => ({
                 value: role,
                 label: role,
               }))}
@@ -276,7 +262,7 @@ export default function AdminSettingsPage() {
                     : current,
                 )
               }
-              options={payload.assigneeRoles.map((role) => ({
+              options={payload.assigneeRoles.map((role: string) => ({
                 value: role,
                 label: role,
               }))}

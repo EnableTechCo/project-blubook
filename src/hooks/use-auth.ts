@@ -1,29 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; 
 import { createClient } from "@/lib/supabase/browser";
 import { useRouter } from "next/navigation";
+import { baseApi } from "@/store/redux/api/base-api";
+import { useAppDispatch } from "@/store/redux/hooks";
+import { useGetAuthUserQuery } from "@/store/redux/api/session-api";
+
 export function useAuth() {
-  const queryClient = useQueryClient();
   const router = useRouter();
-
-  const query = useQuery({
-    queryKey: ["auth-user"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (error) {
-        throw error;
-      }
-
-      return user;
-    },
-  });
+  const dispatch = useAppDispatch();
+  const query = useGetAuthUserQuery();
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,23 +25,16 @@ export function useAuth() {
     };
   }, [query]);
 
- //Sign Out logic
   const signOut = async () => {
     const supabase = createClient();
-    
-    //invalidate the user session tokens
     await supabase.auth.signOut();
-    
-    //clear the cached user data 
-    queryClient.setQueryData(["auth-user"], null);
-    
-    //redirect the browser to the login screen
+    dispatch(baseApi.util.resetApiState());
     router.push("/login");
   };
 
   return {
-    ...query,        
-    user: query.data, 
-    signOut,          // Exposes the sign-out action to our UI components
+    ...query,
+    user: query.data,
+    signOut,
   };
 }

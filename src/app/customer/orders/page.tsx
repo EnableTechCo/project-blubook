@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,19 +11,15 @@ import {
 } from "@/components/ui/workflow-progress";
 import { useCustomerContext } from "@/hooks/use-customer-context";
 import { subscribeToCustomerOrderProgress } from "@/services/workflow-realtime.service";
+import {
+  useGetCustomerOrdersDetailedQuery,
+  useGetCustomerStepEventsQuery,
+  useRetractCustomerOrderMutation,
+} from "@/store/redux/api/customer-api";
 
 function OrderStepMatrix({ orderId }: { orderId: string }) {
-  const stepEventsQuery = useQuery({
-    queryKey: ["step-events", orderId],
-    queryFn: async (): Promise<string[]> => {
-      const response = await fetch(
-        `/api/orders/${orderId}/step-events?audience=customer`,
-        { credentials: "include" },
-      );
-      const body = await response.json().catch(() => null);
-      if (!response.ok) return [];
-      return (body?.completedStepKeys ?? []) as string[];
-    },
+  const stepEventsQuery = useGetCustomerStepEventsQuery(orderId, {
+    skip: !orderId,
   });
 
   return (
@@ -40,27 +35,6 @@ function OrderStepMatrix({ orderId }: { orderId: string }) {
     </>
   );
 }
-
-type CustomerOrder = {
-  id: string;
-  status: string;
-  totalCents: number;
-  currencyCode: string;
-  poReference: string | null;
-  createdAt: string;
-  updatedAt: string;
-  deliveredAt: string | null;
-  deliveredTo: string | null;
-  slaDueAt: string | null;
-  slaStatus: string | null;
-  timeline: Array<{
-    id?: string;
-    step?: string;
-    actor?: string;
-    message?: string;
-    at?: string;
-  }>;
-};
 
 function formatMoney(amountCents: number, currencyCode: string) {
   return new Intl.NumberFormat("en-ZA", {
@@ -80,7 +54,7 @@ function formatStatusLabel(value: string) {
 
 export default function CustomerOrdersPage() {
   const customerContext = useCustomerContext();
-  const queryClient = useQueryClient();
+  const organizationId = customerContext.data?.organizationId ?? "";
   const [retractingOrderId, setRetractingOrderId] = useState<string | null>(
     null,
   );
@@ -89,22 +63,8 @@ export default function CustomerOrdersPage() {
     poReference: string | null;
   } | null>(null);
 
-  const ordersQuery = useQuery({
-    queryKey: ["customer-orders", customerContext.data?.organizationId],
-    enabled: Boolean(customerContext.data?.organizationId),
-    queryFn: async (): Promise<CustomerOrder[]> => {
-      const response = await fetch("/api/customer/orders", {
-        method: "GET",
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load customer orders.");
-      }
-
-      return (body?.orders ?? []) as CustomerOrder[];
-    },
+  const ordersQuery = useGetCustomerOrdersDetailedQuery(organizationId, {
+    skip: !organizationId,
   });
 
   useEffect(() => {
@@ -114,42 +74,16 @@ export default function CustomerOrdersPage() {
     }
 
     const unsubscribe = subscribeToCustomerOrderProgress(organizationId, () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-orders", organizationId],
-      });
+      void ordersQuery.refetch();
     });
 
     return () => {
       unsubscribe();
     };
-  }, [customerContext.data?.organizationId, queryClient]);
+  }, [customerContext.data?.organizationId, ordersQuery]);
 
-  const retractOrderMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const response = await fetch(`/api/customer/orders/${orderId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not retract order.");
-      }
-
-      return body;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["customer-orders", customerContext.data?.organizationId],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: [
-          "customer-requirements",
-          customerContext.data?.organizationId,
-        ],
-      });
-    },
-  });
+  const [retractOrder, retractOrderMutation] =
+    useRetractCustomerOrderMutation();
 
   function onRetractOrderRequest(orderId: string, poReference: string | null) {
     setRetractConfirmOrder({ id: orderId, poReference });
@@ -163,7 +97,7 @@ export default function CustomerOrdersPage() {
     const { id } = retractConfirmOrder;
     setRetractingOrderId(id);
     try {
-      await retractOrderMutation.mutateAsync(id);
+      await retractOrder({ orderId: id, organizationId }).unwrap();
     } catch {
       // handled in UI
     } finally {
@@ -203,8 +137,11 @@ export default function CustomerOrdersPage() {
         </p>
         {retractOrderMutation.isError ? (
           <p className="mt-2 text-sm text-red-300">
-            {retractOrderMutation.error instanceof Error
-              ? retractOrderMutation.error.message
+            {"error" in (retractOrderMutation.error ?? {})
+              ? String(
+                  (retractOrderMutation.error as { error?: string }).error ??
+                    "Could not retract order.",
+                )
               : "Could not retract order."}
           </p>
         ) : null}
@@ -242,14 +179,14 @@ export default function CustomerOrdersPage() {
                     variant="danger"
                     className="h-8 px-3 text-xs"
                     disabled={
-                      retractOrderMutation.isPending &&
+                      retractOrderMutation.isLoading &&
                       retractingOrderId === order.id
                     }
                     onClick={() =>
                       onRetractOrderRequest(order.id, order.poReference)
                     }
                   >
-                    {retractOrderMutation.isPending &&
+                    {retractOrderMutation.isLoading &&
                     retractingOrderId === order.id
                       ? "Retracting..."
                       : "Retract Order"}
@@ -348,7 +285,7 @@ export default function CustomerOrdersPage() {
         description="This removes the order and related workflow records."
         warning="Intended for testing and workflow reset scenarios."
         confirmLabel="Confirm Retract"
-        busy={retractOrderMutation.isPending}
+        busy={retractOrderMutation.isLoading}
         onClose={() => setRetractConfirmOrder(null)}
         onConfirm={() => {
           void onRetractOrderConfirmed();

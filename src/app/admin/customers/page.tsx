@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useGetAdminCustomersQuery } from "@/store/redux/api/admin-api";
 import { Card } from "@/components/ui/card";
 
 type CustomerRow = {
@@ -86,41 +86,20 @@ export default function AdminCustomersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const customersQuery = useQuery({
-    queryKey: ["admin-customers"],
-    queryFn: async (): Promise<CustomersPayload> => {
-      const response = await fetch("/api/admin/customers", {
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
+  const customersQuery = useGetAdminCustomersQuery("customers");
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load customers.");
-      }
-
-      return {
-        summary: body?.summary ?? {
-          total: 0,
-          withActiveOrders: 0,
-          withNoOrders: 0,
-          active: 0,
-        },
-        customers: (body?.customers ?? []) as CustomerRow[],
-      };
+  const data = (customersQuery.data ?? {
+    summary: {
+      total: 0,
+      withActiveOrders: 0,
+      withNoOrders: 0,
+      active: 0,
     },
-    refetchInterval: 60000,
-  });
+    customers: [],
+  }) as CustomersPayload;
 
-  const allCustomers = useMemo(
-    () => customersQuery.data?.customers ?? [],
-    [customersQuery.data?.customers],
-  );
-  const summary = customersQuery.data?.summary ?? {
-    total: 0,
-    withActiveOrders: 0,
-    withNoOrders: 0,
-    active: 0,
-  };
+  const allCustomers = useMemo(() => data.customers, [data.customers]);
+  const summary = data.summary;
 
   const filtered = useMemo(() => {
     return allCustomers.filter((c) => {

@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useGetAdminDispatchQueueQuery } from "@/store/redux/api/admin-api";
 
 type QueueMetrics = {
   queued: number;
@@ -33,38 +33,7 @@ export default function AdminDispatchQueuePage() {
   const searchParams = useSearchParams();
   const statusFilter = (searchParams.get("status") ?? "all").toLowerCase();
 
-  const queueQuery = useQuery({
-    queryKey: ["admin-dispatch-queue", statusFilter],
-    queryFn: async (): Promise<QueuePayload> => {
-      const query = new URLSearchParams();
-      if (statusFilter !== "all") {
-        query.set("status", statusFilter);
-      }
-
-      const response = await fetch(
-        `/api/admin/dispatch-queue${query.size > 0 ? `?${query.toString()}` : ""}`,
-        {
-          credentials: "include",
-        },
-      );
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load dispatch queue.");
-      }
-
-      return {
-        metrics: body?.metrics ?? {
-          queued: 0,
-          processing: 0,
-          completed: 0,
-          failed: 0,
-        },
-        events: (body?.events ?? []) as QueueEvent[],
-      };
-    },
-    refetchInterval: 15000,
-  });
+  const queueQuery = useGetAdminDispatchQueueQuery(statusFilter || "all");
 
   const triggerDispatch = async () => {
     await fetch("/api/system/workflow/dispatch", {
@@ -88,13 +57,17 @@ export default function AdminDispatchQueuePage() {
     );
   }
 
-  const metrics = queueQuery.data?.metrics ?? {
-    queued: 0,
-    processing: 0,
-    completed: 0,
-    failed: 0,
-  };
-  const filteredEvents = queueQuery.data?.events ?? [];
+  const data = (queueQuery.data ?? {
+    metrics: {
+      queued: 0,
+      processing: 0,
+      completed: 0,
+      failed: 0,
+    },
+    events: [],
+  }) as QueuePayload;
+  const metrics = data.metrics;
+  const filteredEvents = data.events;
 
   return (
     <div className="space-y-6">

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/hooks/use-auth";
+import { useGetPartnerWorkOrdersQuery } from "@/store/redux/api/partner-api";
 
 type PartnerReportHandoff = {
   id: string;
@@ -24,25 +25,15 @@ type PartnerReportHandoff = {
 };
 
 export default function PartnerReportsPage() {
-  const reportsQuery = useQuery({
-    queryKey: ["partner-report-handoffs"],
-    queryFn: async (): Promise<PartnerReportHandoff[]> => {
-      const response = await fetch("/api/partner/work-orders", {
-        method: "GET",
-        credentials: "include",
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Could not load partner reports.");
-      }
-
-      return (body?.inboundProviderHandoffs ?? []) as PartnerReportHandoff[];
-    },
+  const { data: user } = useAuth();
+  const userId = user?.id ?? "";
+  const reportsQuery = useGetPartnerWorkOrdersQuery(userId, {
+    skip: !userId,
   });
 
   const stats = useMemo(() => {
-    const items = reportsQuery.data ?? [];
+    const items = (reportsQuery.data?.inboundProviderHandoffs ??
+      []) as PartnerReportHandoff[];
     const total = items.length;
     const completed = items.filter(
       (item) => item.status === "completed",
