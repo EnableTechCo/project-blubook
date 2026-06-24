@@ -121,9 +121,15 @@ export default function AdminDashboardPage() {
   const [partners, setPartners] = useState<PartnerRow[]>([]);
   const [streams, setStreams] = useState<string[]>([]);
   const [activeStream, setActiveStream] = useState<string>("all");
-  const [newStream, setNewStream] = useState<string>("");
+  const [newStream, setNewStream] = useState<string>("all");
   const [newName, setNewName] = useState("");
   const [newSite, setNewSite] = useState("");
+  
+  // Input states for administrative multi-table provisioning
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,7 +376,15 @@ export default function AdminDashboardPage() {
   }, [activeStream, partners]);
 
   const addPartner = async () => {
-    if (!newStream.trim() || !newName.trim() || !newSite.trim() || isSaving) {
+    if (
+      !newStream.trim() || 
+      !newName.trim() || 
+      !newSite.trim() || 
+      !newCompanyName.trim() || 
+      !newEmail.trim() || 
+      !newPassword.trim() || 
+      isSaving
+    ) {
       return;
     }
 
@@ -378,6 +392,7 @@ export default function AdminDashboardPage() {
     setError(null);
 
     try {
+      // Updated endpoint path to hit your actual file configuration layout
       const response = await fetch("/api/admin/service-partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,6 +401,9 @@ export default function AdminDashboardPage() {
           packageStream: newStream,
           name: newName.trim(),
           site: newSite.trim(),
+          companyName: newCompanyName.trim(),
+          email: newEmail.trim(),
+          password: newPassword.trim(),
         }),
       });
 
@@ -395,13 +413,17 @@ export default function AdminDashboardPage() {
       };
 
       if (!response.ok || !body.partner) {
-        throw new Error(body.error ?? "Could not create service partner.");
+        throw new Error(body.error ?? "Could not create and provision service partner.");
       }
 
       const createdPartner = body.partner;
       setPartners((current) => [createdPartner, ...current]);
+      
       setNewName("");
       setNewSite("");
+      setNewCompanyName("");
+      setNewEmail("");
+      setNewPassword("");
     } catch (createError) {
       setError(
         createError instanceof Error
@@ -524,7 +546,9 @@ export default function AdminDashboardPage() {
         credentials: "include",
       });
 
-      const body = (await response.json()) as { error?: string };
+      const body = (await response
+        .json()
+        .catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         throw new Error(body.error ?? "Could not remove service partner.");
       }
@@ -752,7 +776,7 @@ export default function AdminDashboardPage() {
 
       <Card
         title="Service Partner Management"
-        description="Assign and adjust which partners handle each service type."
+        description="Provision accounts and map coverage routing matrices across multi-tenant workspaces."
       >
         <div className="space-y-4">
           {error ? (
@@ -761,7 +785,7 @@ export default function AdminDashboardPage() {
             </p>
           ) : null}
 
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <label className="text-xs text-slate-300">
               Stream
               <SelectMenu
@@ -776,18 +800,18 @@ export default function AdminDashboardPage() {
               />
             </label>
 
-            <label className="text-xs text-slate-300 md:col-span-1">
-              Partner Name
+            <label className="text-xs text-slate-300">
+              Contact Person Name
               <input
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-sm text-white"
-                placeholder="Partner name"
+                placeholder="e.g. John Doe"
                 disabled={isLoading || isSaving}
               />
             </label>
 
-            <label className="text-xs text-slate-300 md:col-span-1">
+            <label className="text-xs text-slate-300">
               Website
               <input
                 value={newSite}
@@ -798,18 +822,60 @@ export default function AdminDashboardPage() {
               />
             </label>
 
-            <div className="flex items-end">
-              <Button
-                onClick={addPartner}
-                className="w-full"
-                disabled={isLoading || isSaving || streamOptions.length === 0}
-              >
-                {isSaving ? "Saving..." : "Add Partner"}
-              </Button>
-            </div>
+            <label className="text-xs text-slate-300">
+              Company Name
+              <input
+                value={newCompanyName}
+                onChange={(event) => setNewCompanyName(event.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-sm text-white"
+                placeholder="e.g. Apex Logistics"
+                disabled={isLoading || isSaving}
+              />
+            </label>
+
+            <label className="text-xs text-slate-300">
+              Login Email
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(event) => setNewEmail(event.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-sm text-white"
+                placeholder="partner@company.com"
+                disabled={isLoading || isSaving}
+              />
+            </label>
+
+            <label className="text-xs text-slate-300">
+              Default Password
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-sm text-white"
+                placeholder="••••••••"
+                disabled={isLoading || isSaving}
+              />
+            </label>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex justify-end mt-2">
+            <Button
+              onClick={addPartner}
+              className="w-full sm:w-auto px-6"
+              disabled={
+                isLoading || 
+                isSaving || 
+                streamOptions.length === 0 || 
+                !newCompanyName.trim() || 
+                !newEmail.trim() || 
+                !newPassword.trim()
+              }
+            >
+              {isSaving ? "Provisioning..." : "Add & Onboard Partner"}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <Button
               variant={activeStream === "all" ? "primary" : "ghost"}
               onClick={() => setActiveStream("all")}
