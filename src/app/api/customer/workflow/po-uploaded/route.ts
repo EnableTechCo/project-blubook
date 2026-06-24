@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { queueEmail } from "@/lib/email/dispatcher";
 import {
   appendOrderTimeline,
   withOrderLifecycleDefaults,
@@ -151,9 +152,11 @@ export async function POST(request: Request) {
         ? requirement.metadata.sales_order_id
         : null;
 
+    // Variables scoped at the top-level of POST handler for asynchronous email capture access
     let salesOrderId: string | null = null;
     let poReference: string | null = null;
     let orderMetadata: Record<string, unknown> | null = null;
+    let partnerEmail: string | null = null; 
 
     if (existingOrderId) {
       const { data: existingOrder } = await admin
@@ -195,6 +198,11 @@ export async function POST(request: Request) {
         if (canReuseExistingOrder) {
           salesOrderId = existingOrder.id;
           poReference = existingOrder.po_reference;
+          
+          const existingEmail = (existingOrder.metadata as any)?.preferred_sales_partner_email;
+          if (typeof existingEmail === "string") {
+            partnerEmail = existingEmail;
+          }
         }
       }
     }
@@ -279,26 +287,23 @@ export async function POST(request: Request) {
         .update({ metadata: mergedMetadata })
         .eq("id", requirement.id);
 
-      // Resolve and assign the Sales Ops partner so they can see this order
-      // in their dashboard without waiting for order.validated
-      const salesOpsPartner = await resolveServicePartnerForStream({
+      // 🌐 DYNAMIC ROUTING: Lookup partner dynamically matching the requirement stream
+      const assignedPartner = await resolveServicePartnerForStream({
         admin,
-        stream: "Sales Ops",
+        stream: requirement.package_stream,
       });
 
-      if (salesOpsPartner) {
+      if (assignedPartner) {
         const { data: partnerData } = await admin
           .from("service_partners")
           .select("metadata")
-          .eq("id", salesOpsPartner.id)
+          .eq("id", assignedPartner.id)
           .maybeSingle();
 
-        const partnerEmail = readPartnerEmail(partnerData?.metadata);
+        partnerEmail = readPartnerEmail(partnerData?.metadata);
 
         if (partnerEmail) {
-          // Update the order with the sales partner email so they can find it
-          // in their dashboard via the direct sales orders query
-          const { error: updateError } = await admin
+          await admin
             .from("sales_orders")
             .update({
               metadata: {
@@ -307,23 +312,10 @@ export async function POST(request: Request) {
               },
             })
             .eq("id", salesOrderId);
-
-          if (updateError) {
-            console.warn(
-              "[po-uploaded] could not set preferred_sales_partner_email",
-              {
-                salesOrderId,
-                partnerEmail,
-                error: updateError.message,
-              },
-            );
-          }
         }
       }
     }
 
-    // Persist/update normalized purchase order header row.
-    // Resolve the uploaded PO document directly from documents instead of requirement evidence.
     const uploadedFileStem = toSearchableFileStem(uploadedFileName);
     const documentsQuery = admin
       .from("documents")
@@ -411,9 +403,6 @@ export async function POST(request: Request) {
       queuedEventId = queuedEvent?.id ?? null;
     }
 
-    // Queue only — do NOT drain here. Sales must explicitly advance via the
-    // sales validation UI. Auto-drain was the root cause of workflow steps
-    // appearing complete without partner interaction.
     const dispatch = { processed: 0, succeeded: 0, failed: 0 };
 
     const { data: providerHandoffs } = await admin
@@ -465,13 +454,50 @@ export async function POST(request: Request) {
         handoff.from_provider_id,
     }));
 
-    console.info("[po-uploaded] routing summary", {
-      requirementItemId,
-      salesOrderId,
-      poReference,
-      dispatch,
-      routing,
-    });
+    // =========================================================================
+    // 📨 DYNAMIC EMAIL TRIGGERS: Notify Partner & Confirm with Customer
+    // =========================================================================
+    try {
+      const fallbackEmails: Record<string, string> = {
+        "sales ops": "sales-ops@yourcompany.com",
+        "logistics": "logistics@yourcompany.com",
+        "compliance": "compliance@yourcompany.com",
+      };
+      
+      const normalizedStream = (requirement.package_stream || "").toLowerCase();
+      const fallbackEmail = fallbackEmails[normalizedStream] || "operations@yourcompany.com";
+
+      // Trigger 1: Notify the Dynamic Service Provider Partner
+      await queueEmail({
+        templateKey: "sales-po-received",
+        toEmail: partnerEmail || fallbackEmail, 
+        organizationId: requirement.organization_id,
+        subjectFallback: `New Purchase Order Submitted [${requirement.package_stream}]: ${poReference}`,
+        payload: {
+          sales_order_id: salesOrderId,
+          po_number: poReference,
+          package_stream: requirement.package_stream,
+          user_id: user.id,
+        },
+      });
+
+      // Trigger 2: Send a confirmation copy to the submitting Customer
+      if (user.email) {
+        await queueEmail({
+          templateKey: "customer-po-submitted",
+          toEmail: user.email, 
+          organizationId: requirement.organization_id,
+          subjectFallback: `We've received your Purchase Order: ${poReference}`,
+          payload: {
+            sales_order_id: salesOrderId,
+            po_number: poReference,
+            package_stream: requirement.package_stream,
+          },
+        });
+      }
+    } catch (emailQueueError) {
+      console.warn("[po-uploaded] Failed to queue automated emails safely:", emailQueueError);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -482,6 +508,7 @@ export async function POST(request: Request) {
       routing,
     });
   } catch (error) {
+    console.error("An error occurred:", error);
     return NextResponse.json(
       {
         error:

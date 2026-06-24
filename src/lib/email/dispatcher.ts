@@ -32,6 +32,11 @@ const TEMPLATE_FILE_BY_KEY: Record<EmailTemplateKey, string> = {
   "customer-onboarding-complete": "customer-onboarding-complete.html",
   "partner-invite": "partner-invite.html",
   "admin-invite": "admin-invite.html",
+  "sales-po-received": "sales-po-received.html",
+  "order-delivery-complete": "order-delivery-complete.html",
+  "customer-po-submitted": "customer-po-submitted.html",
+  "sales-po-accepted": "sales-po-accepted.html",
+  "logistics-partner-ready": "logistics-partner-ready.html",
 };
 
 async function loadHtmlTemplate(templateKey: EmailTemplateKey) {
