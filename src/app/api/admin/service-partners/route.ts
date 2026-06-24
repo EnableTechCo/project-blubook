@@ -3,10 +3,21 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+function generateSlug(companyName: string): string {
+  const cleaned = companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  return `partner-${cleaned}`;
+}
+
 const partnerCreateSchema = z.object({
   packageStream: z.string().min(2),
-  name: z.string().min(2),
+  name: z.string().min(2), 
+  companyName: z.string().min(2, "Company/Organization name is required."),
   site: z.string().min(3),
+  email: z.string().email("A valid partner email is required."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
 });
 
 async function requireAdminOrStaff() {
@@ -113,54 +124,186 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let createdOrgId: string | null = null;
+  let createdAuthUserId: string | null = null;
+  let profileCreated = false;
+  let membershipCreated = false;
+
+  const auth = await requireAdminOrStaff();
+  if ("error" in auth) {
+    return auth.error;
+  }
+
   try {
-    const auth = await requireAdminOrStaff();
-    if ("error" in auth) {
-      return auth.error;
+    const payload = partnerCreateSchema.parse(await request.json());
+    const orgSlug = generateSlug(payload.companyName);
+
+    // =========================================================================
+    // STEP 1: Provision the Business Entity (public.organizations)
+    // =========================================================================
+    const { data: orgData, error: orgError } = await auth.admin
+      .from("organizations")
+      .insert({
+        name: payload.companyName,
+        kind: "partner", 
+        slug: orgSlug, 
+        status: "active", 
+        primary_contact_name: payload.name,
+        primary_contact_email: payload.email,
+        metadata: { source: "admin-dashboard-provision", created_at: new Date().toISOString() }
+      })
+      .select("id")
+      .single();
+
+    if (orgError || !orgData) {
+      return NextResponse.json(
+        { error: orgError?.message || "Could not provision the organization record." },
+        { status: 400 }
+      );
     }
 
-    const payload = partnerCreateSchema.parse(await request.json());
+    createdOrgId = orgData.id;
 
-    const { data, error } = await auth.admin
+    // =========================================================================
+    // STEP 2: Provision User Login Credentials (auth.users)
+    // =========================================================================
+    const { data: authUser, error: authError } = await auth.admin.auth.admin.createUser({
+      email: payload.email,
+      password: payload.password,
+      email_confirm: true,
+      app_metadata: { role: "partner" },
+      user_metadata: {
+        full_name: payload.name,
+        role: "partner",
+      },
+    });
+
+    if (authError || !authUser.user) {
+      throw authError ?? new Error("Could not create secure authentication profile.");
+    }
+
+    createdAuthUserId = authUser.user.id;
+    const servicePartnerId = createdAuthUserId;
+
+    const { error: metadataError } = await auth.admin.auth.admin.updateUserById(
+      createdAuthUserId,
+      {
+        app_metadata: {
+          role: "partner",
+          service_partner_id: servicePartnerId,
+        },
+        user_metadata: {
+          full_name: payload.name,
+          role: "partner",
+          service_partner_id: servicePartnerId,
+        },
+      },
+    );
+
+    if (metadataError) throw metadataError;
+
+    // =========================================================================
+    // STEP 3: Establish the User Profile (public.user_profiles)
+    // =========================================================================
+    const { error: profileError } = await auth.admin
+      .from("user_profiles")
+      .insert({
+        user_id: createdAuthUserId,
+        organization_id: createdOrgId,
+        full_name: payload.name,
+        email: payload.email,
+        role: "partner", 
+        membership_status: "active",
+        invited_at: new Date().toISOString(),
+        activated_at: new Date().toISOString(),
+        metadata: {
+          source: "admin-dashboard-provision",
+          service_partner_id: servicePartnerId,
+        },
+      });
+
+    if (profileError) throw profileError;
+    profileCreated = true;
+
+    // =========================================================================
+    // STEP 4: Set Workspace Tenancy Membership (public.organization_memberships)
+    // =========================================================================
+    const { error: membershipError } = await auth.admin
+      .from("organization_memberships")
+      .insert({
+        organization_id: createdOrgId,
+        user_id: createdAuthUserId,
+        email: payload.email, 
+        role: "partner", 
+        status: "active",
+        is_primary: true, 
+        metadata: {
+          source: "admin-dashboard-provision",
+          service_partner_id: servicePartnerId,
+        },
+      });
+
+    if (membershipError) throw membershipError;
+    membershipCreated = true;
+
+    // =========================================================================
+    // STEP 5: Populate Marketplace Router Entry (public.service_partners)
+    // =========================================================================
+    const { data: partnerData, error: partnerError } = await auth.admin
       .from("service_partners")
       .insert({
+        id: servicePartnerId,
         package_stream: payload.packageStream,
-        name: payload.name,
+        name: payload.companyName, 
         site: payload.site,
+        is_active: true,
+        metadata: { 
+          email: payload.email, 
+          contact_name: payload.name 
+        }
       })
       .select("id, package_stream, name, site")
       .single();
 
-    if (error || !data) {
-      return NextResponse.json(
-        { error: error?.message ?? "Could not create service partner." },
-        { status: 400 },
-      );
+    if (partnerError || !partnerData) {
+      throw partnerError ?? new Error("Fulfillment routing context write failed.");
     }
 
     return NextResponse.json({
       partner: {
-        id: data.id,
-        packageStream: data.package_stream,
-        name: data.name,
-        site: data.site,
+        id: partnerData.id,
+        organizationId: createdOrgId,
+        packageStream: partnerData.package_stream,
+        name: partnerData.name,
+        site: partnerData.site,
+        email: payload.email
       },
     });
+
   } catch (error) {
+    // ↩️ TRANSACTION ROLLBACK
+    if (membershipCreated && createdOrgId && createdAuthUserId) {
+      await auth.admin.from("organization_memberships").delete().eq("organization_id", createdOrgId).eq("user_id", createdAuthUserId);
+    }
+    if (profileCreated && createdAuthUserId) {
+      await auth.admin.from("user_profiles").delete().eq("user_id", createdAuthUserId);
+    }
+    if (createdAuthUserId) {
+      await auth.admin.auth.admin.deleteUser(createdAuthUserId);
+    }
+    if (createdOrgId) {
+      await auth.admin.from("organizations").delete().eq("id", createdOrgId);
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Invalid request payload." },
+        { error: error.issues[0]?.message ?? "Invalid schema parameters received." },
         { status: 400 },
       );
     }
 
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not create service partner.",
-      },
+      { error: error instanceof Error ? error.message : "Could not create fully synchronized partner organization." },
       { status: 500 },
     );
   }
