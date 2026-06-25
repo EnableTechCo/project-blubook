@@ -3,6 +3,11 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// This route is used to add a service partner. Passwords are added by admin temporarily until partners can create their own passwords via email.
+// src/app/api/admin/service-partners/[id]/route.ts
+
+// TODO: Remove password feature and replace with email feature when available.
+
 const partnerUpdateSchema = z.object({
   packageStream: z.string().min(2).optional(),
   name: z.string().min(2).optional(),
