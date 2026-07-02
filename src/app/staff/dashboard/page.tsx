@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardLoadingSkeleton } from "@/components/shell/dashboard-loading-skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 const STAFF_OPERATION_AREAS = [
@@ -46,8 +47,108 @@ const STAFF_OPERATION_AREAS = [
   },
 ] as const;
 
+// ─── Task assignment recommendations ───────────────────────────────────────
+
+type TaskType = "pick_ticket" | "work_order";
+
+type StaffOwnerOption = {
+  userId: string;
+  name: string;
+  openTaskCount: number;
+};
+
+type TaskAssignmentRecommendation = {
+  taskId: string;
+  taskType: TaskType;
+  orderReference: string;
+  productName: string;
+  urgencyHours: number;
+  primary: StaffOwnerOption;
+  backups: StaffOwnerOption[];
+  reason: string;
+};
+
+const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  pick_ticket: "Pick Ticket",
+  work_order: "Work Order",
+};
+
+const ASSIGNMENT_POLL_INTERVAL_MS = 30_000;
+
 export default function StaffDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
+
+  const [recommendations, setRecommendations] = useState<
+    TaskAssignmentRecommendation[]
+  >([]);
+  const [recsLoading, setRecsLoading] = useState(true);
+  const [recsError, setRecsError] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
+
+  const loadRecommendations = useCallback(async () => {
+    setRecsError(null);
+
+    try {
+      const response = await fetch("/api/staff/task-assignments", {
+        credentials: "include",
+      });
+
+      const body = (await response.json()) as {
+        error?: string;
+        recommendations?: TaskAssignmentRecommendation[];
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? "Could not load task assignment recommendations.",
+        );
+      }
+
+      setRecommendations(body.recommendations ?? []);
+    } catch (loadError) {
+      setRecsError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load task assignment recommendations.",
+      );
+    } finally {
+      setRecsLoading(false);
+    }
+  }, []);
+
+  const handleAssign = async (
+    task: TaskAssignmentRecommendation,
+    owner: StaffOwnerOption,
+  ) => {
+    if (assigning) return;
+    setAssigning(task.taskId);
+
+    try {
+      const response = await fetch(`/api/staff/task-assignments/${task.taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ taskType: task.taskType, ownerId: owner.userId }),
+      });
+
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Could not assign task.");
+      }
+
+      setRecommendations((current) =>
+        current.filter((r) => r.taskId !== task.taskId),
+      );
+    } catch (assignError) {
+      setRecsError(
+        assignError instanceof Error
+          ? assignError.message
+          : "Could not assign task.",
+      );
+    } finally {
+      setAssigning(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +167,16 @@ export default function StaffDashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    void loadRecommendations();
+
+    const interval = setInterval(() => {
+      void loadRecommendations();
+    }, ASSIGNMENT_POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [loadRecommendations]);
 
   if (isLoading) {
     return <DashboardLoadingSkeleton metricCount={4} listCount={3} />;
@@ -102,6 +213,86 @@ export default function StaffDashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* ── Smart Assignment Recommendations ──────────────────────────────── */}
+      <Card
+        title={`Smart Assignment Recommendations${recommendations.length > 0 ? ` (${recommendations.length} pending)` : ""}`}
+        description="Unassigned fulfillment tasks ranked by how long they've been waiting, with a primary owner suggestion and backups based on current team workload. Refreshes automatically every 30 seconds."
+      >
+        <div className="space-y-3">
+          {recsError ? (
+            <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+              {recsError}
+            </p>
+          ) : null}
+
+          {recsLoading ? (
+            <p className="text-xs text-slate-400">Calculating recommendations…</p>
+          ) : recommendations.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              No unassigned tasks — every pick ticket and work order has an
+              owner.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {recommendations.map((task) => (
+                <div
+                  key={task.taskId}
+                  className="rounded-xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full border border-blue-400/40 bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-200">
+                          {TASK_TYPE_LABELS[task.taskType]}
+                        </span>
+                        <span className="text-sm font-semibold text-white">
+                          {task.productName}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {task.orderReference}
+                        </span>
+                      </div>
+
+                      <p className="mt-1.5 text-xs text-slate-300">
+                        {task.reason}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          className="h-8 px-3 text-xs"
+                          disabled={assigning === task.taskId}
+                          onClick={() => void handleAssign(task, task.primary)}
+                        >
+                          {assigning === task.taskId
+                            ? "Assigning…"
+                            : `Assign to ${task.primary.name}`}
+                        </Button>
+
+                        {task.backups.map((backup) => (
+                          <Button
+                            key={backup.userId}
+                            variant="ghost"
+                            className="h-8 px-3 text-xs text-slate-300 hover:text-white"
+                            disabled={assigning === task.taskId}
+                            onClick={() => void handleAssign(task, backup)}
+                          >
+                            Assign to {backup.name} ({backup.openTaskCount} open)
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right text-[11px] text-slate-400">
+                      <p>{task.urgencyHours}h waiting</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {STAFF_OPERATION_AREAS.map((area) => (
