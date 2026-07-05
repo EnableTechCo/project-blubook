@@ -62,6 +62,7 @@ export const staffNav: ShellNavItem[] = [
 
 export const adminNav: ShellNavItem[] = [
   { href: "/admin/dashboard", label: "Overview", section: "Overview" },
+  { href: "/admin/anomalies", label: "Anomalies", section: "Overview" },
   { href: "/admin/orders", label: "Orders", section: "Operations" },
   { href: "/admin/work-orders", label: "Work Orders", section: "Operations" },
   {

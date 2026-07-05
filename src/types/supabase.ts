@@ -692,6 +692,53 @@ export interface Database {
           updated_at?: string;
         };
       };
+      anomaly_alerts: {
+        Row: {
+          id: string;
+          area: "orders" | "inventory" | "onboarding" | "workflow";
+          anomaly_type: string;
+          severity: "low" | "medium" | "high";
+          reason: string;
+          source_entity_type: string | null;
+          source_entity_id: string | null;
+          source_label: string | null;
+          is_example: boolean;
+          status: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          area: "orders" | "inventory" | "onboarding" | "workflow";
+          anomaly_type: string;
+          severity: "low" | "medium" | "high";
+          reason: string;
+          source_entity_type?: string | null;
+          source_entity_id?: string | null;
+          source_label?: string | null;
+          is_example?: boolean;
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          area?: "orders" | "inventory" | "onboarding" | "workflow";
+          anomaly_type?: string;
+          severity?: "low" | "medium" | "high";
+          reason?: string;
+          source_entity_type?: string | null;
+          source_entity_id?: string | null;
+          source_label?: string | null;
+          is_example?: boolean;
+          status?: "pending_review" | "reviewed" | "dismissed";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+      };
       onboarding_anomaly_alerts: {
         Row: {
           id: string;
