@@ -115,26 +115,42 @@ export function hasCycle(edges: DependencyEdge[]): boolean {
 // ─── Dependency closure (Phase 2, P2-4) ─────────────────────────────────────
 
 export interface DependencyClosure {
-  /** Every item that must be in the request: the selection plus all prerequisites. */
+  /** Every item that must be in the request: the selection plus its whole chain. */
   allIds: string[];
-  /** Items pulled in transitively that the customer did not pick directly. */
+  /** Items pulled in that the customer did not pick directly (to disclose). */
   autoIncludedIds: string[];
 }
 
+/** Undirected adjacency: item -> every item joined to it by a dependency edge. */
+function buildUndirectedMap(edges: DependencyEdge[]): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  const link = (a: string, b: string) => {
+    const list = map.get(a) ?? [];
+    list.push(b);
+    map.set(a, list);
+  };
+  for (const edge of edges) {
+    link(edge.catalogItemId, edge.dependsOnItemId);
+    link(edge.dependsOnItemId, edge.catalogItemId);
+  }
+  return map;
+}
+
 /**
- * Expand a customer's selection along the dependency graph.
+ * Expand a customer's selection into the full connected dependency chain.
  *
- * Follows "depends on" edges transitively from each selected item to collect
- * every prerequisite. `allIds` is the full set that must be created;
- * `autoIncludedIds` is what the system added and must disclose to the customer.
- * Assumes an acyclic graph (enforced at write time by wouldCreateCycle); the
- * visited-set guard keeps it terminating even if that ever fails to hold.
+ * Expansion follows edges in BOTH directions (undirected), so picking an item
+ * pulls in everything up- and down-stream of it — e.g. picking "Buy Goods"
+ * pulls in "Deliver Goods" (which depends on it) as well as any prerequisites.
+ * `allIds` is the full set to create; `autoIncludedIds` is what the system
+ * added and must disclose. Ordering (which item is ready vs. blocked) uses the
+ * *directed* edges separately — this only decides membership.
  */
 export function resolveDependencyClosure(
   selectedIds: string[],
   edges: DependencyEdge[],
 ): DependencyClosure {
-  const dependsOn = buildDependsOnMap(edges);
+  const neighbours = buildUndirectedMap(edges);
   const all = new Set<string>();
   const stack = [...selectedIds];
 
@@ -142,8 +158,8 @@ export function resolveDependencyClosure(
     const id = stack.pop() as string;
     if (all.has(id)) continue;
     all.add(id);
-    for (const prereq of dependsOn.get(id) ?? []) {
-      if (!all.has(prereq)) stack.push(prereq);
+    for (const next of neighbours.get(id) ?? []) {
+      if (!all.has(next)) stack.push(next);
     }
   }
 
