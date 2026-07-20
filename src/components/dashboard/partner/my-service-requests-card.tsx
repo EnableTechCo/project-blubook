@@ -34,7 +34,7 @@ export function MyServiceRequestsCard() {
   const [requests, setRequests] = useState<MyServiceRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
 
   const loadMyRequests = useCallback(async () => {
     setError(null);
@@ -75,19 +75,23 @@ export function MyServiceRequestsCard() {
     return () => clearInterval(interval);
   }, [loadMyRequests]);
 
-  const handleAccept = async (requestId: string) => {
-    if (acceptingId) return;
-    setAcceptingId(requestId);
+  const handleTransition = async (
+    requestId: string,
+    action: "accept" | "complete",
+    fallbackErrorMessage: string,
+  ) => {
+    if (transitioningId) return;
+    setTransitioningId(requestId);
 
     try {
       const response = await fetch(
-        `/api/partner/service-requests/${requestId}/accept`,
+        `/api/partner/service-requests/${requestId}/${action}`,
         { method: "PATCH", credentials: "include" },
       );
 
       const body = (await response.json()) as { error?: string; status?: string };
       if (!response.ok) {
-        throw new Error(body.error ?? "Could not accept request.");
+        throw new Error(body.error ?? fallbackErrorMessage);
       }
 
       setRequests((current) =>
@@ -95,14 +99,14 @@ export function MyServiceRequestsCard() {
           r.id === requestId ? { ...r, status: body.status ?? r.status } : r,
         ),
       );
-    } catch (acceptError) {
+    } catch (transitionError) {
       setError(
-        acceptError instanceof Error
-          ? acceptError.message
-          : "Could not accept request.",
+        transitionError instanceof Error
+          ? transitionError.message
+          : fallbackErrorMessage,
       );
     } finally {
-      setAcceptingId(null);
+      setTransitioningId(null);
     }
   };
 
@@ -117,7 +121,7 @@ export function MyServiceRequestsCard() {
   return (
     <Card
       title={`My Service Requests${requests.length > 0 ? ` (${requests.length})` : ""}`}
-      description="Requests you've claimed. Accept to start work — the customer is notified at each step."
+      description="Requests you've claimed. Accept to start work, mark complete when finished."
     >
       <div className="space-y-3">
         {error ? (
@@ -153,10 +157,32 @@ export function MyServiceRequestsCard() {
               {item.status === "submitted" ? (
                 <Button
                   className="h-8 shrink-0 px-3 text-xs"
-                  disabled={acceptingId === item.id}
-                  onClick={() => void handleAccept(item.id)}
+                  disabled={transitioningId === item.id}
+                  onClick={() =>
+                    void handleTransition(
+                      item.id,
+                      "accept",
+                      "Could not accept request.",
+                    )
+                  }
                 >
-                  {acceptingId === item.id ? "Accepting…" : "Accept"}
+                  {transitioningId === item.id ? "Accepting…" : "Accept"}
+                </Button>
+              ) : null}
+
+              {item.status === "in_progress" ? (
+                <Button
+                  className="h-8 shrink-0 px-3 text-xs"
+                  disabled={transitioningId === item.id}
+                  onClick={() =>
+                    void handleTransition(
+                      item.id,
+                      "complete",
+                      "Could not complete request.",
+                    )
+                  }
+                >
+                  {transitioningId === item.id ? "Completing…" : "Mark Complete"}
                 </Button>
               ) : null}
             </div>
