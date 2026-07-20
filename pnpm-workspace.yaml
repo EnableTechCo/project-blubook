@@ -1,3 +1,8 @@
+# Single-package repo — no sub-packages. The empty list keeps the file a
+# valid workspace declaration so every pnpm 10.x reads it (older 10.x error
+# on "packages field missing or empty" when it is absent).
+packages: []
+
 allowBuilds:
   sharp: true
   unrs-resolver: true
