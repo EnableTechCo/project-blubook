@@ -21,9 +21,14 @@ export type LogisticsWorkflowEventType =
   | "logistics.system_updated"
   | "order.delivered";
 
+export type RequestWorkflowEventType =
+  | "request.acknowledged"
+  | "request.rejected";
+
 export type WorkflowEventType =
   | SalesWorkflowEventType
-  | LogisticsWorkflowEventType;
+  | LogisticsWorkflowEventType
+  | RequestWorkflowEventType;
 
 export type WorkflowPayload = Record<string, unknown>;
 

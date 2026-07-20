@@ -11,6 +11,9 @@ type QueueItemRow = {
   created_at: string;
   updated_at: string;
   error_message: string | null;
+  retry_count: number;
+  max_retries: number;
+  next_retry_at: string | null;
 };
 
 async function requireAdminOrStaff() {
@@ -70,7 +73,7 @@ export async function GET(request: Request) {
     let rowsQuery = auth.admin
       .from("workflow_events_queue")
       .select(
-        "id, event_type, status, scheduled_at, processed_at, created_at, updated_at, error_message",
+        "id, event_type, status, scheduled_at, processed_at, created_at, updated_at, error_message, retry_count, max_retries, next_retry_at",
       )
       .order("created_at", { ascending: false });
 

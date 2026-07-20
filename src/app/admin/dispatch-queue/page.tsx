@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ type QueueEvent = {
   created_at: string;
   updated_at: string;
   error_message: string | null;
+  retry_count: number;
+  max_retries: number;
+  next_retry_at: string | null;
 };
 
 type QueuePayload = {
@@ -34,6 +38,7 @@ export default function AdminDispatchQueuePage() {
   const statusFilter = (searchParams.get("status") ?? "all").toLowerCase();
 
   const queueQuery = useGetAdminDispatchQueueQuery(statusFilter || "all");
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const triggerDispatch = async () => {
     await fetch("/api/system/workflow/dispatch", {
@@ -41,6 +46,20 @@ export default function AdminDispatchQueuePage() {
       credentials: "include",
     });
     await queueQuery.refetch();
+  };
+
+  const retryEvent = async (id: string) => {
+    if (retryingId) return;
+    setRetryingId(id);
+    try {
+      await fetch(`/api/admin/dispatch-queue/${id}/retry`, {
+        method: "POST",
+        credentials: "include",
+      });
+      await queueQuery.refetch();
+    } finally {
+      setRetryingId(null);
+    }
   };
 
   if (queueQuery.isLoading) {
@@ -118,9 +137,11 @@ export default function AdminDispatchQueuePage() {
               <tr className="border-b border-white/15 text-xs uppercase tracking-[0.08em] text-slate-400">
                 <th className="px-3 py-2">Event</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Retries</th>
                 <th className="px-3 py-2">Scheduled</th>
                 <th className="px-3 py-2">Processed</th>
                 <th className="px-3 py-2">Error</th>
+                <th className="px-3 py-2">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -129,6 +150,16 @@ export default function AdminDispatchQueuePage() {
                   <td className="px-3 py-2">{event.event_type}</td>
                   <td className="px-3 py-2">
                     <Badge>{event.status}</Badge>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {event.retry_count > 0
+                      ? `${event.retry_count}/${event.max_retries}`
+                      : "-"}
+                    {event.status === "queued" && event.next_retry_at ? (
+                      <p className="mt-0.5 text-[10px] text-slate-500">
+                        next: {new Date(event.next_retry_at).toLocaleTimeString()}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">
                     {new Date(event.scheduled_at).toLocaleString()}
@@ -141,11 +172,25 @@ export default function AdminDispatchQueuePage() {
                   <td className="px-3 py-2 text-xs text-red-200">
                     {event.error_message ?? "-"}
                   </td>
+                  <td className="px-3 py-2">
+                    {event.status === "failed" ? (
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        disabled={retryingId === event.id}
+                        onClick={() => void retryEvent(event.id)}
+                      >
+                        {retryingId === event.id ? "Retrying…" : "Retry Now"}
+                      </Button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                 </tr>
               ))}
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3 text-slate-400" colSpan={5}>
+                  <td className="px-3 py-3 text-slate-400" colSpan={7}>
                     No workflow events found.
                   </td>
                 </tr>
