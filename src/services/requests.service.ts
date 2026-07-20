@@ -49,6 +49,7 @@ export async function getCustomerRequestById(input: {
 
 export async function createCustomerRequest(input: {
   customerId: string;
+  organizationId: string;
   title: string;
   description?: string;
   priority: "low" | "medium" | "high" | "urgent";
@@ -58,6 +59,7 @@ export async function createCustomerRequest(input: {
     .from("service_requests")
     .insert({
       customer_id: input.customerId,
+      organization_id: input.organizationId,
       title: input.title,
       description: input.description ?? null,
       priority: input.priority,
