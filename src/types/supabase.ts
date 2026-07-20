@@ -179,6 +179,110 @@ export interface Database {
           updated_at?: string;
         };
       };
+      services: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          key?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      catalog_items: {
+        Row: {
+          id: string;
+          service_id: string;
+          item_key: string;
+          label: string;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          item_key: string;
+          label: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          item_key?: string;
+          label?: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      package_services: {
+        Row: {
+          id: string;
+          package_id: string;
+          service_id: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          package_id: string;
+          service_id: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          package_id?: string;
+          service_id?: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+      };
+      catalog_item_dependencies: {
+        Row: {
+          id: string;
+          catalog_item_id: string;
+          depends_on_item_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          catalog_item_id: string;
+          depends_on_item_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          catalog_item_id?: string;
+          depends_on_item_id?: string;
+          created_at?: string;
+        };
+      };
       customer_onboarding_submissions: {
         Row: {
           id: string;
