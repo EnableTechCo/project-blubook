@@ -158,4 +158,19 @@ describe("resolveDependencyClosure", () => {
     expect(sorted(r.allIds)).toEqual(["A", "B", "X", "Y"]);
     expect(sorted(r.autoIncludedIds)).toEqual(["B", "Y"]);
   });
+
+  it("auto-includes a DEPENDENT (pick B, A→B) — the Buy Goods case", () => {
+    // A depends on B; the customer picks B (e.g. "Buy Goods") and the
+    // dependent A ("Deliver Goods") is pulled in downstream.
+    const r = resolveDependencyClosure(["B"], [edge("A", "B")]);
+    expect(sorted(r.allIds)).toEqual(["A", "B"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["A"]);
+  });
+
+  it("pulls the full chain in both directions from a middle item", () => {
+    // A→B→C; picking the middle B pulls the upstream A and downstream C.
+    const r = resolveDependencyClosure(["B"], [edge("A", "B"), edge("B", "C")]);
+    expect(sorted(r.allIds)).toEqual(["A", "B", "C"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["A", "C"]);
+  });
 });
