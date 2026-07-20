@@ -53,8 +53,13 @@ MOCK_HARDCODED_DATA_AUDIT.md
 
 /playwright-report
 /test-results
-/supabase/migrations
-/supabase/sql
+# Supabase local runtime and credentials. Migration SQL and reviewed SQL sources are tracked.
+/supabase/.temp/
+/supabase/.branches/
+/supabase/.env
+/supabase/.env.*
+/supabase/dumps/
+/supabase/*.dump
 /scripts
 /reports
 .env*
