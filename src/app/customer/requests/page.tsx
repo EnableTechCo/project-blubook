@@ -154,13 +154,15 @@ export default function CustomerRequestsPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim() || !customerId) {
+    const organizationId = customerContext.data?.organizationId;
+    if (!title.trim() || !customerId || !organizationId) {
       return;
     }
 
     try {
       await createRequest({
         customerId,
+        organizationId,
         title: title.trim(),
         description: description.trim() || undefined,
         priority,

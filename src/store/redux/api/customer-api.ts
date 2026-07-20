@@ -342,6 +342,7 @@ export const customerApi = baseApi.injectEndpoints({
       RequestRecord,
       {
         customerId: string;
+        organizationId: string;
         title: string;
         description?: string;
         priority: "low" | "medium" | "high" | "urgent";
