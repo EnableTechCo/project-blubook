@@ -121,7 +121,7 @@ export function MyServiceRequestsCard() {
   return (
     <Card
       title={`My Service Requests${requests.length > 0 ? ` (${requests.length})` : ""}`}
-      description="Requests you've claimed. Accept to start work, mark complete when finished."
+      description="Requests you've claimed. Accept to start work, mark complete when finished — the customer is notified at each step."
     >
       <div className="space-y-3">
         {error ? (
