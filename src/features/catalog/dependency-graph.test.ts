@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   hasCycle,
+  resolveDependencyClosure,
   wouldCreateCycle,
   type DependencyEdge,
 } from "./dependency-graph";
+
+const sorted = (ids: string[]) => [...ids].sort();
 
 // Edge (a, b) means "a depends on b" — b must complete before a.
 const edge = (catalogItemId: string, dependsOnItemId: string): DependencyEdge => ({
@@ -98,5 +101,61 @@ describe("hasCycle", () => {
     // close the loop and it must be detected
     deep.push(edge("n5000", "n0"));
     expect(hasCycle(deep)).toBe(true);
+  });
+});
+
+describe("resolveDependencyClosure", () => {
+  it("returns nothing for an empty selection", () => {
+    expect(resolveDependencyClosure([], [])).toEqual({
+      allIds: [],
+      autoIncludedIds: [],
+    });
+  });
+
+  it("returns the selection unchanged when it has no dependencies", () => {
+    const r = resolveDependencyClosure(["A"], [edge("X", "Y")]);
+    expect(sorted(r.allIds)).toEqual(["A"]);
+    expect(r.autoIncludedIds).toEqual([]);
+  });
+
+  it("auto-includes a direct prerequisite (pick A, A→B)", () => {
+    const r = resolveDependencyClosure(["A"], [edge("A", "B")]);
+    expect(sorted(r.allIds)).toEqual(["A", "B"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["B"]);
+  });
+
+  it("auto-includes a transitive chain (pick A, A→B→C)", () => {
+    const r = resolveDependencyClosure(["A"], [edge("A", "B"), edge("B", "C")]);
+    expect(sorted(r.allIds)).toEqual(["A", "B", "C"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["B", "C"]);
+  });
+
+  it("does not mark an explicitly-selected prerequisite as auto-included", () => {
+    // pick both A and B, where A→B — B was chosen, not added.
+    const r = resolveDependencyClosure(["A", "B"], [edge("A", "B")]);
+    expect(sorted(r.allIds)).toEqual(["A", "B"]);
+    expect(r.autoIncludedIds).toEqual([]);
+  });
+
+  it("handles a diamond and dedups shared prerequisites", () => {
+    const diamond = [
+      edge("A", "B"),
+      edge("A", "C"),
+      edge("B", "D"),
+      edge("C", "D"),
+    ];
+    const r = resolveDependencyClosure(["A"], diamond);
+    expect(sorted(r.allIds)).toEqual(["A", "B", "C", "D"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["B", "C", "D"]);
+  });
+
+  it("unions prerequisites across multiple selected items", () => {
+    // pick A (→B) and X (→Y)
+    const r = resolveDependencyClosure(
+      ["A", "X"],
+      [edge("A", "B"), edge("X", "Y")],
+    );
+    expect(sorted(r.allIds)).toEqual(["A", "B", "X", "Y"]);
+    expect(sorted(r.autoIncludedIds)).toEqual(["B", "Y"]);
   });
 });
