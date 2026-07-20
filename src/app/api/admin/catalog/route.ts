@@ -16,7 +16,7 @@ export async function GET() {
 
     const { admin } = auth;
 
-    const [services, items, dependencies, packageServicesRes] =
+    const [services, items, dependencies, packageServicesRes, packagesRes] =
       await Promise.all([
         listServices(admin, { includeInactive: true }),
         listCatalogItems(admin, { includeInactive: true }),
@@ -24,11 +24,21 @@ export async function GET() {
         admin
           .from("package_services")
           .select("id, package_id, service_id, is_active"),
+        admin
+          .from("service_packages")
+          .select("id, code, name")
+          .order("name", { ascending: true }),
       ]);
 
     if (packageServicesRes.error) {
       return NextResponse.json(
         { error: packageServicesRes.error.message },
+        { status: 500 },
+      );
+    }
+    if (packagesRes.error) {
+      return NextResponse.json(
+        { error: packagesRes.error.message },
         { status: 500 },
       );
     }
@@ -38,6 +48,7 @@ export async function GET() {
       items,
       dependencies,
       packageServices: packageServicesRes.data ?? [],
+      packages: packagesRes.data ?? [],
     });
   } catch (error) {
     return NextResponse.json(
