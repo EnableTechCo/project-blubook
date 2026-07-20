@@ -24,6 +24,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local Codex workspace state and agent artifacts
+.codex/
+.agents/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -53,3 +57,4 @@ MOCK_HARDCODED_DATA_AUDIT.md
 /supabase/sql
 /scripts
 /reports
+.env*
