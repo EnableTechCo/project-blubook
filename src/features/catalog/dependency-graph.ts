@@ -111,3 +111,45 @@ export function hasCycle(edges: DependencyEdge[]): boolean {
 
   return false;
 }
+
+// ─── Dependency closure (Phase 2, P2-4) ─────────────────────────────────────
+
+export interface DependencyClosure {
+  /** Every item that must be in the request: the selection plus all prerequisites. */
+  allIds: string[];
+  /** Items pulled in transitively that the customer did not pick directly. */
+  autoIncludedIds: string[];
+}
+
+/**
+ * Expand a customer's selection along the dependency graph.
+ *
+ * Follows "depends on" edges transitively from each selected item to collect
+ * every prerequisite. `allIds` is the full set that must be created;
+ * `autoIncludedIds` is what the system added and must disclose to the customer.
+ * Assumes an acyclic graph (enforced at write time by wouldCreateCycle); the
+ * visited-set guard keeps it terminating even if that ever fails to hold.
+ */
+export function resolveDependencyClosure(
+  selectedIds: string[],
+  edges: DependencyEdge[],
+): DependencyClosure {
+  const dependsOn = buildDependsOnMap(edges);
+  const all = new Set<string>();
+  const stack = [...selectedIds];
+
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    if (all.has(id)) continue;
+    all.add(id);
+    for (const prereq of dependsOn.get(id) ?? []) {
+      if (!all.has(prereq)) stack.push(prereq);
+    }
+  }
+
+  const selected = new Set(selectedIds);
+  return {
+    allIds: [...all],
+    autoIncludedIds: [...all].filter((id) => !selected.has(id)),
+  };
+}
