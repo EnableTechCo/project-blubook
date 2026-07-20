@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { insertNotifications } from "@/lib/workflow/order-lifecycle";
 
 async function requirePartnerUser() {
   const server = await createServerClient();
@@ -50,7 +51,7 @@ export async function PATCH(
       .eq("id", id)
       .eq("partner_id", userId)
       .eq("status", "in_progress")
-      .select("id, status")
+      .select("id, status, title, customer_id, organization_id")
       .maybeSingle();
 
     if (error) {
@@ -65,6 +66,26 @@ export async function PATCH(
         },
         { status: 409 },
       );
+    }
+
+    if (data.customer_id && data.organization_id) {
+      try {
+        await insertNotifications(admin, [
+          {
+            userId: data.customer_id,
+            organizationId: data.organization_id,
+            message: `Your service request "${data.title}" has been completed.`,
+            metadata: {
+              source: "service_request_status_change",
+              service_request_id: data.id,
+              status: "completed",
+            },
+          },
+        ]);
+      } catch (notifyError) {
+        // Notification failure should not undo the complete action.
+        console.error("Failed to notify customer of request completion:", notifyError);
+      }
     }
 
     return NextResponse.json({ id: data.id, status: data.status });
