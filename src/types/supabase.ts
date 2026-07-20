@@ -283,6 +283,114 @@ export interface Database {
           created_at?: string;
         };
       };
+      work_requests: {
+        Row: {
+          id: string;
+          organization_id: string | null;
+          customer_id: string;
+          package_id: string | null;
+          status: "draft" | "active" | "completed" | "cancelled";
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id?: string | null;
+          customer_id: string;
+          package_id?: string | null;
+          status?: "draft" | "active" | "completed" | "cancelled";
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string | null;
+          customer_id?: string;
+          package_id?: string | null;
+          status?: "draft" | "active" | "completed" | "cancelled";
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      work_request_items: {
+        Row: {
+          id: string;
+          work_request_id: string;
+          catalog_item_id: string;
+          service_id: string;
+          assigned_provider_id: string | null;
+          status:
+            | "blocked"
+            | "ready"
+            | "assigned"
+            | "in_progress"
+            | "completed";
+          auto_included: boolean;
+          released_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          work_request_id: string;
+          catalog_item_id: string;
+          service_id: string;
+          assigned_provider_id?: string | null;
+          status?:
+            | "blocked"
+            | "ready"
+            | "assigned"
+            | "in_progress"
+            | "completed";
+          auto_included?: boolean;
+          released_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          work_request_id?: string;
+          catalog_item_id?: string;
+          service_id?: string;
+          assigned_provider_id?: string | null;
+          status?:
+            | "blocked"
+            | "ready"
+            | "assigned"
+            | "in_progress"
+            | "completed";
+          auto_included?: boolean;
+          released_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      work_request_item_dependencies: {
+        Row: {
+          id: string;
+          work_request_item_id: string;
+          depends_on_item_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          work_request_item_id: string;
+          depends_on_item_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          work_request_item_id?: string;
+          depends_on_item_id?: string;
+          created_at?: string;
+        };
+      };
       customer_onboarding_submissions: {
         Row: {
           id: string;
