@@ -80,15 +80,23 @@ const partner = (id: string, isActive = true) => ({
   is_active: isActive,
 });
 
-/** Build the select queues for one dispatch run. */
+/**
+ * Build the select queues for one dispatch run.
+ *
+ * `reachable` lists the partner ids that have a user account; by default every
+ * supplied partner is reachable, so tests opt in to the black-hole case.
+ */
 function queues(opts: {
   ready: Array<ReturnType<typeof readyItem>>;
   partners: Array<ReturnType<typeof partner>>;
+  reachable?: string[];
   openLoad?: Array<{ assigned_provider_id: string }>;
   completed?: Array<{ assigned_provider_id: string }>;
   failed?: Array<{ provider_id: string }>;
   labels?: Res;
+  existingAlert?: Res;
 }): Record<string, Res[]> {
+  const reachableIds = opts.reachable ?? opts.partners.map((p) => p.id);
   return {
     work_requests: [PARENT],
     work_request_items: [
@@ -99,7 +107,24 @@ function queues(opts: {
     services: [SERVICE],
     catalog_items: [opts.labels ?? LABEL],
     service_partners: [{ data: opts.partners, error: null }],
+    // Reachability: one org per reachable partner, each with one profile.
+    organizations: [
+      {
+        data: reachableIds.map((id) => ({
+          id: `org-${id}`,
+          metadata: { service_partner_id: id },
+        })),
+        error: null,
+      },
+    ],
+    user_profiles: [
+      {
+        data: reachableIds.map((id) => ({ organization_id: `org-${id}` })),
+        error: null,
+      },
+    ],
     customer_provider_requests: [{ data: opts.failed ?? [], error: null }],
+    anomaly_alerts: [opts.existingAlert ?? { data: null, error: null }],
   };
 }
 
@@ -193,7 +218,10 @@ describe("dispatchReadyItems", () => {
 
     expect(res.dispatched).toEqual([]);
     expect(res.unplaced).toHaveLength(1);
-    expect(res.unplaced[0]).toMatchObject({ itemId: "i1", saturated: false });
+    expect(res.unplaced[0]).toMatchObject({
+      itemId: "i1",
+      blockedReason: "no_providers_registered",
+    });
     expect(res.unplaced[0].reason).toMatch(/No provider is registered/);
     expect(updates).toHaveLength(0); // still ready — nothing was assigned
   });
@@ -213,7 +241,7 @@ describe("dispatchReadyItems", () => {
     const res = await dispatchReadyItems(admin, { workRequestId: "wr1" });
 
     expect(res.dispatched).toEqual([]);
-    expect(res.unplaced[0].saturated).toBe(true);
+    expect(res.unplaced[0].blockedReason).toBe("all_at_capacity");
     expect(res.unplaced[0].reason).toMatch(/at capacity/);
   });
 
@@ -231,6 +259,82 @@ describe("dispatchReadyItems", () => {
     await expect(
       dispatchReadyItems(admin, { workRequestId: "wr1" }),
     ).rejects.toThrow(/no organization/);
+  });
+
+  // ─── Bottleneck guardrail (P3-6) ──────────────────────────────────────────
+
+  it("never routes to a provider with no reachable users", async () => {
+    // "ghost" is idle and would win on score, but nobody can act for it.
+    const { admin, updates } = makeAdmin(
+      queues({
+        ready: [readyItem("i1")],
+        partners: [partner("ghost"), partner("real")],
+        reachable: ["real"],
+        openLoad: Array.from({ length: 5 }, () => ({
+          assigned_provider_id: "real",
+        })),
+      }),
+    );
+
+    const res = await dispatchReadyItems(admin, { workRequestId: "wr1" });
+
+    expect(res.dispatched[0]?.providerId).toBe("real");
+    expect(updates[0].payload.assigned_provider_id).toBe("real");
+  });
+
+  it("flags an unplaceable item as a risk instead of stalling silently", async () => {
+    const { admin, inserts } = makeAdmin(
+      queues({
+        ready: [readyItem("i1")],
+        partners: [partner("ghost")],
+        reachable: [], // nobody can act for the only provider
+      }),
+    );
+
+    const res = await dispatchReadyItems(admin, { workRequestId: "wr1" });
+
+    expect(res.unplaced[0].blockedReason).toBe("none_reachable");
+
+    const alert = inserts.find((i) => i.table === "anomaly_alerts");
+    expect(alert?.payload).toMatchObject({
+      area: "work_orders",
+      anomaly_type: "work_order_unplaced",
+      severity: "high", // misconfiguration, not transient pressure
+      status: "pending_review",
+      source_entity_type: "work_request_item",
+      source_entity_id: "i1",
+    });
+  });
+
+  it("raises capacity bottlenecks at the lower severity", async () => {
+    const { admin, inserts } = makeAdmin(
+      queues({
+        ready: [readyItem("i1")],
+        partners: [partner("a")],
+        openLoad: Array.from({ length: 10 }, () => ({
+          assigned_provider_id: "a",
+        })),
+      }),
+    );
+
+    await dispatchReadyItems(admin, { workRequestId: "wr1" });
+
+    const alert = inserts.find((i) => i.table === "anomaly_alerts");
+    expect(alert?.payload).toMatchObject({ severity: "medium" });
+  });
+
+  it("does not raise a duplicate flag for an already-flagged item", async () => {
+    const { admin, inserts } = makeAdmin(
+      queues({
+        ready: [readyItem("i1")],
+        partners: [],
+        existingAlert: { data: { id: "existing" }, error: null },
+      }),
+    );
+
+    await dispatchReadyItems(admin, { workRequestId: "wr1" });
+
+    expect(inserts.find((i) => i.table === "anomaly_alerts")).toBeUndefined();
   });
 
   it("still assigns when the dispatch event fails to queue", async () => {

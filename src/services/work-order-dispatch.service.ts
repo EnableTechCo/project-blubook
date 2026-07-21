@@ -1,6 +1,8 @@
 import type { AppSupabaseClient as SupabaseClient } from "@/lib/supabase/types";
 import {
+  placementSeverity,
   selectProviderForWorkOrder,
+  type PlacementBlockedReason,
   type ProviderCandidate,
 } from "@/features/catalog/provider-router";
 import { queueWorkflowEvent } from "@/lib/workflow/engine";
@@ -32,8 +34,8 @@ export interface UnplacedItem {
   label: string;
   serviceName: string;
   reason: string;
-  /** True when providers exist for the service but all are unavailable. */
-  saturated: boolean;
+  /** Why placement failed — drives the severity of the flagged risk. */
+  blockedReason: PlacementBlockedReason;
 }
 
 export interface DispatchResult {
@@ -45,6 +47,54 @@ interface ReadyItemRow {
   id: string;
   service_id: string;
   catalog_item_id: string;
+}
+
+/**
+ * Which of these providers have at least one user who can act for them.
+ *
+ * Resolved the same way `resolvePartnerUserIds` does — organization tagged
+ * with the partner id, then profiles in that organization — so the router's
+ * notion of "reachable" matches who would actually be notified.
+ */
+async function loadReachableProviderIds(
+  admin: SupabaseClient,
+  partnerIds: string[],
+): Promise<Set<string>> {
+  const reachable = new Set<string>();
+  if (partnerIds.length === 0) return reachable;
+
+  const { data: orgs, error } = await admin
+    .from("organizations")
+    .select("id, metadata")
+    .not("metadata->>service_partner_id", "is", null);
+  if (error) throw new Error(error.message);
+
+  const partnerIdByOrg = new Map<string, string>();
+  for (const row of (orgs ?? []) as Array<{ id: string; metadata: unknown }>) {
+    const metadata = (row.metadata ?? {}) as { service_partner_id?: unknown };
+    const partnerId = metadata.service_partner_id;
+    if (typeof partnerId === "string" && partnerIds.includes(partnerId)) {
+      partnerIdByOrg.set(row.id, partnerId);
+    }
+  }
+  if (partnerIdByOrg.size === 0) return reachable;
+
+  const { data: profiles, error: profilesError } = await admin
+    .from("user_profiles")
+    .select("organization_id")
+    .in("organization_id", [...partnerIdByOrg.keys()]);
+  if (profilesError) throw new Error(profilesError.message);
+
+  for (const row of (profiles ?? []) as Array<{
+    organization_id: string | null;
+  }>) {
+    const partnerId = row.organization_id
+      ? partnerIdByOrg.get(row.organization_id)
+      : undefined;
+    if (partnerId) reachable.add(partnerId);
+  }
+
+  return reachable;
 }
 
 /**
@@ -76,6 +126,7 @@ async function loadProviderCandidates(
   if (partnerRows.length === 0) return byStream;
 
   const partnerIds = partnerRows.map((p) => p.id);
+  const reachable = await loadReachableProviderIds(admin, partnerIds);
 
   const [openRes, doneRes, failedRes] = await Promise.all([
     admin
@@ -118,6 +169,7 @@ async function loadProviderCandidates(
       id: p.id,
       name: p.name,
       isActive: p.is_active,
+      hasReachableUsers: reachable.has(p.id),
       openLoad: openLoad.get(p.id) ?? 0,
       recentCompletions: completions.get(p.id) ?? 0,
       recentSlaBreaches: failures.get(p.id) ?? 0,
@@ -126,6 +178,63 @@ async function loadProviderCandidates(
   }
 
   return byStream;
+}
+
+/** anomaly_alerts discriminator for an item routing could not place. */
+export const UNPLACED_ANOMALY_TYPE = "work_order_unplaced";
+
+/**
+ * Surface an unplaceable item as a flagged risk (P3-6).
+ *
+ * Without this the item just stays `ready` and the dependency chain stalls
+ * with nobody told. It is written to anomaly_alerts, which the admin
+ * anomalies view already reads, and is non-fatal: failing to raise the flag
+ * must not break the dispatch of the other items in the batch.
+ */
+async function flagUnplacedItem(
+  admin: SupabaseClient,
+  input: {
+    itemId: string;
+    label: string;
+    serviceName: string;
+    reason: string;
+    blockedReason: PlacementBlockedReason;
+  },
+): Promise<void> {
+  try {
+    // One open flag per item — re-running dispatch must not pile up duplicates.
+    const { data: existing } = await admin
+      .from("anomaly_alerts")
+      .select("id")
+      .eq("anomaly_type", UNPLACED_ANOMALY_TYPE)
+      .eq("source_entity_id", input.itemId)
+      .eq("status", "pending_review")
+      .maybeSingle();
+    if (existing) return;
+
+    const { error } = await admin.from("anomaly_alerts").insert({
+      area: "work_orders",
+      anomaly_type: UNPLACED_ANOMALY_TYPE,
+      severity: placementSeverity(input.blockedReason),
+      status: "pending_review",
+      source_entity_type: "work_request_item",
+      source_entity_id: input.itemId,
+      source_label: `${input.label} (${input.serviceName})`,
+      reason: input.reason,
+      is_example: false,
+    });
+    if (error) {
+      console.error(
+        "[work-order-dispatch] Failed to flag unplaced item:",
+        error.message,
+      );
+    }
+  } catch (err) {
+    console.error(
+      "[work-order-dispatch] Unexpected error flagging unplaced item:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 /**
@@ -210,12 +319,20 @@ export async function dispatchReadyItems(
     const selection = selectProviderForWorkOrder({ serviceName, candidates });
 
     if (!selection.providerId) {
+      const blockedReason = selection.blockedReason ?? "all_unavailable";
       unplaced.push({
         itemId: item.id,
         label,
         serviceName,
         reason: selection.reason,
-        saturated: selection.saturated,
+        blockedReason,
+      });
+      await flagUnplacedItem(admin, {
+        itemId: item.id,
+        label,
+        serviceName,
+        reason: selection.reason,
+        blockedReason,
       });
       continue;
     }

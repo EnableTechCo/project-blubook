@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MAX_OPEN_LOAD,
+  placementSeverity,
   scoreProvider,
   selectProviderForWorkOrder,
   type ProviderCandidate,
@@ -13,6 +14,7 @@ const provider = (
   id,
   name: `Provider ${id}`,
   isActive: true,
+  hasReachableUsers: true,
   openLoad: 0,
   recentCompletions: 0,
   recentSlaBreaches: 0,
@@ -57,7 +59,7 @@ describe("selectProviderForWorkOrder", () => {
       provider("mid", { openLoad: 4 }),
     ]);
     expect(res.providerId).toBe("light");
-    expect(res.saturated).toBe(false);
+    expect(res.blockedReason).toBeNull();
     expect(res.alternatives.map((a) => a.id)).toEqual(["mid", "busy"]);
   });
 
@@ -92,21 +94,59 @@ describe("selectProviderForWorkOrder", () => {
       provider("b", { openLoad: DEFAULT_MAX_OPEN_LOAD + 3 }),
     ]);
     expect(res.providerId).toBeNull();
-    expect(res.saturated).toBe(true);
+    expect(res.blockedReason).toBe("all_at_capacity");
     expect(res.reason).toMatch(/at capacity/);
   });
 
-  it("flags saturation when every provider is inactive", () => {
+  it("distinguishes inactive from at-capacity", () => {
     const res = select([provider("a", { isActive: false })]);
-    expect(res.saturated).toBe(true);
+    expect(res.blockedReason).toBe("all_inactive");
     expect(res.providerId).toBeNull();
   });
 
-  it("distinguishes 'no provider registered' from saturation", () => {
+  it("distinguishes 'no provider registered' from every other cause", () => {
     const res = select([]);
     expect(res.providerId).toBeNull();
-    expect(res.saturated).toBe(false);
+    expect(res.blockedReason).toBe("no_providers_registered");
     expect(res.reason).toMatch(/No provider is registered/);
+  });
+
+  // ─── Reachability (P3-6) ────────────────────────────────────────────────
+  // A provider nobody can act for is a black hole: work routed there is never
+  // seen and never completed, silently stalling the dependency chain.
+
+  it("never routes to a provider with no reachable users", () => {
+    const res = select([
+      provider("ghost", { hasReachableUsers: false, openLoad: 0 }),
+      provider("real", { openLoad: 7 }),
+    ]);
+    // The idle provider would win on score, but nobody can act for it.
+    expect(res.providerId).toBe("real");
+  });
+
+  it("reports none_reachable when no provider has a user account", () => {
+    const res = select([
+      provider("a", { hasReachableUsers: false }),
+      provider("b", { hasReachableUsers: false }),
+    ]);
+    expect(res.providerId).toBeNull();
+    expect(res.blockedReason).toBe("none_reachable");
+    expect(res.reason).toMatch(/reachable user account/);
+  });
+
+  it("reports the mixed case when causes differ", () => {
+    const res = select([
+      provider("a", { isActive: false }),
+      provider("b", { hasReachableUsers: false }),
+      provider("c", { openLoad: DEFAULT_MAX_OPEN_LOAD }),
+    ]);
+    expect(res.blockedReason).toBe("all_unavailable");
+  });
+
+  it("rates capacity as transient but misconfiguration as urgent", () => {
+    expect(placementSeverity("all_at_capacity")).toBe("medium");
+    expect(placementSeverity("none_reachable")).toBe("high");
+    expect(placementSeverity("no_providers_registered")).toBe("high");
   });
 
   it("is deterministic for identical candidates", () => {

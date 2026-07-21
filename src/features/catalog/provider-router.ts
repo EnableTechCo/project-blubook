@@ -15,6 +15,13 @@ export interface ProviderCandidate {
   id: string;
   name: string;
   isActive: boolean;
+  /**
+   * Whether any user account can actually act for this provider. A provider
+   * with no reachable users is a black hole: work routed there is never seen
+   * and never completed, silently stalling the dependency chain. Such a
+   * provider is treated as unavailable rather than assigned to.
+   */
+  hasReachableUsers: boolean;
   /** Work orders currently assigned or in progress with this provider. */
   openLoad: number;
   /** Recently completed work orders — a throughput signal. */
@@ -23,6 +30,18 @@ export interface ProviderCandidate {
   recentSlaBreaches: number;
 }
 
+/**
+ * Why an item could not be placed. Distinguished because the operational
+ * response differs: capacity is transient and self-resolving, while an
+ * unregistered or unreachable service needs someone to fix configuration.
+ */
+export type PlacementBlockedReason =
+  | "no_providers_registered"
+  | "all_inactive"
+  | "none_reachable"
+  | "all_at_capacity"
+  | "all_unavailable";
+
 export interface ScoredProvider {
   id: string;
   name: string;
@@ -30,17 +49,17 @@ export interface ScoredProvider {
 }
 
 export interface ProviderSelection {
-  /** null when nothing could be placed — see `saturated`. */
+  /** null when nothing could be placed — see `blockedReason`. */
   providerId: string | null;
   providerName: string;
   score: number | null;
   reason: string;
   /**
-   * True when candidates existed but every one was unavailable (inactive or at
-   * capacity). The bottleneck guardrail (P3-6) surfaces this as a flagged risk
-   * instead of letting the item silently stall.
+   * Null on a successful placement. Otherwise why it failed, which the
+   * bottleneck guardrail (P3-6) surfaces as a flagged risk instead of letting
+   * the item silently stall the graph.
    */
-  saturated: boolean;
+  blockedReason: PlacementBlockedReason | null;
   /** Runner-up providers, best first — useful for reassignment and audit. */
   alternatives: ScoredProvider[];
 }
@@ -87,9 +106,66 @@ export function scoreProvider(
   );
 }
 
-/** Available = active and not already at capacity. */
+/** Available = active, reachable by a real user, and not already at capacity. */
 function isAvailable(c: ProviderCandidate, maxOpenLoad: number): boolean {
-  return c.isActive && c.openLoad < maxOpenLoad;
+  return c.isActive && c.hasReachableUsers && c.openLoad < maxOpenLoad;
+}
+
+/**
+ * Classify why no candidate could take the work. Reports a single specific
+ * cause when every candidate shares it, so the resulting alert says what to
+ * fix; falls back to the generic reason when causes are mixed.
+ */
+function classifyFailure(
+  candidates: ProviderCandidate[],
+  maxOpenLoad: number,
+): PlacementBlockedReason {
+  if (candidates.length === 0) return "no_providers_registered";
+  if (candidates.every((c) => !c.isActive)) return "all_inactive";
+  if (candidates.every((c) => !c.hasReachableUsers)) return "none_reachable";
+  if (candidates.every((c) => c.openLoad >= maxOpenLoad)) return "all_at_capacity";
+
+  // Causes differ across candidates. Reported generically — and at the higher
+  // severity — because a mixture usually hides a misconfiguration that will
+  // not clear on its own the way pure capacity pressure does.
+  return "all_unavailable";
+}
+
+/** Human explanation for a placement failure. */
+function explainFailure(
+  reason: PlacementBlockedReason,
+  serviceName: string,
+  maxOpenLoad: number,
+): string {
+  switch (reason) {
+    case "no_providers_registered":
+      return `No provider is registered for ${serviceName}.`;
+    case "all_inactive":
+      return `Every ${serviceName} provider is deactivated.`;
+    case "none_reachable":
+      return (
+        `No ${serviceName} provider has a reachable user account, so work ` +
+        `routed there would never be seen. Link a partner account to fix this.`
+      );
+    case "all_at_capacity":
+      return (
+        `Every ${serviceName} provider is at capacity ` +
+        `(${maxOpenLoad} open work orders).`
+      );
+    default:
+      return `No ${serviceName} provider is currently available.`;
+  }
+}
+
+/**
+ * How urgently a blocked placement needs attention. Capacity is transient and
+ * clears as work completes; a missing or unreachable provider is a
+ * misconfiguration that will never resolve on its own.
+ */
+export function placementSeverity(
+  reason: PlacementBlockedReason,
+): "low" | "medium" | "high" {
+  return reason === "all_at_capacity" ? "medium" : "high";
 }
 
 /**
@@ -106,28 +182,16 @@ export function selectProviderForWorkOrder(input: {
 }): ProviderSelection {
   const maxOpenLoad = input.maxOpenLoad ?? DEFAULT_MAX_OPEN_LOAD;
 
-  if (input.candidates.length === 0) {
-    return {
-      providerId: null,
-      providerName: "Unassigned",
-      score: null,
-      reason: `No provider is registered for ${input.serviceName}.`,
-      saturated: false,
-      alternatives: [],
-    };
-  }
-
   const available = input.candidates.filter((c) => isAvailable(c, maxOpenLoad));
 
   if (available.length === 0) {
+    const blockedReason = classifyFailure(input.candidates, maxOpenLoad);
     return {
       providerId: null,
       providerName: "Unassigned",
       score: null,
-      reason:
-        `Every ${input.serviceName} provider is unavailable — ` +
-        `all are inactive or at capacity (${maxOpenLoad} open work orders).`,
-      saturated: true,
+      reason: explainFailure(blockedReason, input.serviceName, maxOpenLoad),
+      blockedReason,
       alternatives: [],
     };
   }
@@ -160,7 +224,7 @@ export function selectProviderForWorkOrder(input: {
     reason:
       `Lowest-loaded available ${input.serviceName} provider ` +
       `(${reasonParts.join(", ")}).`,
-    saturated: false,
+    blockedReason: null,
     alternatives: ranked.slice(1).map((r) => ({
       id: r.candidate.id,
       name: r.candidate.name,
