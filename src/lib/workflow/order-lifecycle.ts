@@ -195,7 +195,11 @@ export async function insertNotifications(
   admin: AdminClient,
   notifications: Array<{
     userId: string;
-    organizationId: string;
+    /**
+     * Null for recipients who must not be tied to the customer's organization
+     * — e.g. providers, who stay anonymous to the customer and vice versa.
+     */
+    organizationId: string | null;
     message: string;
     metadata?: JsonObject;
   }>,

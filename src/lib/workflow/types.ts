@@ -27,10 +27,13 @@ export type RequestWorkflowEventType =
   | "request.acknowledged"
   | "request.rejected";
 
+export type WorkRequestWorkflowEventType = "work_request.item_dispatched";
+
 export type WorkflowEventType =
   | SalesWorkflowEventType
   | LogisticsWorkflowEventType
-  | RequestWorkflowEventType;
+  | RequestWorkflowEventType
+  | WorkRequestWorkflowEventType;
 
 export type WorkflowPayload = JsonObject;
 
