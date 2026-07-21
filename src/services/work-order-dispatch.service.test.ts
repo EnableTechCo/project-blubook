@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "@/lib/supabase/types";
 
-const queueWorkflowEvent = vi.fn().mockResolvedValue("event-1");
-vi.mock("@/lib/workflow/engine", () => ({
-  queueWorkflowEvent: (...args: unknown[]) => queueWorkflowEvent(...args),
+const notifyProvider = vi.fn().mockResolvedValue(undefined);
+const notifyCustomer = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/services/work-request-notifications.service", () => ({
+  notifyProvider: (...args: unknown[]) => notifyProvider(...args),
+  notifyCustomer: (...args: unknown[]) => notifyCustomer(...args),
 }));
 
 import { dispatchReadyItems } from "./work-order-dispatch.service";
@@ -129,7 +131,9 @@ function queues(opts: {
 }
 
 beforeEach(() => {
-  queueWorkflowEvent.mockClear();
+  notifyProvider.mockClear();
+  notifyCustomer.mockClear();
+  notifyProvider.mockResolvedValue(undefined);
 });
 
 describe("dispatchReadyItems", () => {
@@ -143,7 +147,8 @@ describe("dispatchReadyItems", () => {
 
     expect(res).toEqual({ dispatched: [], unplaced: [] });
     expect(updates).toHaveLength(0);
-    expect(queueWorkflowEvent).not.toHaveBeenCalled();
+    expect(notifyProvider).not.toHaveBeenCalled();
+    expect(notifyCustomer).not.toHaveBeenCalled();
   });
 
   it("assigns the least-loaded provider and records the engagement", async () => {
@@ -188,9 +193,23 @@ describe("dispatchReadyItems", () => {
       request_status: "sent",
     });
 
-    expect(queueWorkflowEvent).toHaveBeenCalledWith(
-      "work_request.item_dispatched",
-      expect.objectContaining({ workRequestItemId: "i1", providerId: "light" }),
+    // Both sides are told, each through the anonymity boundary.
+    expect(notifyProvider).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        providerId: "light",
+        workRequestItemId: "i1",
+        label: "Invoicing",
+        serviceName: "Sales Ops",
+      }),
+    );
+    expect(notifyCustomer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        workRequestId: "wr1",
+        event: "work_order_started",
+        workRequestItemId: "i1",
+      }),
     );
   });
 
@@ -337,15 +356,15 @@ describe("dispatchReadyItems", () => {
     expect(inserts.find((i) => i.table === "anomaly_alerts")).toBeUndefined();
   });
 
-  it("still assigns when the dispatch event fails to queue", async () => {
-    queueWorkflowEvent.mockRejectedValueOnce(new Error("queue down"));
+  it("still assigns when notifying the provider fails", async () => {
+    notifyProvider.mockRejectedValueOnce(new Error("notify down"));
     const { admin, updates } = makeAdmin(
       queues({ ready: [readyItem("i1")], partners: [partner("a")] }),
     );
 
     const res = await dispatchReadyItems(admin, { workRequestId: "wr1" });
 
-    // The assignment is the source of truth; the event is a side-effect.
+    // The assignment is the source of truth; telling people is a side-effect.
     expect(res.dispatched).toHaveLength(1);
     expect(updates[0].payload.status).toBe("assigned");
   });

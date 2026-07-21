@@ -5,6 +5,7 @@ import {
   type DependencyEdge,
 } from "@/features/catalog/dependency-graph";
 import { planWorkRequestItems } from "@/features/catalog/work-request-plan";
+import { notifyCustomer } from "@/services/work-request-notifications.service";
 
 // Work-request creation (Phase 2, P2-5)
 //
@@ -217,15 +218,48 @@ export async function createWorkRequest(
     }
   }
 
+  const autoIncluded = closure.autoIncludedIds.map((id) => ({
+    catalogItemId: id,
+    label: labelByItem.get(id) ?? "",
+    serviceName: serviceNameById.get(serviceIdByItem.get(id) ?? "") ?? "",
+  }));
+
+  // Disclose the expansion (P4-3). One summary for what the system added, then
+  // a queued notice only for the items the customer picked themselves — the
+  // auto-included ones are already covered by the summary, so per-item notices
+  // for them would just be noise.
+  if (autoIncluded.length > 0) {
+    await notifyCustomer(admin, {
+      workRequestId,
+      event: "work_orders_auto_added",
+      itemCount: autoIncluded.length,
+    });
+  }
+
+  const selectedSet = new Set(selected);
+  const blockedSelections = plan.items.filter(
+    (i) => i.status === "blocked" && selectedSet.has(i.catalogItemId),
+  );
+  for (const item of blockedSelections) {
+    const prerequisite = plan.dependencies.find(
+      (d) => d.catalogItemId === item.catalogItemId,
+    );
+    await notifyCustomer(admin, {
+      workRequestId,
+      event: "work_order_queued",
+      workRequestItemId: itemIdByCatalog.get(item.catalogItemId),
+      label: labelByItem.get(item.catalogItemId),
+      blockedByLabel: prerequisite
+        ? labelByItem.get(prerequisite.dependsOnItemId)
+        : undefined,
+    });
+  }
+
   return {
     ok: true,
     workRequestId,
     itemCount: plan.items.length,
     readyCount: plan.items.filter((i) => i.status === "ready").length,
-    autoIncluded: closure.autoIncludedIds.map((id) => ({
-      catalogItemId: id,
-      label: labelByItem.get(id) ?? "",
-      serviceName: serviceNameById.get(serviceIdByItem.get(id) ?? "") ?? "",
-    })),
+    autoIncluded,
   };
 }

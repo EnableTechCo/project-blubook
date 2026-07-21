@@ -5,7 +5,10 @@ import {
   type PlacementBlockedReason,
   type ProviderCandidate,
 } from "@/features/catalog/provider-router";
-import { queueWorkflowEvent } from "@/lib/workflow/engine";
+import {
+  notifyCustomer,
+  notifyProvider,
+} from "@/services/work-request-notifications.service";
 
 // Work-order dispatch (Phase 3, P3-3)
 //
@@ -350,7 +353,7 @@ export async function dispatchReadyItems(
     if (assignError) throw new Error(assignError.message);
 
     // Engagement layer — the same table the #44-47 provider flow reads.
-    const { data: engagement, error: engagementError } = await admin
+    const { error: engagementError } = await admin
       .from("customer_provider_requests")
       .insert({
         organization_id: organizationId,
@@ -367,9 +370,7 @@ export async function dispatchReadyItems(
           routing_score: selection.score,
           routing_reason: selection.reason,
         },
-      })
-      .select("id")
-      .single();
+      });
     if (engagementError) throw new Error(engagementError.message);
 
     // Charge the winner so the rest of this batch balances across providers
@@ -377,17 +378,28 @@ export async function dispatchReadyItems(
     const winner = candidates.find((c) => c.id === selection.providerId);
     if (winner) winner.openLoad += 1;
 
-    // Side-effect only: a queue failure must not undo a completed assignment.
+    // Tell both sides, each through the anonymity boundary (P4-2). Emission is
+    // inline because nothing drains the workflow queue on a timer, and guarded
+    // because the assignment above is already committed: telling someone about
+    // work must never be able to lose the work itself. The notification service
+    // is non-throwing by contract; this is the belt to that pair of braces.
     try {
-      await queueWorkflowEvent("work_request.item_dispatched", {
-        workRequestId: input.workRequestId,
-        workRequestItemId: item.id,
-        engagementRequestId: engagement.id,
+      await notifyProvider(admin, {
         providerId: selection.providerId,
+        workRequestItemId: item.id,
+        label,
+        serviceName,
+      });
+      await notifyCustomer(admin, {
+        workRequestId: input.workRequestId,
+        event: "work_order_started",
+        workRequestItemId: item.id,
+        label,
+        serviceName,
       });
     } catch (err) {
       console.error(
-        "[work-order-dispatch] Failed to queue dispatch event:",
+        "[work-order-dispatch] Failed to announce dispatch:",
         err instanceof Error ? err.message : err,
       );
     }

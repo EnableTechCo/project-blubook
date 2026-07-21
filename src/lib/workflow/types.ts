@@ -27,10 +27,10 @@ export type RequestWorkflowEventType =
   | "request.acknowledged"
   | "request.rejected";
 
-export type WorkRequestWorkflowEventType =
-  | "work_request.item_dispatched"
-  | "work_request.item_completed"
-  | "work_request.completed";
+// Only the advance-retry fallback remains queued. The dispatch and completion
+// notices were queue-only and therefore never delivered — nothing drains the
+// queue on a timer — so P4-3 emits those inline instead.
+export type WorkRequestWorkflowEventType = "work_request.item_completed";
 
 export type WorkflowEventType =
   | SalesWorkflowEventType
