@@ -7,6 +7,7 @@ import {
 } from "@/features/catalog/release-evaluation";
 import { dispatchReadyItems } from "@/services/work-order-dispatch.service";
 import { queueWorkflowEvent } from "@/lib/workflow/engine";
+import { notifyCustomer } from "@/services/work-request-notifications.service";
 
 // Work-order completion + release loop (Phase 3, P3-4)
 //
@@ -104,16 +105,10 @@ export async function advanceWorkRequest(
     if (error) throw new Error(error.message);
 
     requestCompleted = true;
-    try {
-      await queueWorkflowEvent("work_request.completed", {
-        workRequestId: input.workRequestId,
-      });
-    } catch (err) {
-      console.error(
-        "[work-order-completion] Failed to queue completion event:",
-        err instanceof Error ? err.message : err,
-      );
-    }
+    await notifyCustomer(admin, {
+      workRequestId: input.workRequestId,
+      event: "work_request_completed",
+    });
   }
 
   return {
@@ -152,7 +147,9 @@ export async function completeWorkOrderItem(
 ): Promise<CompleteItemResult> {
   const { data: item, error } = await admin
     .from("work_request_items")
-    .select("id, work_request_id, status, assigned_provider_id")
+    // The label comes along on this read so announcing the completion costs no
+    // extra round-trip.
+    .select("id, work_request_id, status, assigned_provider_id, catalog_items(label)")
     .eq("id", input.workRequestItemId)
     .maybeSingle();
 
@@ -189,6 +186,17 @@ export async function completeWorkOrderItem(
   if (updateError) {
     return { ok: false, error: updateError.message, status: 500 };
   }
+
+  // Announce the finished item before advancing, so the customer sees it
+  // complete even if the release step below fails and is retried.
+  const label = (item as { catalog_items?: { label?: string } | null })
+    .catalog_items?.label;
+  await notifyCustomer(admin, {
+    workRequestId: item.work_request_id,
+    event: "work_order_completed",
+    workRequestItemId: input.workRequestItemId,
+    label,
+  });
 
   // Advance inline so the release loop moves immediately: nothing drains the
   // workflow queue on a timer, so relying on the event alone would leave the

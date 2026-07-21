@@ -13,6 +13,11 @@ vi.mock("@/services/work-order-dispatch.service", () => ({
   dispatchReadyItems: (...args: unknown[]) => dispatchReadyItems(...args),
 }));
 
+const notifyCustomer = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/services/work-request-notifications.service", () => ({
+  notifyCustomer: (...args: unknown[]) => notifyCustomer(...args),
+}));
+
 import {
   advanceWorkRequest,
   completeWorkOrderItem,
@@ -63,6 +68,7 @@ const deps = (
 
 beforeEach(() => {
   queueWorkflowEvent.mockClear();
+  notifyCustomer.mockClear();
   dispatchReadyItems.mockClear();
   dispatchReadyItems.mockResolvedValue({ dispatched: [], unplaced: [] });
 });
@@ -137,9 +143,14 @@ describe("advanceWorkRequest", () => {
       table: "work_requests",
       payload: { status: "completed" },
     });
-    expect(queueWorkflowEvent).toHaveBeenCalledWith(
-      "work_request.completed",
-      expect.objectContaining({ workRequestId: "wr1" }),
+    // The customer is told inline — the completion notice is no longer queued,
+    // because nothing drains the queue on a timer.
+    expect(notifyCustomer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        workRequestId: "wr1",
+        event: "work_request_completed",
+      }),
     );
   });
 
@@ -157,7 +168,7 @@ describe("advanceWorkRequest", () => {
     const res = await advanceWorkRequest(admin, { workRequestId: "wr1" });
 
     expect(res.requestCompleted).toBe(false);
-    expect(queueWorkflowEvent).not.toHaveBeenCalled();
+    expect(notifyCustomer).not.toHaveBeenCalled();
   });
 });
 
