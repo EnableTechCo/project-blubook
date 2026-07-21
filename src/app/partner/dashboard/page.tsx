@@ -29,6 +29,7 @@ import { LogisticsWorkOrdersCtaCard } from "@/components/dashboard/partner/logis
 import { PartnerRequestPingCard } from "@/components/dashboard/partner/partner-request-ping-card";
 import { OpenServiceRequestsCard } from "@/components/dashboard/partner/open-service-requests-card";
 import { MyServiceRequestsCard } from "@/components/dashboard/partner/my-service-requests-card";
+import { MyWorkOrdersCard } from "@/components/dashboard/partner/my-work-orders-card";
 import { PartnerRequestQueueItem } from "@/components/dashboard/partner/partner-request-queue-item";
 import { ActivityTimeline } from "@/components/dashboard/partner/activity-timeline";
 import {
@@ -1505,6 +1506,7 @@ export default function PartnerDashboardPage() {
 
         <OpenServiceRequestsCard />
         <MyServiceRequestsCard />
+        <MyWorkOrdersCard />
 
         {!isLogisticsPartner && purchaseOrders.active > 0 ? (
           <WorkflowOpsSectionShell
