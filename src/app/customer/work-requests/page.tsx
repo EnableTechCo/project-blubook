@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyStateNoticeCard } from "@/components/ui/empty-state-notice-card";
 import { DashboardPageHeader } from "@/components/ui/dashboard-page-header";
+import { MyWorkRequestsCard } from "@/components/dashboard/customer/my-work-requests-card";
 import { InlineErrorMessage } from "@/components/ui/inline-error-message";
 import {
   resolveDependencyClosure,
@@ -289,6 +290,8 @@ export default function CustomerWorkRequestsPage() {
           </Badge>
         }
       />
+
+      <MyWorkRequestsCard />
 
       {menu.services.map((service) => (
         <Card key={service.id} title={service.name}>

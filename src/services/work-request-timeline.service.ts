@@ -54,6 +54,71 @@ export type TimelineResult =
   | { ok: true; timeline: WorkRequestTimeline }
   | { ok: false; error: string; status: number };
 
+export interface WorkRequestSummary {
+  id: string;
+  reference: string;
+  status: string;
+  createdAt: string;
+  itemCount: number;
+  completedCount: number;
+}
+
+/**
+ * The customer's own requests, newest first.
+ *
+ * Scoped to the caller's customer_id, and carries no provider information —
+ * the summary exists to get someone to a timeline, not to describe who is
+ * doing the work.
+ */
+export async function listCustomerWorkRequests(
+  admin: SupabaseClient,
+  input: { customerId: string; limit?: number },
+): Promise<WorkRequestSummary[]> {
+  const { data: requestRows, error } = await admin
+    .from("work_requests")
+    .select("id, status, created_at")
+    .eq("customer_id", input.customerId)
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 20);
+  if (error) throw new Error(error.message);
+
+  const requests = (requestRows ?? []) as Array<{
+    id: string;
+    status: string;
+    created_at: string;
+  }>;
+  if (requests.length === 0) return [];
+
+  const { data: itemRows, error: itemsError } = await admin
+    .from("work_request_items")
+    .select("work_request_id, status")
+    .in(
+      "work_request_id",
+      requests.map((r) => r.id),
+    );
+  if (itemsError) throw new Error(itemsError.message);
+
+  const totals = new Map<string, { total: number; completed: number }>();
+  for (const row of (itemRows ?? []) as Array<{
+    work_request_id: string;
+    status: string;
+  }>) {
+    const tally = totals.get(row.work_request_id) ?? { total: 0, completed: 0 };
+    tally.total += 1;
+    if (row.status === "completed") tally.completed += 1;
+    totals.set(row.work_request_id, tally);
+  }
+
+  return requests.map((r) => ({
+    id: r.id,
+    reference: opaqueReference(r.id, "REQ"),
+    status: r.status,
+    createdAt: r.created_at,
+    itemCount: totals.get(r.id)?.total ?? 0,
+    completedCount: totals.get(r.id)?.completed ?? 0,
+  }));
+}
+
 export async function getWorkRequestTimeline(
   admin: SupabaseClient,
   input: { workRequestId: string; customerId: string },

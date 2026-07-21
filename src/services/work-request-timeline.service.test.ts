@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AppSupabaseClient } from "@/lib/supabase/types";
-import { getWorkRequestTimeline } from "./work-request-timeline.service";
+import {
+  getWorkRequestTimeline,
+  listCustomerWorkRequests,
+} from "./work-request-timeline.service";
 
 type Res = { data?: unknown; error?: { message: string } | null };
 
@@ -17,6 +20,8 @@ function makeAdmin(selects: Record<string, Res[]>) {
       },
       eq: () => q,
       in: () => q,
+      order: () => q,
+      limit: () => q,
       maybeSingle: async () => pending,
       single: async () => pending,
       then: (resolve: (v: Res) => unknown) => resolve(pending),
@@ -206,5 +211,70 @@ describe("getWorkRequestTimeline", () => {
     const added = res.timeline.entries.filter((e) => e.kind === "auto_added");
     expect(added).toHaveLength(1);
     expect(added[0].message).toContain("2 required steps");
+  });
+});
+
+describe("listCustomerWorkRequests", () => {
+  const REQ_A = "3f6b2c9a-1111-4111-8111-111111111111";
+  const REQ_B = "aa11bb22-2222-4222-8222-222222222222";
+
+  it("summarises each request with its completion progress", async () => {
+    const { admin } = makeAdmin({
+      work_requests: [
+        {
+          data: [
+            { id: REQ_A, status: "active", created_at: T1 },
+            { id: REQ_B, status: "completed", created_at: T0 },
+          ],
+          error: null,
+        },
+      ],
+      work_request_items: [
+        {
+          data: [
+            { work_request_id: REQ_A, status: "completed" },
+            { work_request_id: REQ_A, status: "blocked" },
+            { work_request_id: REQ_B, status: "completed" },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const res = await listCustomerWorkRequests(admin, { customerId: "cust-1" });
+
+    expect(res).toHaveLength(2);
+    expect(res[0]).toMatchObject({
+      id: REQ_A,
+      reference: "REQ-3F6B2C9A",
+      status: "active",
+      itemCount: 2,
+      completedCount: 1,
+    });
+    expect(res[1]).toMatchObject({ reference: "REQ-AA11BB22", completedCount: 1 });
+  });
+
+  it("returns nothing when the customer has no requests", async () => {
+    const { admin } = makeAdmin({
+      work_requests: [{ data: [], error: null }],
+    });
+    expect(await listCustomerWorkRequests(admin, { customerId: "cust-1" })).toEqual([]);
+  });
+
+  it("never exposes provider information in the summary", async () => {
+    const { admin, selected } = makeAdmin({
+      work_requests: [
+        { data: [{ id: REQ_A, status: "active", created_at: T1 }], error: null },
+      ],
+      work_request_items: [
+        { data: [{ work_request_id: REQ_A, status: "ready" }], error: null },
+      ],
+    });
+
+    const [summary] = await listCustomerWorkRequests(admin, { customerId: "cust-1" });
+
+    expect(Object.keys(summary)).not.toContain("assignedProviderId");
+    const itemSelect = selected.find((s) => s.table === "work_request_items");
+    expect(itemSelect?.columns).not.toContain("assigned_provider_id");
   });
 });
