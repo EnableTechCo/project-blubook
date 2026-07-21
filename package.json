@@ -2,7 +2,7 @@
   "name": "blubook-frontend",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@11.0.0",
   "scripts": {
     "prebuild": "node -e \"const fs=require('fs');try{fs.rmSync('.next',{recursive:true,force:true,maxRetries:10,retryDelay:200});}catch(e){if(e&&(e.code==='EBUSY'||e.code==='EPERM')){console.warn('[prebuild] .next is locked, continuing without full cleanup');}else{throw e;}}\"",
     "dev": "next dev",
