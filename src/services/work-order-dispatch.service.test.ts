@@ -297,7 +297,7 @@ describe("dispatchReadyItems", () => {
 
     const alert = inserts.find((i) => i.table === "anomaly_alerts");
     expect(alert?.payload).toMatchObject({
-      area: "work_orders",
+      area: "workflow",
       anomaly_type: "work_order_unplaced",
       severity: "high", // misconfiguration, not transient pressure
       status: "pending_review",

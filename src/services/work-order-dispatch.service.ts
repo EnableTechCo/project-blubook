@@ -213,7 +213,8 @@ async function flagUnplacedItem(
     if (existing) return;
 
     const { error } = await admin.from("anomaly_alerts").insert({
-      area: "work_orders",
+      // `area` is constrained to orders|inventory|onboarding|workflow.
+      area: "workflow",
       anomaly_type: UNPLACED_ANOMALY_TYPE,
       severity: placementSeverity(input.blockedReason),
       status: "pending_review",
