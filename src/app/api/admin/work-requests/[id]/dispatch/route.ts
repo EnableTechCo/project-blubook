@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminApi } from "@/lib/auth/require-admin";
 import { dispatchReadyItems } from "@/services/work-order-dispatch.service";
 
 // Dispatch a work request's released items to providers (Phase 3, P3-3).
+//
+// Admin/staff only: dispatching assigns work to providers and notifies them,
+// so it must not be callable by any authenticated user.
 //
 // Idempotent: only `ready` items are placed, and each flips to `assigned` as it
 // goes, so re-running dispatches nothing twice. Items that could not be placed
@@ -13,18 +15,11 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const server = await createServerClient();
-    const {
-      data: { user },
-    } = await server.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const guard = await requireAdminApi();
+    if (guard.error) return guard.error;
 
     const { id } = await context.params;
-    const admin = createAdminClient();
-    const result = await dispatchReadyItems(admin, { workRequestId: id });
+    const result = await dispatchReadyItems(guard.admin, { workRequestId: id });
 
     return NextResponse.json({
       dispatchedCount: result.dispatched.length,
