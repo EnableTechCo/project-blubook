@@ -72,11 +72,11 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
         <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-black/95 via-black/82 to-transparent lg:w-[72%]" />
 
         <div className="relative z-10 max-w-3xl">
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold text-white md:text-5xl">
+          <h1 className="mt-3 max-w-3xl text-4xl font-semibold !text-white md:text-5xl">
             You sell to your customers. BluBook runs the corporate machine
             behind you.
           </h1>
-          <p className="mt-4 max-w-2xl text-sm text-white md:text-base">
+          <p className="mt-4 max-w-2xl text-sm !text-white md:text-base">
             Pick a package, complete onboarding, and activate the service
             streams your business needs now. Coverage can expand over time as
             your operating model grows.
@@ -87,7 +87,7 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
               View Packages
             </Button>
             <Link href="/login">
-              <Button className="text-white" variant="ghost">
+              <Button className="!text-white" variant="ghost">
                 Login
               </Button>
             </Link>
@@ -115,7 +115,7 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
           <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h2 className="mt-1 text-3xl font-semibold text-white">
+                <h2 className="mt-1 text-3xl font-semibold !text-white">
                   {activePackage.tier}
                 </h2>
               </div>
@@ -124,12 +124,12 @@ export function HomePageClient({ packages }: { packages: LandingPackage[] }) {
             <p className="mt-3 text-2xl font-semibold text-[#f97316]">
               {activePackage.price}
             </p>
-            <p className="mt-2 max-w-xl text-sm text-white">
+            <p className="mt-2 max-w-xl text-sm !text-white">
               {activePackage.summary}
             </p>
-            <p className="mt-2 text-xs text-white">{activePackage.sla}</p>
+            <p className="mt-2 text-xs !text-white">{activePackage.sla}</p>
 
-            <ul className="mt-3 space-y-1 overflow-auto pr-1 text-xs text-white lg:max-h-40">
+            <ul className="mt-3 space-y-1 overflow-auto pr-1 text-xs !text-white lg:max-h-40">
               {activePackage.highlights.map((line) => (
                 <li key={line}>- {line}</li>
               ))}
