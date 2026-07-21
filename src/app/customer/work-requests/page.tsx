@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyStateNoticeCard } from "@/components/ui/empty-state-notice-card";
 import { DashboardPageHeader } from "@/components/ui/dashboard-page-header";
+import { MyWorkRequestsCard } from "@/components/dashboard/customer/my-work-requests-card";
 import { InlineErrorMessage } from "@/components/ui/inline-error-message";
 import {
   resolveDependencyClosure,
@@ -203,8 +205,8 @@ export default function CustomerWorkRequestsPage() {
             </div>
           ) : null}
           <div className="mt-6 flex gap-3">
-            <Link href="/customer/orders">
-              <Button>Track your orders</Button>
+            <Link href={`/customer/work-requests/${result.workRequestId}` as Route}>
+              <Button>Track this request</Button>
             </Link>
             <Button variant="ghost" onClick={startOver}>
               Request more work
@@ -288,6 +290,8 @@ export default function CustomerWorkRequestsPage() {
           </Badge>
         }
       />
+
+      <MyWorkRequestsCard />
 
       {menu.services.map((service) => (
         <Card key={service.id} title={service.name}>
