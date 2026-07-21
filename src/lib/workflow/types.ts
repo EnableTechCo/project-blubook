@@ -27,7 +27,10 @@ export type RequestWorkflowEventType =
   | "request.acknowledged"
   | "request.rejected";
 
-export type WorkRequestWorkflowEventType = "work_request.item_dispatched";
+export type WorkRequestWorkflowEventType =
+  | "work_request.item_dispatched"
+  | "work_request.item_completed"
+  | "work_request.completed";
 
 export type WorkflowEventType =
   | SalesWorkflowEventType
