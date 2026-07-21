@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getPackageCatalog,
   listCatalogItemDependencies,
+  listCatalogItems,
+  listServices,
   type CatalogItemDependency,
   type ServiceWithItems,
 } from "@/services/catalog.service";
@@ -79,4 +81,62 @@ export async function resolveCustomerEntitlements(
   ]);
 
   return { packageId, services, dependencies };
+}
+
+/** A catalog item's display info, used to label auto-included dependencies. */
+export interface DirectoryItem {
+  id: string;
+  label: string;
+  serviceName: string;
+}
+
+export interface CustomerWorkRequestMenu {
+  hasSubscription: boolean;
+  /** The pickable menu grouped by service. */
+  services: ServiceWithItems[];
+  /** Directed catalog dependency edges, for the client to preview the closure. */
+  dependencies: CatalogItemDependency[];
+  /**
+   * Display info for every active item — including ones outside the menu — so
+   * the review step can name any auto-included dependency the closure pulls in.
+   */
+  itemDirectory: DirectoryItem[];
+}
+
+/**
+ * Everything the customer selection UI (P2-6) needs in one call: the entitled
+ * menu, the dependency edges (so it can compute and disclose the auto-included
+ * closure client-side), and a directory to label items the menu doesn't sell.
+ */
+export async function resolveCustomerWorkRequestMenu(
+  admin: SupabaseClient,
+  input: { customerId: string },
+): Promise<CustomerWorkRequestMenu> {
+  const entitlements = await resolveCustomerEntitlements(admin, input);
+  if (!entitlements.packageId) {
+    return {
+      hasSubscription: false,
+      services: [],
+      dependencies: [],
+      itemDirectory: [],
+    };
+  }
+
+  const [allItems, allServices] = await Promise.all([
+    listCatalogItems(admin),
+    listServices(admin),
+  ]);
+  const serviceNameById = new Map(allServices.map((s) => [s.id, s.name]));
+  const itemDirectory: DirectoryItem[] = allItems.map((item) => ({
+    id: item.id,
+    label: item.label,
+    serviceName: serviceNameById.get(item.service_id) ?? "",
+  }));
+
+  return {
+    hasSubscription: true,
+    services: entitlements.services,
+    dependencies: entitlements.dependencies,
+    itemDirectory,
+  };
 }

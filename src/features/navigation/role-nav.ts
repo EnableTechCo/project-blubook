@@ -14,6 +14,11 @@ export const customerNav: ShellNavItem[] = [
   },
   { href: "/customer/orders" as Route, label: "Orders", section: "Operations" },
   {
+    href: "/customer/work-requests" as Route,
+    label: "New Work Order",
+    section: "Operations",
+  },
+  {
     href: "/customer/requests" as Route,
     label: "Requests",
     section: "Operations",

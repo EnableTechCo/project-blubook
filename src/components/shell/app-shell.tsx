@@ -71,6 +71,7 @@ const NAV_ICON_BY_HREF: Record<string, NavIconComponent> = {
   "/customer/dashboard": LayoutGridIcon,
   "/customer/billing": CreditCardIcon,
   "/customer/orders": ReceiptTextIcon,
+  "/customer/work-requests": ClipboardCheckIcon,
   "/customer/requests": FilePenLineIcon,
   "/customer/messages": MessageSquareMoreIcon,
   "/customer/documents": FolderOpenIcon,
