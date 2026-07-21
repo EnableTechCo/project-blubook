@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toJson } from "@/lib/supabase/json";
 import {
   WORKFLOW_STEP_CONTRACT,
   buildAudienceStepView,
@@ -97,7 +98,7 @@ export async function recordStepEvent(
       source: input.source,
       proof_url: input.proofUrl ?? null,
       proof_type: input.proofType ?? null,
-      metadata: input.metadata ?? {},
+      metadata: toJson(input.metadata ?? {}, "workflow step metadata"),
     })
     .select()
     .single();
@@ -183,7 +184,7 @@ export async function upsertStepInput(
       {
         order_id: input.orderId,
         step_key: input.stepKey,
-        input_data: input.inputData,
+        input_data: toJson(input.inputData, "workflow step input"),
         actor_notes: input.actorNotes ?? null,
         updated_at: new Date().toISOString(),
       },

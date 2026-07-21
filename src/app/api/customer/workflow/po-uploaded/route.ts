@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { asJsonObject, type JsonObject } from "@/lib/supabase/json";
 import {
   appendOrderTimeline,
   withOrderLifecycleDefaults,
@@ -54,10 +55,7 @@ function toSearchableFileStem(value: string | null) {
 }
 
 function readPartnerEmail(value: unknown): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  const metadata = value as Record<string, unknown>;
+  const metadata = asJsonObject(value);
   const candidates = [
     metadata.email,
     metadata.contact_email,
@@ -142,18 +140,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, skipped: true, reason: "not_po" });
     }
 
+    const requirementMetadata = asJsonObject(requirement.metadata);
     const isE2EProvisionedRequirement =
-      requirement.metadata?.source === "e2e-po-workflow-setup";
+      requirementMetadata.source === "e2e-po-workflow-setup";
 
     const existingOrderId =
       !isE2EProvisionedRequirement &&
-      typeof requirement.metadata?.sales_order_id === "string"
-        ? requirement.metadata.sales_order_id
+      typeof requirementMetadata.sales_order_id === "string"
+        ? requirementMetadata.sales_order_id
         : null;
 
     let salesOrderId: string | null = null;
     let poReference: string | null = null;
-    let orderMetadata: Record<string, unknown> | null = null;
+    let orderMetadata: JsonObject | null = null;
 
     if (existingOrderId) {
       const { data: existingOrder } = await admin
@@ -338,8 +337,7 @@ export async function POST(request: Request) {
       : await documentsQuery;
 
     const matchedDocument = (recentDocs ?? []).find(
-      (doc): doc is { id: string; uploaded_by: string | null } =>
-        Boolean(doc && typeof doc.id === "string"),
+      (doc) => typeof doc.id === "string",
     );
 
     const purchaseOrderStatus = "submitted";

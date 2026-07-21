@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertEmailServerEnv } from "@/lib/env";
 import { EMAIL_TEMPLATES, type EmailTemplateKey } from "@/emails/templates";
 import { buildInvoicePdf } from "@/lib/email/invoice-pdf";
+import { toJson } from "@/lib/supabase/json";
 
 type QueueEmailInput = {
   templateKey: EmailTemplateKey;
@@ -183,7 +184,7 @@ export async function queueEmail(input: QueueEmailInput) {
       to_email: input.toEmail,
       subject: subject || input.subjectFallback,
       status: "queued",
-      payload,
+      payload: toJson(payload, "email payload"),
     })
     .select("id")
     .single();

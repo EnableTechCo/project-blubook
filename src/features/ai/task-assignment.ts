@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient as SupabaseClient } from "@/lib/supabase/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,13 +124,6 @@ function reasonFor(
       : ".";
 
   return `${primary.name} has ${loadPhrase}, the lowest active load on the team — assigning here keeps work balanced${comparison} This ${taskLabel} has been waiting ${Math.round(urgencyHours)}h.`;
-}
-
-interface OrderContextRow {
-  id: string;
-  product_name: string;
-  order_id: string;
-  po_reference: string | null;
 }
 
 async function loadOrderContext(

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient as SupabaseClient } from "@/lib/supabase/types";
 import type { Database } from "@/types/supabase";
 
 // Catalog read layer (Phase 1, P1-5)

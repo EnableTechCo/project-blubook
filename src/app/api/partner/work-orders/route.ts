@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { asJsonObject, type JsonObject } from "@/lib/supabase/json";
 import {
   readServicePartnerId,
   resolveServicePartnerIdForPartnerUser,
@@ -121,7 +122,7 @@ async function updateOrderWithStatusFallback(input: {
   admin: ReturnType<typeof createAdminClient>;
   orderId: string;
   nextStatus: string;
-  metadata: Record<string, unknown>;
+  metadata: JsonObject;
 }) {
   const updatedAt = new Date().toISOString();
   const { error: updateError } = await input.admin
@@ -715,7 +716,7 @@ export async function POST(request: Request) {
       const uploadedDocumentTypes = new Set(
         (uploadedDocuments ?? [])
           .map((document) => {
-            const documentType = document.metadata?.documentType;
+            const documentType = asJsonObject(document.metadata).documentType;
             return typeof documentType === "string" ? documentType : null;
           })
           .filter((value): value is string => Boolean(value)),

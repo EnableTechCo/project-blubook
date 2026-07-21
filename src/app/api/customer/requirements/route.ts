@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Enums } from "@/types/supabase";
+
+function isRequirementStatus(
+  value: string,
+): value is Enums<"requirement_item_status"> {
+  return (
+    value === "missing" ||
+    value === "submitted" ||
+    value === "approved" ||
+    value === "rejected"
+  );
+}
 
 function toPositiveInt(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -71,7 +83,11 @@ export async function GET(request: Request) {
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
 
-    if (status.length > 0) {
+    if (status.length > 0 && !isRequirementStatus(status)) {
+      return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    }
+
+    if (isRequirementStatus(status)) {
       requirementsQuery = requirementsQuery.eq("status", status);
     }
 

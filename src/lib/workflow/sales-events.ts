@@ -1,5 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  readJsonNumber,
+  readJsonString,
+  requireJsonString,
+} from "@/lib/supabase/json";
+import {
   appendOrderTimeline,
   insertNotifications,
   resolveCustomerUserIds,
@@ -80,8 +85,7 @@ export async function processSalesWorkflowEvent(
 
   switch (eventType) {
     case "order.created": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       const { data: order, error: orderError } = await admin
         .from("sales_orders")
@@ -312,8 +316,8 @@ export async function processSalesWorkflowEvent(
     }
 
     case "task.started": {
-      const { taskId, taskType } = payload;
-      if (!taskId || !taskType) throw new Error("Missing taskId or taskType");
+      const taskId = requireJsonString(payload, "taskId");
+      const taskType = requireJsonString(payload, "taskType");
 
       if (taskType === "work_order") {
         const { data: wo, error: woError } = await admin
@@ -349,14 +353,19 @@ export async function processSalesWorkflowEvent(
     }
 
     case "task.completed": {
-      const { taskId, taskType, quantity, userId } = payload;
-      if (!taskId || !taskType) throw new Error("Missing taskId or taskType");
+      const taskId = requireJsonString(payload, "taskId");
+      const taskType = requireJsonString(payload, "taskType");
+      const quantity = readJsonNumber(payload, "quantity");
+      const userId = readJsonString(payload, "userId");
 
       let orderItemId = "";
       let orderId = "";
       let completedPurchaseOrderTask = false;
 
       if (taskType === "pick_ticket") {
+        if (quantity === null) {
+          throw new Error("Missing quantity in payload");
+        }
         const { data: ticket, error: ticketError } = await admin
           .from("pick_tickets")
           .update({

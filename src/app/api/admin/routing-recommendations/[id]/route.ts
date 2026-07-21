@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asJsonObject, type JsonObject } from "@/lib/supabase/json";
 import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -111,13 +112,9 @@ export async function PATCH(
 
       // Partner IDs live in recommendation_json (recommended_owner_id is an
       // auth.users FK and must stay null for partner-based routing).
-      const prevJson =
-        typeof decision.recommendation_json === "object" &&
-        decision.recommendation_json !== null
-          ? (decision.recommendation_json as Record<string, unknown>)
-          : {};
+      const prevJson = asJsonObject(decision.recommendation_json);
 
-      const updatedJson: Record<string, unknown> = {
+      const updatedJson: JsonObject = {
         ...prevJson,
         partner_id: body.newPartnerId,
         partner_name: newPartner.name,

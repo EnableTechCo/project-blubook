@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toJson } from "@/lib/supabase/json";
+import type { TablesInsert } from "@/types/supabase";
 import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
 import {
   appendOrderTimeline,
@@ -440,42 +442,49 @@ export async function POST(request: Request) {
       logisticsPartnerId = logisticsPartner.id;
       logisticsPartnerRoutingReason = logisticsPartner.selectionReason;
 
-      const handoffRows = outsourcedItems.map((item) => ({
-        sales_order_id: order.id,
-        order_item_id: item.id,
-        organization_id: order.organization_id,
-        from_provider_id: salesPartner.id,
-        to_provider_id: logisticsPartner.id,
-        handoff_type: "sales_to_logistics",
-        package_stream: logisticsPartner.packageStream,
-        status: "pending",
-        assigned_at: nowIso,
-        required_documents: requiredDocuments,
-        metadata: {
-          source_provider_name: salesPartner.name,
-          target_provider_name: logisticsPartner.name,
-          source_handoff_type: "sales/orders/advance:create_handoff",
-          selected_logistics_partner_id: logisticsPartner.id,
-          selected_logistics_partner_name: logisticsPartner.name,
-          handoff_input_snapshot: stepInputData ?? {},
-          handoff_actor_notes: actorNotes.length > 0 ? actorNotes : null,
-          service_level:
-            typeof stepInputData?.service_level === "string"
-              ? stepInputData.service_level
-              : null,
-          special_handling_flags: Array.isArray(
-            stepInputData?.special_handling_flags,
-          )
-            ? stepInputData?.special_handling_flags
-            : [],
-          delivery_window_preference:
-            typeof stepInputData?.delivery_window_preference === "string"
-              ? stepInputData.delivery_window_preference
-              : null,
-          item_name: item.product_name,
-          fulfillment_route: item.fulfillment_route,
-        },
-      }));
+      const handoffRows: TablesInsert<"provider_workflow_handoffs">[] =
+        outsourcedItems.map((item) => ({
+          sales_order_id: order.id,
+          order_item_id: item.id,
+          organization_id: order.organization_id,
+          from_provider_id: salesPartner.id,
+          to_provider_id: logisticsPartner.id,
+          handoff_type: "sales_to_logistics",
+          package_stream: logisticsPartner.packageStream,
+          status: "pending",
+          assigned_at: nowIso,
+          required_documents: requiredDocuments,
+          metadata: {
+            source_provider_name: salesPartner.name,
+            target_provider_name: logisticsPartner.name,
+            source_handoff_type: "sales/orders/advance:create_handoff",
+            selected_logistics_partner_id: logisticsPartner.id,
+            selected_logistics_partner_name: logisticsPartner.name,
+            handoff_input_snapshot: toJson(
+              stepInputData ?? {},
+              "logistics handoff input",
+            ),
+            handoff_actor_notes: actorNotes.length > 0 ? actorNotes : null,
+            service_level:
+              typeof stepInputData?.service_level === "string"
+                ? stepInputData.service_level
+                : null,
+            special_handling_flags: Array.isArray(
+              stepInputData?.special_handling_flags,
+            )
+              ? toJson(
+                  stepInputData.special_handling_flags,
+                  "special handling flags",
+                )
+              : [],
+            delivery_window_preference:
+              typeof stepInputData?.delivery_window_preference === "string"
+                ? stepInputData.delivery_window_preference
+                : null,
+            item_name: item.product_name,
+            fulfillment_route: item.fulfillment_route,
+          },
+        }));
 
       const { data: insertedHandoffs, error: handoffInsertError } = await admin
         .from("provider_workflow_handoffs")

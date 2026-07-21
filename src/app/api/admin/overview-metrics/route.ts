@@ -30,16 +30,27 @@ async function requireAdminOrStaff() {
   return { admin };
 }
 
-async function countBy(
+async function countOrganizationsByKind(
   admin: ReturnType<typeof createAdminClient>,
-  table: string,
-  column: string,
-  value: string,
+  value: "partner" | "customer",
 ) {
   const { count, error } = await admin
-    .from(table)
+    .from("organizations")
     .select("id", { count: "exact", head: true })
-    .eq(column, value);
+    .eq("kind", value);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countWorkflowEventsByStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  value: "failed" | "queued",
+) {
+  const { count, error } = await admin
+    .from("workflow_events_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", value);
 
   if (error) {
     throw error;
@@ -73,10 +84,10 @@ export async function GET() {
       staleHandoffs,
     ] = await Promise.all([
       auth.admin.from("sales_orders").select("status"),
-      countBy(auth.admin, "organizations", "kind", "partner"),
-      countBy(auth.admin, "organizations", "kind", "customer"),
-      countBy(auth.admin, "workflow_events_queue", "status", "failed"),
-      countBy(auth.admin, "workflow_events_queue", "status", "queued"),
+      countOrganizationsByKind(auth.admin, "partner"),
+      countOrganizationsByKind(auth.admin, "customer"),
+      countWorkflowEventsByStatus(auth.admin, "failed"),
+      countWorkflowEventsByStatus(auth.admin, "queued"),
       auth.admin
         .from("provider_workflow_handoffs")
         .select("id", { count: "exact", head: true })

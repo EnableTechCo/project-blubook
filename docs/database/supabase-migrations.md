@@ -32,6 +32,30 @@ Never make production schema changes in the Supabase Dashboard SQL or Table Edit
 Use `supabase migration list --linked` before creating or deploying a migration to
 compare local files with the remote migration-history table.
 
+## Generated TypeScript types
+
+`src/types/supabase.ts` is generated from the database schema and must not be edited
+by hand. After an applied schema change, regenerate it from the linked project:
+
+```bash
+pnpm db:types
+```
+
+This requires `supabase login` and `supabase link` to have been completed for the
+intended project. Review the generated diff before committing it; the linked project
+must match the migration history in the branch.
+
+For local migration development, start Docker Desktop, run `supabase db reset`, and
+generate from the local database instead:
+
+```bash
+pnpm db:types:local
+```
+
+Both scripts pin the CLI version so regeneration is reproducible. Application
+clients must use the generated `Database` generic, and database payloads should use
+the generated `Tables`, `TablesInsert`, `TablesUpdate`, `Enums`, and `Json` helpers.
+
 ## Rollback and safe rollout discipline
 
 Migrations are append-only: never edit a migration that has been applied anywhere.

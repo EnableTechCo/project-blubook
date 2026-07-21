@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { asJsonObject, requireJsonString } from "@/lib/supabase/json";
 import {
   insertNotifications,
   resolveCustomerUserIds,
@@ -15,9 +16,7 @@ export async function processRequestWorkflowEvent(
   eventType: RequestWorkflowEventType,
   payload: WorkflowPayload,
 ) {
-  const requestId =
-    typeof payload.requestId === "string" ? payload.requestId : null;
-  if (!requestId) throw new Error("Missing requestId in payload");
+  const requestId = requireJsonString(payload, "requestId");
 
   const admin = createAdminClient();
 
@@ -31,10 +30,7 @@ export async function processRequestWorkflowEvent(
     throw new Error(`Request ${requestId} not found: ${error?.message}`);
   }
 
-  const metadata =
-    typeof request.metadata === "object" && request.metadata !== null
-      ? (request.metadata as Record<string, unknown>)
-      : {};
+  const metadata = asJsonObject(request.metadata);
 
   const partnerName =
     typeof metadata.provider_name === "string" && metadata.provider_name.length > 0

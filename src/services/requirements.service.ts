@@ -206,9 +206,9 @@ export async function submitRequirementEvidence(input: {
       p_storage_bucket: input.bucket,
       p_storage_path: path,
       p_file_name: fileName,
-      p_mime_type: input.file.type || null,
+      p_mime_type: input.file.type || undefined,
       p_size_bytes: input.file.size,
-      p_customer_note: input.customerNote ?? null,
+      p_customer_note: input.customerNote,
     },
   );
 
