@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { HomePageClient, type LandingPackage } from "./home-page-client";
+import type { Database } from "@/types/supabase";
 
 const PACKAGE_IMAGES = [
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1600&q=80",
@@ -74,7 +75,7 @@ export default async function HomePage() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

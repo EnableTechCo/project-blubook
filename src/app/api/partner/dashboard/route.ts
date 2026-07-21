@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
 import { logActivity } from "@/lib/activity-log";
 import { queueWorkflowEvent } from "@/lib/workflow/engine";
+import { asJsonObject } from "@/lib/supabase/json";
+import type { TablesUpdate } from "@/types/supabase";
 
 async function resolveServicePartnerId(input: {
   admin: ReturnType<typeof createAdminClient>;
@@ -1287,12 +1289,9 @@ export async function POST(request: Request) {
 
   const normalizedAction = action as PartnerDecisionAction;
   const nowIso = new Date().toISOString();
-  const existingMetadata =
-    typeof requestRow.metadata === "object" && requestRow.metadata !== null
-      ? (requestRow.metadata as Record<string, unknown>)
-      : {};
+  const existingMetadata = asJsonObject(requestRow.metadata);
 
-  const updatePayload =
+  const updatePayload: TablesUpdate<"customer_provider_requests"> =
     normalizedAction === "accept"
       ? {
           request_status: "acknowledged",

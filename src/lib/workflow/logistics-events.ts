@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  asJsonObject,
+  requireJsonString,
+} from "@/lib/supabase/json";
+import {
   appendOrderTimeline,
   computeDeliveredOrderMetadata,
   insertNotifications,
@@ -53,10 +57,8 @@ export async function processLogisticsWorkflowEvent(
 
   switch (eventType) {
     case "logistics.handoff_created": {
-      const { handoffId, orderId } = payload;
-      if (!handoffId || !orderId) {
-        throw new Error("Missing handoffId or orderId in payload");
-      }
+      requireJsonString(payload, "handoffId");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -92,8 +94,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.order_received": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -107,8 +108,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.warehouse_transmitted": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -122,8 +122,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.customer_notified": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -137,8 +136,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.items_packed": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -152,8 +150,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.shipping_label_generated": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -167,8 +164,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "order.shipped": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -206,8 +202,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.order_arrived": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -221,8 +216,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.reroute_delivery": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -236,8 +230,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.reroute_complete": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       // Reroute resolved — return order to active in-transit tracking.
       await admin
@@ -252,8 +245,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.pod_signed": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -267,8 +259,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "logistics.system_updated": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       await admin
         .from("sales_orders")
@@ -282,8 +273,7 @@ export async function processLogisticsWorkflowEvent(
     }
 
     case "order.delivered": {
-      const { orderId } = payload;
-      if (!orderId) throw new Error("Missing orderId in payload");
+      const orderId = requireJsonString(payload, "orderId");
 
       const { data: order, error: orderError } = await admin
         .from("sales_orders")
@@ -306,11 +296,10 @@ export async function processLogisticsWorkflowEvent(
 
       const deliveredAt =
         completedHandoff?.completed_at ?? new Date().toISOString();
+      const handoffMetadata = asJsonObject(completedHandoff?.metadata);
       const deliveredTo =
-        (completedHandoff?.metadata &&
-        typeof completedHandoff.metadata === "object" &&
-        typeof completedHandoff.metadata.target_provider_name === "string"
-          ? completedHandoff.metadata.target_provider_name
+        (typeof handoffMetadata.target_provider_name === "string"
+          ? handoffMetadata.target_provider_name
           : null) ??
         readStringMetadata(order.metadata, "current_logistics_partner_name") ??
         "the assigned logistics partner";

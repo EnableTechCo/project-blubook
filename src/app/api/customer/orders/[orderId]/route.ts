@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function asObject(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
+import { asJsonObject } from "@/lib/supabase/json";
 
 export async function DELETE(
   _request: Request,
@@ -122,7 +117,7 @@ export async function DELETE(
       .eq("metadata->>sales_order_id", orderId);
 
     for (const row of requirementRows ?? []) {
-      const metadata = asObject(row.metadata);
+      const metadata = asJsonObject(row.metadata);
       delete metadata.sales_order_id;
       delete metadata.po_reference;
       delete metadata.workflow_kickoff_source;

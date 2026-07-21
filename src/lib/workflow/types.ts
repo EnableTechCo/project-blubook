@@ -1,3 +1,5 @@
+import type { JsonObject } from "@/lib/supabase/json";
+
 export type SalesWorkflowEventType =
   | "order.created"
   | "order.validated"
@@ -30,7 +32,7 @@ export type WorkflowEventType =
   | LogisticsWorkflowEventType
   | RequestWorkflowEventType;
 
-export type WorkflowPayload = Record<string, unknown>;
+export type WorkflowPayload = JsonObject;
 
 export type QueueWorkflowEvent = (
   eventType: WorkflowEventType,

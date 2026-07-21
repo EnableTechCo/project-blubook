@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toJson } from "@/lib/supabase/json";
 
 export type ActivityActorType = 'partner' | 'customer' | 'system' | 'admin';
 
@@ -56,8 +57,8 @@ export async function logActivity(input: LogActivityInput) {
         actor_id: input.actorId,
         actor_type: input.actorType,
         action_type: input.actionType,
-        action_details: input.actionDetails ?? {},
-        metadata: input.metadata ?? {},
+        action_details: toJson(input.actionDetails ?? {}, "activity details"),
+        metadata: toJson(input.metadata ?? {}, "activity metadata"),
       })
       .select()
       .single();

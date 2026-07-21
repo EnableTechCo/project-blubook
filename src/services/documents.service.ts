@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/browser";
+import type { JsonObject } from "@/lib/supabase/json";
 
 function extractOrganizationIdFromPath(path: string) {
   const parts = path.split("/");
@@ -219,7 +220,7 @@ export async function uploadDocument(input: {
 
   const fileName = input.path.split("/").pop() ?? input.file.name;
   const organizationId = await resolveValidOrganizationId(supabase, input.path);
-  const metadata: Record<string, unknown> = {};
+  const metadata: JsonObject = {};
   if (input.documentType) {
     metadata.documentType = input.documentType;
   }

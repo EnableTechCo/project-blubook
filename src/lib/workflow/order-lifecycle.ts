@@ -1,4 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  asJsonObject,
+  readJsonNumber,
+  readJsonString,
+  type JsonObject,
+} from "@/lib/supabase/json";
 
 const DEFAULT_SLA_TARGET_HOURS = 72;
 
@@ -9,30 +15,22 @@ type TimelineEntryInput = {
   actor: string;
   message: string;
   at?: string;
-  details?: Record<string, unknown>;
+  details?: JsonObject;
 };
 
-function asObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? { ...(value as Record<string, unknown>) }
-    : {};
-}
-
 export function readStringMetadata(metadata: unknown, key: string) {
-  const value = asObject(metadata)[key];
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return readJsonString(metadata, key);
 }
 
 export function readNumberMetadata(metadata: unknown, key: string) {
-  const value = asObject(metadata)[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  return readJsonNumber(metadata, key);
 }
 
 export function withOrderLifecycleDefaults(
   metadata: unknown,
   input?: { startedAt?: string; targetHours?: number },
 ) {
-  const base = asObject(metadata);
+  const base = asJsonObject(metadata);
   const startedAt =
     readStringMetadata(base, "workflow_started_at") ??
     input?.startedAt ??
@@ -59,11 +57,11 @@ export function appendOrderTimeline(
   metadata: unknown,
   input: TimelineEntryInput,
 ) {
-  const base = asObject(metadata);
+  const base = asJsonObject(metadata);
   const existingTimeline = Array.isArray(base.workflow_timeline)
     ? base.workflow_timeline.filter(
-        (entry): entry is Record<string, unknown> =>
-          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+        (entry): entry is JsonObject =>
+          entry !== null && typeof entry === "object" && !Array.isArray(entry),
       )
     : [];
 
@@ -121,7 +119,11 @@ export async function resolveCustomerUserIds(
     .eq("role", "customer");
 
   return Array.from(
-    new Set((data ?? []).map((row) => row.user_id).filter(Boolean)),
+    new Set(
+      (data ?? [])
+        .map((row) => row.user_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
   );
 }
 
@@ -136,7 +138,11 @@ export async function resolveStaffAdminUserIds(
     .in("role", ["staff", "admin"]);
 
   return Array.from(
-    new Set((data ?? []).map((row) => row.user_id).filter(Boolean)),
+    new Set(
+      (data ?? [])
+        .map((row) => row.user_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
   );
 }
 
@@ -155,7 +161,7 @@ export async function resolvePartnerUserIds(
 
   const organizationIds = (allPartnerOrganizations ?? [])
     .filter((row) => {
-      const metadata = asObject(row.metadata);
+      const metadata = asJsonObject(row.metadata);
       const servicePartnerId = metadata.service_partner_id;
       return (
         typeof servicePartnerId === "string" &&
@@ -177,7 +183,11 @@ export async function resolvePartnerUserIds(
     .eq("role", "partner");
 
   return Array.from(
-    new Set((data ?? []).map((row) => row.user_id).filter(Boolean)),
+    new Set(
+      (data ?? [])
+        .map((row) => row.user_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
   );
 }
 
@@ -187,7 +197,7 @@ export async function insertNotifications(
     userId: string;
     organizationId: string;
     message: string;
-    metadata?: Record<string, unknown>;
+    metadata?: JsonObject;
   }>,
 ) {
   if (notifications.length === 0) {

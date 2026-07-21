@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient as SupabaseClient } from "@/lib/supabase/types";
 import { resolveCustomerEntitlements } from "@/services/entitlements.service";
 import {
   resolveDependencyClosure,
@@ -179,18 +179,38 @@ export async function createWorkRequest(
   }
 
   const itemIdByCatalog = new Map(
-    insertedItems.map((r) => [r.catalog_item_id as string, r.id as string]),
+    insertedItems.map((row) => [row.catalog_item_id, row.id]),
   );
 
   if (plan.dependencies.length > 0) {
+    const dependencyRows = plan.dependencies.map((dependency) => ({
+      work_request_item_id: itemIdByCatalog.get(dependency.catalogItemId),
+      depends_on_item_id: itemIdByCatalog.get(dependency.dependsOnItemId),
+    }));
+
+    const resolvedDependencyRows = dependencyRows.filter(
+      (
+        row,
+      ): row is {
+        work_request_item_id: string;
+        depends_on_item_id: string;
+      } =>
+        typeof row.work_request_item_id === "string" &&
+        typeof row.depends_on_item_id === "string",
+    );
+
+    if (resolvedDependencyRows.length !== dependencyRows.length) {
+      await rollback();
+      return {
+        ok: false,
+        error: "Could not resolve one or more work request dependencies.",
+        status: 500,
+      };
+    }
+
     const { error: depsError } = await admin
       .from("work_request_item_dependencies")
-      .insert(
-        plan.dependencies.map((d) => ({
-          work_request_item_id: itemIdByCatalog.get(d.catalogItemId),
-          depends_on_item_id: itemIdByCatalog.get(d.dependsOnItemId),
-        })),
-      );
+      .insert(resolvedDependencyRows);
     if (depsError) {
       await rollback();
       return { ok: false, error: depsError.message, status: 500 };

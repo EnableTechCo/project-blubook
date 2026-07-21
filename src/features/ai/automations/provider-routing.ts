@@ -1,4 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient as SupabaseClient } from "@/lib/supabase/types";
+import type { JsonObject } from "@/lib/supabase/json";
+import type { TablesInsert } from "@/types/supabase";
 import type { OnboardingAutomationSignals } from "./onboarding-intelligence";
 
 // ─── Types mirroring DB shape ────────────────────────────────────────────────
@@ -44,7 +46,7 @@ export interface RoutingRecommendation {
   source: "rule" | "ai" | "hybrid";
   matchedRuleKey: string | null;
   matchedRuleName: string | null;
-  recommendationJson: Record<string, unknown>;
+  recommendationJson: JsonObject;
 }
 
 // ─── Stream selection ─────────────────────────────────────────────────────────
@@ -344,7 +346,8 @@ export async function persistRoutingRecommendations(
   if (input.recommendations.length === 0) return;
 
   try {
-    const rows = input.recommendations.map((rec) => ({
+    const rows: TablesInsert<"automation_decisions">[] =
+      input.recommendations.map((rec) => ({
       organization_id: input.organizationId,
       profile_id: input.profileId,
       source: rec.source,
@@ -357,7 +360,7 @@ export async function persistRoutingRecommendations(
       explanation: rec.reason,
       confidence_score: rec.confidence,
       status: "pending",
-    }));
+      }));
 
     const { error } = await input.supabase
       .from("automation_decisions")

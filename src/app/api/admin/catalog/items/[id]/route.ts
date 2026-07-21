@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireCatalogAdmin } from "../../auth";
+import type { TablesUpdate } from "@/types/supabase";
 
 // Edit a catalog item's label/description or (de)activate it. item_key is
 // immutable — it's the stable reference dependencies and instances point at.
@@ -26,7 +27,7 @@ export async function PATCH(
     const { id } = await params;
     const body = patchSchema.parse(await request.json());
 
-    const update: Record<string, unknown> = {
+    const update: TablesUpdate<"catalog_items"> = {
       updated_at: new Date().toISOString(),
     };
     if (body.label !== undefined) update.label = body.label;
