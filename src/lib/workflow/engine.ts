@@ -11,6 +11,10 @@ import {
   isRequestWorkflowEvent,
   processRequestWorkflowEvent,
 } from "@/lib/workflow/request-events";
+import {
+  isWorkRequestWorkflowEvent,
+  processWorkRequestWorkflowEvent,
+} from "@/lib/workflow/work-request-events";
 import type { WorkflowEventType, WorkflowPayload } from "@/lib/workflow/types";
 
 // Backoff schedule applied after each failed attempt, indexed by the retry
@@ -96,6 +100,8 @@ export async function processWorkflowEvents(limit = 10) {
         );
       } else if (isRequestWorkflowEvent(eventType)) {
         await processRequestWorkflowEvent(eventType, payload);
+      } else if (isWorkRequestWorkflowEvent(eventType)) {
+        await processWorkRequestWorkflowEvent(eventType, payload);
       } else {
         throw new Error(`Unhandled event type: ${eventType}`);
       }
