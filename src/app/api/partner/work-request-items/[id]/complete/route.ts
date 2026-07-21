@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveServicePartnerIdForPartnerUser } from "@/lib/workflow/partner-context";
 import { completeWorkOrderItem } from "@/services/work-order-completion.service";
+import {
+  isProviderContextError,
+  resolveProviderContext,
+} from "../../partner-auth";
 
 // A provider marks one assigned work order complete (Phase 3, P3-4).
 //
@@ -14,42 +15,18 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const server = await createServerClient();
-    const {
-      data: { user },
-    } = await server.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const admin = createAdminClient();
-
-    const { data: profile } = await admin
-      .from("user_profiles")
-      .select("metadata, organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const servicePartnerId = await resolveServicePartnerIdForPartnerUser({
-      admin,
-      userId: user.id,
-      profileMetadata: profile?.metadata,
-      profileOrganizationId: profile?.organization_id ?? null,
-      userMetadata: user.user_metadata,
-    });
-
-    if (!servicePartnerId) {
+    const provider = await resolveProviderContext();
+    if (isProviderContextError(provider)) {
       return NextResponse.json(
-        { error: "You are not linked to a service provider." },
-        { status: 403 },
+        { error: provider.error },
+        { status: provider.status },
       );
     }
 
     const { id } = await context.params;
-    const result = await completeWorkOrderItem(admin, {
+    const result = await completeWorkOrderItem(provider.admin, {
       workRequestItemId: id,
-      expectedProviderId: servicePartnerId,
+      expectedProviderId: provider.providerId,
     });
 
     if (!result.ok) {
@@ -57,6 +34,7 @@ export async function POST(
     }
 
     return NextResponse.json({
+      status: "completed",
       workRequestId: result.workRequestId,
       queuedForRetry: result.queuedForRetry,
       released: result.advance?.releasedItemIds.length ?? 0,
